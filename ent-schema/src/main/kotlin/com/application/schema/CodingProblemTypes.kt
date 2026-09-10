@@ -7,12 +7,6 @@ enum class ProblemDifficulty {
   HARD,
 }
 
-/** Whether each test makes one solution call or exercises a stateful object. */
-enum class ProblemInvocationKind {
-  FUNCTION,
-  STATEFUL_CLASS,
-}
-
 /** How official outputs are judged; custom checker source lives in JudgeConfiguration. */
 enum class ProblemCheckerKind {
   EXACT_JSON,

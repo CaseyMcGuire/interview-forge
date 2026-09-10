@@ -21,9 +21,6 @@ class Problem : EntSchema("problems", clientName = "problems") {
   /** Broad difficulty classification used to filter the catalog. */
   val difficulty by enum<ProblemDifficulty>("difficulty")
 
-  /** Determines whether inputs describe one function call or a constructor plus method calls. */
-  val invocationKind by enum<ProblemInvocationKind>("invocation_kind")
-
   /** Exact JSON comparison by default; CUSTOM requires checker source for each supported language. */
   val checkerKind by enum<ProblemCheckerKind>("checker_kind")
     .default(ProblemCheckerKind.EXACT_JSON)
