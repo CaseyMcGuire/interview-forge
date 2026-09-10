@@ -21,8 +21,8 @@ class Language : EntSchema("languages", clientName = "languages") {
   val problemConfigurations by hasMany<ProblemLanguage>("problem_configurations")
 
   /** Time the language was added to the catalog. */
-  val createdAt by time("created_at").defaultNow().immutable()
+  val createdAt by instant("created_at").defaultNow().immutable()
 
   /** Time its display name or availability was last changed. */
-  val updatedAt by time("updated_at").defaultNow().updateDefaultNow()
+  val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 }

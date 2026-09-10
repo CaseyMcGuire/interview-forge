@@ -11,20 +11,13 @@ class SubmissionTestResult : EntSchema("submission_test_results", clientName = "
   override fun id() = EntId.long()
 
   /** Attempt that owns the snapshot and outcome; cases cannot move between submissions. */
-  val submissionId by long("submission_id").immutable()
-
-  /** Link to the owning attempt; results remain part of its retained history. */
   val submission by belongsTo<Submission>("submission")
-    .field(submissionId)
+    .immutable()
     .inverse(Submission::testResults)
     .onDelete(OnDelete.RESTRICT)
 
-  /** Optional official-test provenance; null for custom inputs or when the original test is deleted. */
-  val testCaseId by long("test_case_id").nullable()
-
-  /** Deleting an official test clears only this reference, leaving all snapshot fields intact. */
+  /** Optional official-test provenance; deletion clears this reference while preserving the snapshot. */
   val testCase by belongsTo<TestCase>("test_case")
-    .field(testCaseId)
     .nullable()
     .onDelete(OnDelete.SET_NULL)
 
@@ -50,10 +43,10 @@ class SubmissionTestResult : EntSchema("submission_test_results", clientName = "
   val actualOutputJson by json<JsonElement>("actual_output_json").nullable().sensitive()
 
   /** Captured standard output; it can reveal hidden inputs and must follow the case's access restrictions. */
-  val stdout by text("stdout").nullable().sensitive()
+  val stdout by string("stdout").nullable().sensitive()
 
   /** Captured standard error; potentially contains private test or harness details. */
-  val stderr by text("stderr").nullable().sensitive()
+  val stderr by string("stderr").nullable().sensitive()
 
   /** Measured execution time for this case in milliseconds; null when it was not measured. */
   val runtimeMs by long("runtime_ms").nullable()
@@ -62,15 +55,15 @@ class SubmissionTestResult : EntSchema("submission_test_results", clientName = "
   val peakMemoryMb by int("peak_memory_mb").nullable()
 
   /** Time the case snapshot was recorded, before its execution starts. */
-  val createdAt by time("created_at").defaultNow().immutable()
+  val createdAt by instant("created_at").defaultNow().immutable()
 
   /** Time the outcome, captured output, or execution measurements were last updated. */
-  val updatedAt by time("updated_at").defaultNow().updateDefaultNow()
+  val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 
   /** Prevents multiple case rows from occupying the same position in one submission. */
   val bySubmissionAndPosition =
-    index("uq_submission_test_results_submission_position", submissionId, position).unique()
+    index("uq_submission_test_results_submission_position", submission.fk, position).unique()
 
   /** Supports provenance lookup and clearing references when an official test is deleted. */
-  val byTestCase = index("idx_submission_test_results_test_case", testCaseId)
+  val byTestCase = index("idx_submission_test_results_test_case", testCase.fk)
 }

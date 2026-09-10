@@ -9,12 +9,9 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   /** Database-generated identity for this private configuration. */
   override fun id() = EntId.long()
 
-  /** The single problem/language combination this configuration can judge. */
-  val problemLanguageId by long("problem_language_id").immutable()
-
-  /** Enforces one judge configuration per problem/language pair and preserves its parent reference. */
+  /** Fixed problem/language pair this configuration judges; each pair has at most one configuration. */
   val problemLanguage by belongsTo<ProblemLanguage>("problem_language")
-    .field(problemLanguageId)
+    .immutable()
     .unique()
     .inverse(ProblemLanguage::judgeConfiguration)
     .onDelete(OnDelete.RESTRICT)
@@ -23,10 +20,10 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   val runtimeKey by string("runtime_key")
 
   /** Private source that deserializes input, invokes the solution, and serializes its output. */
-  val harnessSource by text("harness_source").sensitive()
+  val harnessSource by string("harness_source").sensitive()
 
   /** Private validator for multiple valid answers; absent for EXACT_JSON and required for CUSTOM. */
-  val checkerSource by text("checker_source").nullable().sensitive()
+  val checkerSource by string("checker_source").nullable().sensitive()
 
   /** Maximum execution time per case, in milliseconds; must be positive before this judge is usable. */
   val timeLimitMs by int("time_limit_ms")
@@ -35,8 +32,8 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   val memoryLimitMb by int("memory_limit_mb")
 
   /** Time the judge configuration was created. */
-  val createdAt by time("created_at").defaultNow().immutable()
+  val createdAt by instant("created_at").defaultNow().immutable()
 
   /** Time the harness, checker, runtime selection, or resource limits were last changed. */
-  val updatedAt by time("updated_at").defaultNow().updateDefaultNow()
+  val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 }

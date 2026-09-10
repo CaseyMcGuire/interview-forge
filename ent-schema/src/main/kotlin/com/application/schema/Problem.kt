@@ -16,7 +16,7 @@ class Problem : EntSchema("problems", clientName = "problems") {
   val title by string("title")
 
   /** Markdown description, including requirements and constraints; examples also have test rows. */
-  val statementMarkdown by text("statement_markdown")
+  val statementMarkdown by string("statement_markdown")
 
   /** Broad difficulty classification used to filter the catalog. */
   val difficulty by enum<ProblemDifficulty>("difficulty")
@@ -28,19 +28,16 @@ class Problem : EntSchema("problems", clientName = "problems") {
   val checkerKind by enum<ProblemCheckerKind>("checker_kind")
     .default(ProblemCheckerKind.EXACT_JSON)
 
-  /** User who originally authored the catalog entry; learners do not each get their own problem copy. */
-  val createdByUserId by long("created_by_user_id").immutable()
-
-  /** Author relationship; retain attribution while the problem exists. */
-  val createdBy by belongsTo<User>("created_by")
-    .field(createdByUserId)
+  /** Original author of the shared catalog entry; attribution stays fixed while the problem exists. */
+  val createdByUser by belongsTo<User>("created_by_user")
+    .immutable()
     .onDelete(OnDelete.RESTRICT)
 
   /** Null while the problem is a draft; a timestamp makes it eligible for catalog publication. */
-  val publishedAt by time("published_at").nullable()
+  val publishedAt by instant("published_at").nullable()
 
   /** Null while active; archiving removes a problem from normal browsing without erasing history. */
-  val archivedAt by time("archived_at").nullable()
+  val archivedAt by instant("archived_at").nullable()
 
   /** Starter-code configurations available for this problem's supported languages. */
   val languageConfigurations by hasMany<ProblemLanguage>("language_configurations")
@@ -52,11 +49,11 @@ class Problem : EntSchema("problems", clientName = "problems") {
   val submissions by hasMany<Submission>("submissions")
 
   /** Time the catalog entry was created. */
-  val createdAt by time("created_at").defaultNow().immutable()
+  val createdAt by instant("created_at").defaultNow().immutable()
 
   /** Time this problem row was last edited; child edits have their own timestamps. */
-  val updatedAt by time("updated_at").defaultNow().updateDefaultNow()
+  val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 
   /** Supports author attribution lookups and the author foreign key. */
-  val byCreator = index("idx_problems_created_by_user", createdByUserId)
+  val byCreator = index("idx_problems_created_by_user", createdByUser.fk)
 }
