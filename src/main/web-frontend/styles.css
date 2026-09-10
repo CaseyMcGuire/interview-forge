@@ -4,14 +4,17 @@
  * compiled StyleX rules are appended after it; ReactPage.kt links that stylesheet
  * on every page. It is not imported from any TypeScript entry.
  */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* Keep the reset below StyleX's layers so component spacing can override it. */
+@layer reset {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-html,
-body,
-#root {
-  height: 100%;
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
 }

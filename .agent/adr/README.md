@@ -80,3 +80,4 @@ Spring Security uses `CookieCsrfTokenRepository` (non-HttpOnly) with the plain r
 ## Index
 
 - [0012: EntKt for user data access](0012-entkt-user-data-access.md)
+- [0013: CodeMirror 6 for the coding workspace](0013-codemirror-coding-workspace.md)
