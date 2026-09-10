@@ -1,0 +1,3 @@
+interface:
+  display_name: "Set Up Project"
+  short_description: "Bootstrap this template and verify it runs locally"
