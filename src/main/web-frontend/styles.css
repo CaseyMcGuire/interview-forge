@@ -1,0 +1,17 @@
+/*
+ * Global styles for every page. The build inlines this file into
+ * /bundles/stylex.generated.css (see stylexCssFile in vite.config.ts), where the
+ * compiled StyleX rules are appended after it; ReactPage.kt links that stylesheet
+ * on every page. It is not imported from any TypeScript entry.
+ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}

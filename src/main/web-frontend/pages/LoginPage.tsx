@@ -1,0 +1,71 @@
+import AuthFormContainer from "components/AuthFormContainer";
+import stylex from "@stylexjs/stylex";
+import FormField from "components/FormField";
+import CsrfToken from "../components/CsrfToken";
+import ErrorBanner from "components/ErrorBanner";
+
+const styles = stylex.create({
+  loginFormContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"'
+  },
+  loginHeader: {
+    fontSize: '24px',
+    fontWeight: '700',
+    marginBottom: '4px'
+  },
+  loginForm: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '48px',
+    flexDirection: 'column',
+    boxShadow: 'rgba(0, 0, 0, 0) 0px 0px 0px 0px',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'rgb(229, 231, 235)',
+    height: '320px',
+    width: '448px'
+  },
+  submitButton: {
+    backgroundColor: 'rgb(37, 99, 235)',
+    padding: '8px 16px',
+    borderRadius: '4px',
+    borderStyle: 'none',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: '16px',
+    width: '100%'
+  },
+  formContainer: {
+    margin: '8px 0px'
+  }
+})
+
+export default function LoginPage() {
+  const urlSearchParams = new URLSearchParams(window.location.search);
+  const params = Object.fromEntries(urlSearchParams.entries());
+
+  return (
+      <AuthFormContainer>
+        <div sx={styles.loginHeader}>
+          {'Sign In'}
+        </div>
+        <ErrorBanner
+          text={"Incorrect email or password"}
+          isVisible={params.error != null}
+        />
+        <form action="/login" method="POST">
+          <CsrfToken />
+          <div sx={styles.formContainer}>
+            <FormField labelText={"Email"} formName={"username"} placeholder={"Enter your Email"} type={"text"}/>
+          </div>
+          <div sx={styles.formContainer}>
+            <FormField labelText={"Password"} formName={"password"} placeholder={"Enter your password"} type={"password"}/>
+          </div>
+          <input sx={styles.submitButton} name="submit" type="submit" value="Sign In" />
+        </form>
+      </AuthFormContainer>
+  )
+}
