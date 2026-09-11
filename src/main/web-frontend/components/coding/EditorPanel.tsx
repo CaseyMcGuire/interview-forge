@@ -5,6 +5,7 @@ import Control from "./WorkspaceControl";
 import Icon from "./WorkspaceIcon";
 
 type EditorPanelProps = {
+  languageName: string;
   filename: string;
   source: string;
   starterCode: string;
@@ -159,7 +160,7 @@ const styles = stylex.create({
   }
 });
 
-export default function EditorPanel({filename, source, starterCode, onSourceChange}: EditorPanelProps) {
+export default function EditorPanel({languageName, filename, source, starterCode, onSourceChange}: EditorPanelProps) {
   const [fontSize, setFontSize] = useState(14);
   const [wordWrap, setWordWrap] = useState(false);
   const [cursor, setCursor] = useState({line: 1, column: 1});
@@ -168,7 +169,7 @@ export default function EditorPanel({filename, source, starterCode, onSourceChan
     <div sx={styles.editorPanel} role="region" aria-labelledby="editor-title">
       <div sx={[styles.panelHeading, styles.editorHeader]}>
         <div role="heading" aria-level={2} id="editor-title" sx={styles.editorTitle}>
-          <span sx={styles.languageDot} /> Kotlin Editor
+          <span sx={styles.languageDot} /> {languageName} Editor
         </div>
         <div sx={styles.editorTools}>
           <Control

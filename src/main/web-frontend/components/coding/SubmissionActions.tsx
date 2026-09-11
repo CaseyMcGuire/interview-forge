@@ -3,7 +3,7 @@ import Control from "./WorkspaceControl";
 import Icon from "./WorkspaceIcon";
 
 type SubmissionActionsProps = {
-  storageAvailable: boolean;
+  storageAvailable?: boolean;
 };
 
 const styles = stylex.create({
@@ -89,10 +89,12 @@ export default function SubmissionActions({storageAvailable}: SubmissionActionsP
       <div id="execution-note" sx={styles.executionNote}>
         Run Tests and Submit will be available when code execution is connected.
       </div>
-      <div role="status" sx={[styles.saveStatus, !storageAvailable && styles.saveError]}>
-        <Icon name={storageAvailable ? "check" : "document"} size={14} />
-        {storageAvailable ? "Drafts are saved on this device" : "Browser storage is unavailable. Copy your code before leaving."}
-      </div>
+      {storageAvailable !== undefined && (
+        <div role="status" sx={[styles.saveStatus, !storageAvailable && styles.saveError]}>
+          <Icon name={storageAvailable ? "check" : "document"} size={14} />
+          {storageAvailable ? "Drafts are saved on this device" : "Browser storage is unavailable. Copy your code before leaving."}
+        </div>
+      )}
     </div>
   );
 }

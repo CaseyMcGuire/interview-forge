@@ -64,7 +64,11 @@ const kotlinHighlighting = HighlightStyle.define([
 ]);
 
 const styles = stylex.create({
-  container: {height: "100%", minHeight: 0, minWidth: 0},
+  container: {
+    height: "100%",
+    minHeight: 0,
+    minWidth: 0
+  },
 });
 
 export default function CodeEditor({value, fontSize, wordWrap, onChange, onCursorChange}: CodeEditorProps) {

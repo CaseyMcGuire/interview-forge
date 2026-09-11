@@ -5,16 +5,13 @@ import ProblemPanel from "./ProblemPanel";
 import SubmissionActions from "./SubmissionActions";
 import TestResultsPanel from "./TestResultsPanel";
 import WorkspaceHeader from "./WorkspaceHeader";
-import {sampleProblem as problem} from "./sampleProblem";
+import type {CodingProblem} from "./codingProblemTypes";
 
-// This is a preview draft. Authenticated workspaces must also scope this key by viewer ID.
-const draftKey = `interview-forge:preview-draft:${problem.slug}:kotlin:v1`;
-
-function readDraft() {
+function readDraft(draftKey: string, starterCode: string) {
   try {
-    return {source: localStorage.getItem(draftKey) ?? problem.starterCode, available: true};
+    return {source: localStorage.getItem(draftKey) ?? starterCode, available: true};
   } catch {
-    return {source: problem.starterCode, available: false};
+    return {source: starterCode, available: false};
   }
 }
 
@@ -33,6 +30,13 @@ const styles = stylex.create({
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontSize: 14,
     lineHeight: 1.6
+  },
+  unavailableEditor: {
+    display: "grid",
+    placeItems: "center",
+    padding: 24,
+    backgroundColor: "#1e1f22",
+    color: "#9da0a8"
   },
   workspace: {
     display: "grid",
@@ -60,16 +64,22 @@ const styles = stylex.create({
   }
 });
 
-export default function CodingWorkspace() {
-  const [draft, setDraft] = useState(readDraft);
+export default function CodingWorkspace({problem}: {problem: CodingProblem}) {
+  const configuration = problem.languageConfigurations.find(({language}) => language.key === "kotlin");
+  // Device-local drafts. Authenticated workspaces must also scope this key by viewer ID.
+  const draftKey = configuration ? `interview-forge:draft:${problem.id}:${configuration.id}:v1` : null;
+  const [draft, setDraft] = useState(() => (
+    configuration && draftKey ? readDraft(draftKey, configuration.starterCode) : null
+  ));
 
   useEffect(() => {
     const previousTitle = document.title;
     document.title = `${problem.title} · Interview Forge`;
     return () => {document.title = previousTitle;};
-  }, []);
+  }, [problem.title]);
 
   function updateSource(source: string) {
+    if (!draftKey) return;
     let available = true;
     try {
       localStorage.setItem(draftKey, source);
@@ -83,14 +93,21 @@ export default function CodingWorkspace() {
     <div sx={styles.page}>
       <WorkspaceHeader />
       <div sx={styles.workspace} role="main">
-        <ProblemPanel title={problem.title} examples={problem.examples} />
-        <EditorPanel
-          filename={problem.filename}
-          source={draft.source}
-          starterCode={problem.starterCode}
-          onSourceChange={updateSource}
-        />
-        <SubmissionActions storageAvailable={draft.available} />
+        <ProblemPanel problem={problem} />
+        {configuration && draft ? (
+          <EditorPanel
+            languageName={configuration.language.displayName}
+            filename={configuration.solutionFilename}
+            source={draft.source}
+            starterCode={configuration.starterCode}
+            onSourceChange={updateSource}
+          />
+        ) : (
+          <div sx={styles.unavailableEditor} role="region" aria-label="Code editor">
+            No Kotlin starter code is available for this problem.
+          </div>
+        )}
+        <SubmissionActions storageAvailable={draft?.available} />
         <TestResultsPanel examples={problem.examples} />
       </div>
     </div>

@@ -45,16 +45,6 @@ const styles = stylex.create({
       default: "inline",
       "@media (max-width: 600px)": "none"
     }
-  },
-  previewBadge: {
-    padding: "4px 10px",
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: "#4e5157",
-    borderRadius: 6,
-    color: "#b4b8bf",
-    fontSize: 11,
-    fontWeight: 600
   }
 });
 
@@ -69,7 +59,6 @@ export default function WorkspaceHeader() {
       </div>
       <div sx={styles.headerContext}>
         <span sx={styles.contextLabel}>Coding practice</span>
-        <span sx={styles.previewBadge}>Editor preview</span>
       </div>
     </div>
   );

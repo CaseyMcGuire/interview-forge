@@ -1,10 +1,9 @@
-import {
-  createBrowserRouter, RouterProvider, type RouteObject,
-} from "react-router";
+import {RouterProvider, type RouteObject} from "react-router";
 import HomePage from "pages/HomePage";
+import ProblemPage from "pages/ProblemPage";
 import {createRelayEnvironment, RelayRoot} from "@spa-kit/react-relay";
 import {renderComponent} from "@spa-kit/react";
-import {spaRoutingResolver, withRouteAuthorization} from "@spa-kit/react-router";
+import {createSpaRoutingBrowserRouter} from "@spa-kit/react-router";
 import AboutPage from "./pages/AboutPage";
 import BlogPage from "./pages/BlogPage";
 import LoginPage from "./pages/LoginPage";
@@ -23,6 +22,11 @@ const routes: RouteObject[] = [
     id: AppRoutes.Home.routeId,
     path: AppRoutes.Home.path,
     element: <HomePage />
+  },
+  {
+    id: AppRoutes.Problem.routeId,
+    path: AppRoutes.Problem.path,
+    element: <ProblemPage />
   },
   {
     id: AppRoutes.Login.routeId,
@@ -46,17 +50,11 @@ const routes: RouteObject[] = [
   }
 ]
 
-const router = createBrowserRouter(
-  withRouteAuthorization(
-    routes,
-    spaRoutingResolver({
-      applicationId: AppRoutes.Home.applicationId,
-      // No route rules exist, and data is gated server-side regardless — if the
-      // decision request itself fails, let navigation proceed
-      onError: { type: "allow" },
-    }),
-  ),
-)
+const router = createSpaRoutingBrowserRouter(routes, {
+  applicationId: AppRoutes.Home.applicationId,
+  // If the decision request fails, allow navigation; data access is enforced server-side.
+  onError: {type: "allow"},
+});
 
 const environment = createRelayEnvironment({
   headers: () => ({ [CsrfUtils.getHeader()]: CsrfUtils.getToken() }),

@@ -1,6 +1,4 @@
-export type ExampleTestCase = {
-  nums: string;
-  target: string;
-  expected: string;
-  explanation: string;
-};
+import type {ProblemPageQuery$data} from "__generated__/ProblemPageQuery.graphql";
+
+export type CodingProblem = NonNullable<ProblemPageQuery$data["problem"]>;
+export type ExampleTestCase = CodingProblem["examples"][number];

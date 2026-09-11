@@ -1,11 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
-import type {ExampleTestCase} from "./codingProblemTypes";
+import type {CodingProblem} from "./codingProblemTypes";
+import {formatTestCaseJson} from "./formatTestCaseJson";
+import ProblemMarkdown from "./ProblemMarkdown";
 import Icon from "./WorkspaceIcon";
 
 type ProblemPanelProps = {
-  title: string;
-  examples: readonly ExampleTestCase[];
+  problem: CodingProblem;
 };
+
+const difficultyLabels = {EASY: "Easy", MEDIUM: "Medium", HARD: "Hard", "%future added value": "Unknown"};
 
 const styles = stylex.create({
   problem: {
@@ -39,10 +42,6 @@ const styles = stylex.create({
     fontSize: 12,
     fontWeight: 600
   },
-  muted: {
-    color: "#9da0a8",
-    fontSize: 12
-  },
   problemBody: {
     overflowY: "auto",
     padding: {
@@ -56,13 +55,6 @@ const styles = stylex.create({
       ":focus-visible": "2px solid #3574f0"
     },
     outlineOffset: -2
-  },
-  eyebrow: {
-    fontSize: 10,
-    letterSpacing: "1.6px",
-    fontWeight: 650,
-    color: "#9da0a8",
-    textTransform: "uppercase"
   },
   title: {
     fontSize: 29,
@@ -92,19 +84,13 @@ const styles = stylex.create({
     backgroundColor: "#253627",
     fontWeight: 600
   },
-  paragraph: {
-    marginBottom: 14,
-    color: "#bcbec4",
-    fontSize: 14,
-    lineHeight: 1.8
+  mediumBadge: {
+    color: "#f2c55c",
+    backgroundColor: "#413923"
   },
-  inlineCode: {
-    fontFamily: '"SFMono-Regular", Consolas, monospace',
-    fontSize: "0.9em",
-    backgroundColor: "#393b40",
-    padding: "2px 5px",
-    borderRadius: 4,
-    color: "#dfe1e5"
+  hardBadge: {
+    color: "#eb938d",
+    backgroundColor: "#452e30"
   },
   sectionHeading: {
     fontSize: 13,
@@ -112,11 +98,6 @@ const styles = stylex.create({
     marginTop: 25,
     marginBottom: 12,
     color: "#dfe1e5"
-  },
-  requirements: {
-    color: "#bcbec4",
-    fontSize: 13,
-    lineHeight: 2
   },
   example: {
     borderLeftWidth: 2,
@@ -144,70 +125,41 @@ const styles = stylex.create({
     color: "#9da0a8",
     lineHeight: 1.7,
     marginTop: 7
-  },
-  followUp: {
-    marginTop: 26,
-    padding: "15px 17px",
-    backgroundColor: "#25324d",
-    borderRadius: 7,
-    fontSize: 12,
-    color: "#b5ceff"
-  },
-  followUpTitle: {
-    fontWeight: 650,
-    marginBottom: 3
   }
 });
 
-export default function ProblemPanel({title, examples}: ProblemPanelProps) {
+export default function ProblemPanel({problem}: ProblemPanelProps) {
   return (
     <div sx={styles.problem} role="region" aria-labelledby="problem-title">
       <div sx={styles.panelHeading}>
         <span sx={styles.panelLabel}><Icon name="document" /> Problem</span>
-        <span sx={styles.muted}>Sample problem</span>
       </div>
       <div sx={styles.problemBody} tabIndex={0} aria-label="Problem description">
-        <div sx={styles.eyebrow}>Arrays &amp; hashing</div>
-        <div role="heading" aria-level={1} id="problem-title" sx={styles.title}>{title}</div>
+        <div role="heading" aria-level={1} id="problem-title" sx={styles.title}>{problem.title}</div>
         <div sx={styles.badges}>
-          <span sx={[styles.badge, styles.easyBadge]}>Easy</span>
-          <span sx={styles.badge}>Array</span>
-          <span sx={styles.badge}>Hash map</span>
+          <span sx={[
+            styles.badge,
+            problem.difficulty === "EASY" && styles.easyBadge,
+            problem.difficulty === "MEDIUM" && styles.mediumBadge,
+            problem.difficulty === "HARD" && styles.hardBadge
+          ]}>
+            {difficultyLabels[problem.difficulty]}
+          </span>
         </div>
-        <div sx={styles.paragraph}>
-          Find two distinct positions in <span sx={styles.inlineCode}>nums</span> whose values
-          sum to <span sx={styles.inlineCode}>target</span>.
-        </div>
-        <div sx={styles.paragraph}>
-          Return those positions as a two-element array. The order of the positions doesn’t matter.
-          Each input has exactly one matching pair.
-        </div>
+        <ProblemMarkdown>{problem.statementMarkdown}</ProblemMarkdown>
 
-        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Requirements</div>
-        <div sx={styles.requirements} role="list">
-          <div role="listitem">• Use two different array positions.</div>
-          <div role="listitem">• Return indices, starting from zero.</div>
-          <div role="listitem">• Values may be negative or repeated.</div>
-        </div>
-
-        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Examples</div>
-        {examples.map((item, index) => (
-          <div sx={styles.example} key={index}>
+        {problem.examples.length > 0 && (
+          <div role="heading" aria-level={2} sx={styles.sectionHeading}>Examples</div>
+        )}
+        {problem.examples.map((item, index) => (
+          <div sx={styles.example} key={item.id}>
             <div sx={styles.exampleTitle}>Example {index + 1}</div>
-            <div sx={styles.exampleCode}>{`nums = ${item.nums}, target = ${item.target}\noutput = ${item.expected}`}</div>
-            <div sx={styles.exampleExplanation}>{item.explanation}</div>
+            <div sx={styles.exampleCode}>{`Input: ${formatTestCaseJson(item.inputJson)}\nExpected output: ${formatTestCaseJson(item.expectedOutputJson)}`}</div>
+            {item.explanationMarkdown && (
+              <div sx={styles.exampleExplanation}><ProblemMarkdown>{item.explanationMarkdown}</ProblemMarkdown></div>
+            )}
           </div>
         ))}
-
-        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Constraints</div>
-        <div sx={styles.requirements} role="list">
-          <div role="listitem">• <span sx={styles.inlineCode}>2 ≤ nums.size ≤ 10,000</span></div>
-          <div role="listitem">• <span sx={styles.inlineCode}>−10⁹ ≤ nums[i], target ≤ 10⁹</span></div>
-        </div>
-        <div sx={styles.followUp}>
-          <div sx={styles.followUpTitle}>Go a little further</div>
-          <div>Can you find the pair in a single pass through the array?</div>
-        </div>
       </div>
     </div>
   );

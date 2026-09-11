@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import {useState} from "react";
 import type {ExampleTestCase} from "./codingProblemTypes";
+import {formatTestCaseJson} from "./formatTestCaseJson";
 import Control from "./WorkspaceControl";
 import Icon from "./WorkspaceIcon";
 
@@ -129,7 +130,8 @@ const styles = stylex.create({
 
 export default function TestResultsPanel({examples}: TestResultsPanelProps) {
   const [selectedCase, setSelectedCase] = useState(0);
-  const example = examples[selectedCase];
+  const caseIndex = selectedCase < examples.length ? selectedCase : 0;
+  const example = examples[caseIndex];
 
   return (
     <div sx={styles.results} role="region" aria-labelledby="results-title">
@@ -143,9 +145,9 @@ export default function TestResultsPanel({examples}: TestResultsPanelProps) {
         <div sx={styles.caseTabs} role="group" aria-label="Example test cases">
           {examples.map((_, index) => (
             <Control
-              key={index}
-              appearance={[styles.caseButton, index === selectedCase && styles.selectedCase]}
-              pressed={index === selectedCase}
+              key={examples[index].id}
+              appearance={[styles.caseButton, index === caseIndex && styles.selectedCase]}
+              pressed={index === caseIndex}
               controls="selected-case"
               onActivate={() => setSelectedCase(index)}
             >
@@ -153,16 +155,20 @@ export default function TestResultsPanel({examples}: TestResultsPanelProps) {
             </Control>
           ))}
         </div>
-        <div id="selected-case" sx={styles.caseData} aria-live="polite" aria-label={`Case ${selectedCase + 1}`}>
-          <div sx={styles.dataBlock}>
-            <div sx={styles.dataLabel}>Input</div>
-            <div sx={styles.dataValue}>{`nums = ${example.nums}\ntarget = ${example.target}`}</div>
+        {example ? (
+          <div id="selected-case" sx={styles.caseData} aria-live="polite" aria-label={`Case ${caseIndex + 1}`}>
+            <div sx={styles.dataBlock}>
+              <div sx={styles.dataLabel}>Input</div>
+              <div sx={styles.dataValue}>{formatTestCaseJson(example.inputJson)}</div>
+            </div>
+            <div sx={styles.dataBlock}>
+              <div sx={styles.dataLabel}>Expected output</div>
+              <div sx={styles.dataValue}>{formatTestCaseJson(example.expectedOutputJson)}</div>
+            </div>
           </div>
-          <div sx={styles.dataBlock}>
-            <div sx={styles.dataLabel}>Expected output</div>
-            <div sx={styles.dataValue}>{example.expected}</div>
-          </div>
-        </div>
+        ) : (
+          <div role="status">No public example test cases are available.</div>
+        )}
         <div sx={styles.resultsHint}>
           <Icon name="clock" size={13} /> Your test results will appear here after a run.
         </div>
