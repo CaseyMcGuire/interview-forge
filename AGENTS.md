@@ -2,6 +2,13 @@
 
 Template repo for full-stack web apps: Kotlin/Spring Boot backend serving a GraphQL API (Netflix DGS) to a React/Relay frontend, with Postgres behind EntKt and Flyway migrations. The Gradle build orchestrates everything, including the frontend (via the node-gradle plugin, which downloads its own Node/npm).
 
+## Task scope
+
+- Implement only what the user asks for, including the minimum supporting changes, required code generation, and focused validation needed for that request.
+- Broader project goals and earlier discussions provide context; they do not authorize implementing the next feature. Do not add adjacent functionality, refactor unrelated code, or introduce dependencies for work the user has not requested.
+- For example, a request to add a route through `spa-route-definitions` means adding the route definition and regenerating its artifacts. It does not authorize building the page, connecting GraphQL data, changing the editor, or adding a Markdown dependency.
+- If the scope is ambiguous, prefer the smallest reasonable interpretation and ask before expanding it. Once the requested change is complete, stop and let the user decide the next step.
+
 ## Commands
 
 | Task | Command |
