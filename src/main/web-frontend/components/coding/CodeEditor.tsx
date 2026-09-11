@@ -3,7 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import {basicSetup} from "codemirror";
 import {Compartment, EditorState} from "@codemirror/state";
 import {EditorView, keymap} from "@codemirror/view";
-import {indentWithTab} from "@codemirror/commands";
+import {indentWithTab, isolateHistory} from "@codemirror/commands";
 import {HighlightStyle, indentUnit, StreamLanguage, syntaxHighlighting} from "@codemirror/language";
 import {kotlin} from "@codemirror/legacy-modes/mode/clike";
 import {tags} from "@lezer/highlight";
@@ -113,7 +113,10 @@ export default function CodeEditor({value, fontSize, wordWrap, onChange, onCurso
   useEffect(() => {
     const view = viewRef.current;
     if (view && view.state.doc.toString() !== value) {
-      view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: value}});
+      view.dispatch({
+        changes: {from: 0, to: view.state.doc.length, insert: value},
+        annotations: isolateHistory.of("full"),
+      });
     }
   }, [value]);
 
