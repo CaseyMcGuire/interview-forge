@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import ProblemDifficultyBadge from "components/problems/ProblemDifficultyBadge";
 import type {CodingProblem} from "./codingProblemTypes";
 import {formatTestCaseJson} from "./formatTestCaseJson";
 import ProblemMarkdown from "./ProblemMarkdown";
@@ -7,8 +8,6 @@ import Icon from "./WorkspaceIcon";
 type ProblemPanelProps = {
   problem: CodingProblem;
 };
-
-const difficultyLabels = {EASY: "Easy", MEDIUM: "Medium", HARD: "Hard", "%future added value": "Unknown"};
 
 const styles = stylex.create({
   problem: {
@@ -71,27 +70,6 @@ const styles = stylex.create({
     flexWrap: "wrap",
     marginBottom: 26
   },
-  badge: {
-    fontSize: 11,
-    lineHeight: 1.4,
-    padding: "4px 9px",
-    borderRadius: 5,
-    color: "#b4b8bf",
-    backgroundColor: "#393b40"
-  },
-  easyBadge: {
-    color: "#89cc8e",
-    backgroundColor: "#253627",
-    fontWeight: 600
-  },
-  mediumBadge: {
-    color: "#f2c55c",
-    backgroundColor: "#413923"
-  },
-  hardBadge: {
-    color: "#eb938d",
-    backgroundColor: "#452e30"
-  },
   sectionHeading: {
     fontSize: 13,
     fontWeight: 650,
@@ -137,14 +115,7 @@ export default function ProblemPanel({problem}: ProblemPanelProps) {
       <div sx={styles.problemBody} tabIndex={0} aria-label="Problem description">
         <div role="heading" aria-level={1} id="problem-title" sx={styles.title}>{problem.title}</div>
         <div sx={styles.badges}>
-          <span sx={[
-            styles.badge,
-            problem.difficulty === "EASY" && styles.easyBadge,
-            problem.difficulty === "MEDIUM" && styles.mediumBadge,
-            problem.difficulty === "HARD" && styles.hardBadge
-          ]}>
-            {difficultyLabels[problem.difficulty]}
-          </span>
+          <ProblemDifficultyBadge difficulty={problem.difficulty} />
         </div>
         <ProblemMarkdown>{problem.statementMarkdown}</ProblemMarkdown>
 

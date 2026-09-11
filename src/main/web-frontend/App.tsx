@@ -1,6 +1,7 @@
 import {RouterProvider, type RouteObject} from "react-router";
 import HomePage from "pages/HomePage";
 import ProblemPage from "pages/ProblemPage";
+import ProblemsPage from "pages/ProblemsPage";
 import {createRelayEnvironment, RelayRoot} from "@spa-kit/react-relay";
 import {renderComponent} from "@spa-kit/react";
 import {createSpaRoutingBrowserRouter} from "@spa-kit/react-router";
@@ -22,6 +23,11 @@ const routes: RouteObject[] = [
     id: AppRoutes.Home.routeId,
     path: AppRoutes.Home.path,
     element: <HomePage />
+  },
+  {
+    id: AppRoutes.Problems.routeId,
+    path: AppRoutes.Problems.path,
+    element: <ProblemsPage />
   },
   {
     id: AppRoutes.Problem.routeId,

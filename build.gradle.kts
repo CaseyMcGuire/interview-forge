@@ -2,11 +2,21 @@ import com.github.gradle.node.npm.task.NpmTask
 import org.springframework.boot.gradle.tasks.run.BootRun
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    // Flyway's Gradle tasks need database support on the build classpath too.
+    classpath("org.flywaydb:flyway-database-postgresql:13.5.0")
+  }
+}
+
 val springVersion = "4.1.1"
 val dgsVersion = "12.0.1"
 val javaVersion = 26
 val postgresVersion = "42.7.13"
-val flywayVersion = "13.5.0" // Matched to the plugin version in target file
+val flywayVersion = "13.5.0" // Keep aligned with the plugin and buildscript dependency above.
 val entktVersion = providers.gradleProperty("entktVersion").get()
 val myNodeVersion = "26.8.2"
 val myNpmVersion = "12.0.2"

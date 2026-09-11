@@ -18,6 +18,7 @@ object AppSpaApplication : SpaApplicationDefinition {
   override val appRootPath = "./src/main/web-frontend/App"
   override val routes: List<SpaRouteDefinition> = listOf(
     route("", "Home"),
+    route("problems", "Problems"),
     route("problem/{slug}", "Problem", listOf(string("slug"))),
     route("about", "About"),
     route("blog", "Blog"),

@@ -8,7 +8,6 @@ import com.application.ent.TestCase
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TestCaseVisibility
 import com.netflix.graphql.dgs.DgsQueryExecutor
-import entkt.postgres.PostgresDriver
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntMutationPrivacyDeniedException
@@ -20,9 +19,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
@@ -33,11 +30,9 @@ import org.testcontainers.utility.DockerImageName
 import java.time.Instant
 import java.util.Base64
 import java.util.UUID
-import javax.sql.DataSource
 
 @Testcontainers
-@SpringBootTest(properties = ["spring.flyway.enabled=false"])
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@SpringBootTest
 class ProblemDataFetcherIntegrationTest {
   private val fixtureContext = ViewerContext.privacyBypass_DANGEROUS(
     "Seed fixtures in the isolated problem-query integration-test database"
@@ -49,13 +44,140 @@ class ProblemDataFetcherIntegrationTest {
   @Autowired
   lateinit var queryExecutor: DgsQueryExecutor
 
-  @Autowired
-  lateinit var dataSource: DataSource
+  @Test
+  fun `lists published problems in title and slug order without unavailable problems`() {
+    val prefix = UUID.randomUUID().toString()
+    val last = createProblem(title = "$prefix Zebra Search")
+    val first = createProblem(title = "$prefix Array Pair")
+    val sameTitle = createProblem(title = "$prefix Array Pair")
+    val unavailable = listOf(
+      createProblem(title = "$prefix Draft", publishedAt = null),
+      createProblem(title = "$prefix Archived", archivedAt = Instant.now()),
+      createProblem(title = "$prefix Future", publishedAt = Instant.now().plusSeconds(3600)),
+    )
+    val configuration = createConfiguration(first, createLanguage("list-${UUID.randomUUID()}"))
+    val example = createExample(first, position = 0)
+    createExample(first, position = 1, visibility = TestCaseVisibility.HIDDEN)
 
-  @BeforeAll
-  fun createTestTables() {
-    // Draft schemas have no production migration yet. Auto-DDL is confined to this throwaway DB.
-    PostgresDriver(dataSource, autoDdl = true).registerAll(EntClient.SCHEMAS)
+    val connection = fetchConnection(mapOf("filters" to mapOf("search" to prefix)))
+    val problems = connection.objects("edges").map { it.obj("node") }
+    val expected = listOf(first, sameTitle).sortedBy { it.slug } + last
+    assertEquals(expected.map { it.slug }, problems.map { it["slug"] })
+    assertFalse(problems.any { it["slug"] in unavailable.map { problem -> problem.slug } })
+
+    val item = problems.single { it["slug"] == first.slug }
+    assertEquals("Problem:${first.id}", decodeId(item["id"]))
+    assertEquals(first.title, item["title"])
+    assertEquals("EASY", item["difficulty"])
+    assertEquals(listOf("ProblemLanguage:${configuration.id}"), item.objects("languageConfigurations").map { decodeId(it["id"]) })
+    assertEquals(listOf("ProblemExample:${example.id}"), item.objects("examples").map { decodeId(it["id"]) })
+  }
+
+  @Test
+  fun `paginates tied titles with stable cursors and correct page boundaries`() {
+    val prefix = UUID.randomUUID().toString()
+    val sameTitle = List(3) { createProblem(title = "$prefix Alpha") }.sortedBy { it.slug }
+    val last = createProblem(title = "$prefix Zulu")
+    createProblem(title = "$prefix Before", publishedAt = null)
+    val filters = mapOf("search" to prefix)
+
+    val firstPage = fetchConnection(mapOf("first" to 2, "filters" to filters))
+    val firstEdges = firstPage.objects("edges")
+    val firstInfo = firstPage.obj("pageInfo")
+    assertEquals(sameTitle.take(2).map { it.slug }, firstEdges.map { it.obj("node")["slug"] })
+    assertEquals(true, firstInfo["hasNextPage"])
+    assertEquals(false, firstInfo["hasPreviousPage"])
+    assertEquals(firstEdges.first()["cursor"], firstInfo["startCursor"])
+    assertEquals(firstEdges.last()["cursor"], firstInfo["endCursor"])
+
+    val secondPage = fetchConnection(mapOf("first" to 2, "after" to firstInfo["endCursor"], "filters" to filters))
+    val secondEdges = secondPage.objects("edges")
+    val secondInfo = secondPage.obj("pageInfo")
+    assertEquals(listOf(sameTitle.last().slug, last.slug), secondEdges.map { it.obj("node")["slug"] })
+    assertEquals(false, secondInfo["hasNextPage"])
+    assertEquals(true, secondInfo["hasPreviousPage"])
+    assertEquals(secondEdges.first()["cursor"], secondInfo["startCursor"])
+    assertEquals(secondEdges.last()["cursor"], secondInfo["endCursor"])
+    assertEquals(4, (firstEdges + secondEdges).map { it["cursor"] }.toSet().size)
+
+    val exhausted = fetchConnection(mapOf("first" to 2, "after" to secondInfo["endCursor"], "filters" to filters))
+    assertEquals(emptyList<Any>(), exhausted["edges"])
+    assertEquals(false, exhausted.obj("pageInfo")["hasNextPage"])
+    assertEquals(true, exhausted.obj("pageInfo")["hasPreviousPage"])
+    assertNull(exhausted.obj("pageInfo")["startCursor"])
+    assertNull(exhausted.obj("pageInfo")["endCursor"])
+  }
+
+  @Test
+  fun `supports empty and zero-sized pages and defaults to twenty results`() {
+    val prefix = UUID.randomUUID().toString()
+    repeat(21) { createProblem(title = "$prefix ${it.toString().padStart(2, '0')}") }
+    val filters = mapOf("search" to prefix)
+    val page = fetchConnection(mapOf("filters" to filters))
+    assertEquals(20, page.objects("edges").size)
+    assertEquals(true, page.obj("pageInfo")["hasNextPage"])
+
+    val last = fetchConnection(mapOf("filters" to filters, "after" to page.obj("pageInfo")["endCursor"]))
+    assertEquals(1, last.objects("edges").size)
+    assertEquals(false, last.obj("pageInfo")["hasNextPage"])
+
+    val zero = fetchConnection(mapOf("first" to 0, "filters" to filters))
+    assertEquals(emptyList<Any>(), zero["edges"])
+    assertEquals(true, zero.obj("pageInfo")["hasNextPage"])
+    assertEquals(false, zero.obj("pageInfo")["hasPreviousPage"])
+    assertNull(zero.obj("pageInfo")["startCursor"])
+    assertNull(zero.obj("pageInfo")["endCursor"])
+
+    val empty = fetchConnection(mapOf("filters" to mapOf("search" to "missing-${UUID.randomUUID()}")))
+    assertEquals(emptyList<Any>(), empty["edges"])
+    assertEquals(false, empty.obj("pageInfo")["hasNextPage"])
+    assertEquals(false, empty.obj("pageInfo")["hasPreviousPage"])
+    assertNull(empty.obj("pageInfo")["startCursor"])
+    assertNull(empty.obj("pageInfo")["endCursor"])
+  }
+
+  @Test
+  fun `combines optional filters before pagination and treats search wildcards literally`() {
+    val prefix = UUID.randomUUID().toString()
+    createProblem(title = "$prefix Alpha", difficulty = ProblemDifficulty.HARD)
+    val first = createProblem(title = "$prefix Beta", difficulty = ProblemDifficulty.MEDIUM)
+    val second = createProblem(title = "$prefix Gamma", difficulty = ProblemDifficulty.MEDIUM)
+    val filters = mapOf("search" to "  $prefix  ", "difficulty" to "MEDIUM")
+    val page = fetchConnection(mapOf("first" to 1, "filters" to filters))
+    assertEquals(listOf(first.slug), page.objects("edges").map { it.obj("node")["slug"] })
+    val next = fetchConnection(mapOf("first" to 1, "filters" to filters, "after" to page.obj("pageInfo")["endCursor"]))
+    assertEquals(listOf(second.slug), next.objects("edges").map { it.obj("node")["slug"] })
+    assertEquals(false, next.obj("pageInfo")["hasNextPage"])
+
+    val literal = createProblem(title = "$prefix 100%_done")
+    createProblem(title = "$prefix 100x_done")
+    val literalPage = fetchConnection(mapOf("filters" to mapOf("search" to "$prefix 100%_")))
+    assertEquals(listOf(literal.slug), literalPage.objects("edges").map { it.obj("node")["slug"] })
+
+    val unfiltered = fetchConnection(mapOf("first" to 100, "filters" to null))
+    val blankSearch = fetchConnection(mapOf("first" to 100, "filters" to mapOf("search" to " ")))
+    assertEquals(unfiltered, blankSearch)
+    val difficultyOnly = fetchConnection(mapOf("first" to 100, "filters" to mapOf("difficulty" to "MEDIUM")))
+    assertTrue(difficultyOnly.objects("edges").all { it.obj("node")["difficulty"] == "MEDIUM" })
+    assertTrue(difficultyOnly.objects("edges").any { it.obj("node")["slug"] == first.slug })
+  }
+
+  @Test
+  fun `rejects invalid page sizes and malformed cursors as bad requests`() {
+    val invalidCursors = listOf(
+      "",
+      "not-base64!",
+      Base64.getUrlEncoder().encodeToString("not json".toByteArray()),
+      Base64.getUrlEncoder().encodeToString("[\"wrong-connection\",\"Title\",\"slug\"]".toByteArray()),
+      Base64.getUrlEncoder().encodeToString("[\"problems:v1\",123,\"slug\"]".toByteArray()),
+    )
+    val invalidArguments = listOf(mapOf("first" to -1), mapOf("first" to 101)) +
+      invalidCursors.map { mapOf("after" to it) }
+    invalidArguments.forEach { arguments ->
+      val result = queryExecutor.execute(PROBLEMS_QUERY, arguments)
+      assertTrue(result.errors.isNotEmpty(), arguments.toString())
+      assertEquals("BAD_REQUEST", result.errors.first().extensions["errorType"].toString())
+    }
   }
 
   @Test
@@ -181,9 +303,17 @@ class ProblemDataFetcherIntegrationTest {
     return result.getData<Map<String, Map<String, Any?>?>>()?.get("problem")
   }
 
+  private fun fetchConnection(arguments: Map<String, Any?> = emptyMap()): Map<String, Any?> {
+    val result = queryExecutor.execute(PROBLEMS_QUERY, arguments)
+    assertTrue(result.errors.isEmpty(), result.errors.toString())
+    return result.getData<Map<String, Any?>>()!!.obj("problems")
+  }
+
   private fun createProblem(
     publishedAt: Instant? = Instant.now().minusSeconds(60),
     archivedAt: Instant? = null,
+    title: String = "Two Sum",
+    difficulty: ProblemDifficulty = ProblemDifficulty.EASY,
   ): Problem {
     val author = entClient.users.create {
       email = "${UUID.randomUUID()}@example.com"
@@ -191,9 +321,9 @@ class ProblemDataFetcherIntegrationTest {
     }.saveAndLoad(fixtureContext).getOrThrow()
     return entClient.problems.create {
       slug = "problem-${UUID.randomUUID()}"
-      title = "Two Sum"
+      this.title = title
       statementMarkdown = "Find two indices.\n\n## Constraints\nUse different positions."
-      difficulty = ProblemDifficulty.EASY
+      this.difficulty = difficulty
       createdByUserId = author.id
       this.publishedAt = publishedAt
       this.archivedAt = archivedAt
@@ -243,6 +373,22 @@ class ProblemDataFetcherIntegrationTest {
     @ServiceConnection
     @JvmStatic
     val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:18.6-alpine"))
+
+    private val PROBLEMS_QUERY = """
+      query ListProblems(${'$'}first: Int, ${'$'}after: String, ${'$'}filters: ProblemFilterInput) {
+        problems(first: ${'$'}first, after: ${'$'}after, filters: ${'$'}filters) {
+          edges {
+            cursor
+            node {
+              id slug title difficulty
+              languageConfigurations { id }
+              examples { id }
+            }
+          }
+          pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
+        }
+      }
+    """.trimIndent()
 
     private val PROBLEM_QUERY = """
       query ViewProblem(${'$'}slug: String!) {

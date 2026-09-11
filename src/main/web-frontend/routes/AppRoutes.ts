@@ -27,6 +27,7 @@ export const AppRoutes = {
     (params: { slug: string }) => `/problem/${encodeRouteParam(params.slug)}`,
     { applicationId: "app", routeId: "Problem" }
   ),
+  Problems: routeWithoutParams("/problems", { applicationId: "app", routeId: "Problems" }),
   Register: routeWithoutParams("/register", { applicationId: "app", routeId: "Register" }),
 } as const;
 
