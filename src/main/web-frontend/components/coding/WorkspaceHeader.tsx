@@ -1,23 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import Icon from "./WorkspaceIcon";
 
-export default function WorkspaceHeader() {
-  return (
-    <div sx={styles.header}>
-      <div sx={styles.brand}>
-        <span sx={styles.brandMark} aria-hidden="true">
-          <Icon name="code" size={21} />
-        </span>
-        Interview Forge
-      </div>
-      <div sx={styles.headerContext}>
-        <span sx={styles.contextLabel}>Coding practice</span>
-        <span sx={styles.previewBadge}>Editor preview</span>
-      </div>
-    </div>
-  );
-}
-
 const styles = stylex.create({
   header: {
     height: 72,
@@ -72,3 +55,20 @@ const styles = stylex.create({
     fontWeight: 600
   }
 });
+
+export default function WorkspaceHeader() {
+  return (
+    <div sx={styles.header}>
+      <div sx={styles.brand}>
+        <span sx={styles.brandMark} aria-hidden="true">
+          <Icon name="code" size={21} />
+        </span>
+        Interview Forge
+      </div>
+      <div sx={styles.headerContext}>
+        <span sx={styles.contextLabel}>Coding practice</span>
+        <span sx={styles.previewBadge}>Editor preview</span>
+      </div>
+    </div>
+  );
+}

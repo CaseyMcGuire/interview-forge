@@ -8,50 +8,6 @@ type TestResultsPanelProps = {
   examples: readonly ExampleTestCase[];
 };
 
-export default function TestResultsPanel({examples}: TestResultsPanelProps) {
-  const [selectedCase, setSelectedCase] = useState(0);
-  const example = examples[selectedCase];
-
-  return (
-    <div sx={styles.results} role="region" aria-labelledby="results-title">
-      <div sx={[styles.panelHeading, styles.resultsHeading]}>
-        <div role="heading" aria-level={2} id="results-title" sx={styles.panelLabel}>
-          <Icon name="terminal" /> Test Results
-        </div>
-        <span sx={styles.notRun}>Not run</span>
-      </div>
-      <div sx={styles.resultsBody}>
-        <div sx={styles.caseTabs} role="group" aria-label="Example test cases">
-          {examples.map((_, index) => (
-            <Control
-              key={index}
-              appearance={[styles.caseButton, index === selectedCase && styles.selectedCase]}
-              pressed={index === selectedCase}
-              controls="selected-case"
-              onActivate={() => setSelectedCase(index)}
-            >
-              Case {index + 1}
-            </Control>
-          ))}
-        </div>
-        <div id="selected-case" sx={styles.caseData} aria-live="polite" aria-label={`Case ${selectedCase + 1}`}>
-          <div sx={styles.dataBlock}>
-            <div sx={styles.dataLabel}>Input</div>
-            <div sx={styles.dataValue}>{`nums = ${example.nums}\ntarget = ${example.target}`}</div>
-          </div>
-          <div sx={styles.dataBlock}>
-            <div sx={styles.dataLabel}>Expected output</div>
-            <div sx={styles.dataValue}>{example.expected}</div>
-          </div>
-        </div>
-        <div sx={styles.resultsHint}>
-          <Icon name="clock" size={13} /> Your test results will appear here after a run.
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const styles = stylex.create({
   panelHeading: {
     display: "flex",
@@ -153,3 +109,47 @@ const styles = stylex.create({
     gap: 7
   }
 });
+
+export default function TestResultsPanel({examples}: TestResultsPanelProps) {
+  const [selectedCase, setSelectedCase] = useState(0);
+  const example = examples[selectedCase];
+
+  return (
+    <div sx={styles.results} role="region" aria-labelledby="results-title">
+      <div sx={[styles.panelHeading, styles.resultsHeading]}>
+        <div role="heading" aria-level={2} id="results-title" sx={styles.panelLabel}>
+          <Icon name="terminal" /> Test Results
+        </div>
+        <span sx={styles.notRun}>Not run</span>
+      </div>
+      <div sx={styles.resultsBody}>
+        <div sx={styles.caseTabs} role="group" aria-label="Example test cases">
+          {examples.map((_, index) => (
+            <Control
+              key={index}
+              appearance={[styles.caseButton, index === selectedCase && styles.selectedCase]}
+              pressed={index === selectedCase}
+              controls="selected-case"
+              onActivate={() => setSelectedCase(index)}
+            >
+              Case {index + 1}
+            </Control>
+          ))}
+        </div>
+        <div id="selected-case" sx={styles.caseData} aria-live="polite" aria-label={`Case ${selectedCase + 1}`}>
+          <div sx={styles.dataBlock}>
+            <div sx={styles.dataLabel}>Input</div>
+            <div sx={styles.dataValue}>{`nums = ${example.nums}\ntarget = ${example.target}`}</div>
+          </div>
+          <div sx={styles.dataBlock}>
+            <div sx={styles.dataLabel}>Expected output</div>
+            <div sx={styles.dataValue}>{example.expected}</div>
+          </div>
+        </div>
+        <div sx={styles.resultsHint}>
+          <Icon name="clock" size={13} /> Your test results will appear here after a run.
+        </div>
+      </div>
+    </div>
+  );
+}

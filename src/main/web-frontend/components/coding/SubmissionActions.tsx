@@ -6,28 +6,6 @@ type SubmissionActionsProps = {
   storageAvailable: boolean;
 };
 
-export default function SubmissionActions({storageAvailable}: SubmissionActionsProps) {
-  return (
-    <div sx={styles.controls} aria-label="Run and submit your solution">
-      <div sx={styles.actionRow}>
-        <Control disabled appearance={[styles.action, styles.runButton]} description="execution-note">
-          <Icon name="play" size={15} /> Run Tests
-        </Control>
-        <Control disabled appearance={[styles.action, styles.submitButton]} description="execution-note">
-          <Icon name="submit" size={15} /> Submit
-        </Control>
-      </div>
-      <div id="execution-note" sx={styles.executionNote}>
-        Run Tests and Submit will be available when code execution is connected.
-      </div>
-      <div role="status" sx={[styles.saveStatus, !storageAvailable && styles.saveError]}>
-        <Icon name={storageAvailable ? "check" : "document"} size={14} />
-        {storageAvailable ? "Drafts are saved on this device" : "Browser storage is unavailable. Copy your code before leaving."}
-      </div>
-    </div>
-  );
-}
-
 const styles = stylex.create({
   controls: {
     borderTop: "1px solid #dce1d9",
@@ -89,3 +67,25 @@ const styles = stylex.create({
     color: "#946a40"
   }
 });
+
+export default function SubmissionActions({storageAvailable}: SubmissionActionsProps) {
+  return (
+    <div sx={styles.controls} aria-label="Run and submit your solution">
+      <div sx={styles.actionRow}>
+        <Control disabled appearance={[styles.action, styles.runButton]} description="execution-note">
+          <Icon name="play" size={15} /> Run Tests
+        </Control>
+        <Control disabled appearance={[styles.action, styles.submitButton]} description="execution-note">
+          <Icon name="submit" size={15} /> Submit
+        </Control>
+      </div>
+      <div id="execution-note" sx={styles.executionNote}>
+        Run Tests and Submit will be available when code execution is connected.
+      </div>
+      <div role="status" sx={[styles.saveStatus, !storageAvailable && styles.saveError]}>
+        <Icon name={storageAvailable ? "check" : "document"} size={14} />
+        {storageAvailable ? "Drafts are saved on this device" : "Browser storage is unavailable. Copy your code before leaving."}
+      </div>
+    </div>
+  );
+}

@@ -7,60 +7,6 @@ type ProblemPanelProps = {
   examples: readonly ExampleTestCase[];
 };
 
-export default function ProblemPanel({title, examples}: ProblemPanelProps) {
-  return (
-    <div sx={styles.problem} role="region" aria-labelledby="problem-title">
-      <div sx={styles.panelHeading}>
-        <span sx={styles.panelLabel}><Icon name="document" /> Problem</span>
-        <span sx={styles.muted}>Sample problem</span>
-      </div>
-      <div sx={styles.problemBody} tabIndex={0} aria-label="Problem description">
-        <div sx={styles.eyebrow}>Arrays &amp; hashing</div>
-        <div role="heading" aria-level={1} id="problem-title" sx={styles.title}>{title}</div>
-        <div sx={styles.badges}>
-          <span sx={[styles.badge, styles.easyBadge]}>Easy</span>
-          <span sx={styles.badge}>Array</span>
-          <span sx={styles.badge}>Hash map</span>
-        </div>
-        <div sx={styles.paragraph}>
-          Find two distinct positions in <span sx={styles.inlineCode}>nums</span> whose values
-          sum to <span sx={styles.inlineCode}>target</span>.
-        </div>
-        <div sx={styles.paragraph}>
-          Return those positions as a two-element array. The order of the positions doesn’t matter.
-          Each input has exactly one matching pair.
-        </div>
-
-        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Requirements</div>
-        <div sx={styles.requirements} role="list">
-          <div role="listitem">• Use two different array positions.</div>
-          <div role="listitem">• Return indices, starting from zero.</div>
-          <div role="listitem">• Values may be negative or repeated.</div>
-        </div>
-
-        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Examples</div>
-        {examples.map((item, index) => (
-          <div sx={styles.example} key={index}>
-            <div sx={styles.exampleTitle}>Example {index + 1}</div>
-            <div sx={styles.exampleCode}>{`nums = ${item.nums}, target = ${item.target}\noutput = ${item.expected}`}</div>
-            <div sx={styles.exampleExplanation}>{item.explanation}</div>
-          </div>
-        ))}
-
-        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Constraints</div>
-        <div sx={styles.requirements} role="list">
-          <div role="listitem">• <span sx={styles.inlineCode}>2 ≤ nums.size ≤ 10,000</span></div>
-          <div role="listitem">• <span sx={styles.inlineCode}>−10⁹ ≤ nums[i], target ≤ 10⁹</span></div>
-        </div>
-        <div sx={styles.followUp}>
-          <div sx={styles.followUpTitle}>Go a little further</div>
-          <div>Can you find the pair in a single pass through the array?</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const styles = stylex.create({
   problem: {
     minHeight: 0,
@@ -201,3 +147,57 @@ const styles = stylex.create({
     marginBottom: 3
   }
 });
+
+export default function ProblemPanel({title, examples}: ProblemPanelProps) {
+  return (
+    <div sx={styles.problem} role="region" aria-labelledby="problem-title">
+      <div sx={styles.panelHeading}>
+        <span sx={styles.panelLabel}><Icon name="document" /> Problem</span>
+        <span sx={styles.muted}>Sample problem</span>
+      </div>
+      <div sx={styles.problemBody} tabIndex={0} aria-label="Problem description">
+        <div sx={styles.eyebrow}>Arrays &amp; hashing</div>
+        <div role="heading" aria-level={1} id="problem-title" sx={styles.title}>{title}</div>
+        <div sx={styles.badges}>
+          <span sx={[styles.badge, styles.easyBadge]}>Easy</span>
+          <span sx={styles.badge}>Array</span>
+          <span sx={styles.badge}>Hash map</span>
+        </div>
+        <div sx={styles.paragraph}>
+          Find two distinct positions in <span sx={styles.inlineCode}>nums</span> whose values
+          sum to <span sx={styles.inlineCode}>target</span>.
+        </div>
+        <div sx={styles.paragraph}>
+          Return those positions as a two-element array. The order of the positions doesn’t matter.
+          Each input has exactly one matching pair.
+        </div>
+
+        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Requirements</div>
+        <div sx={styles.requirements} role="list">
+          <div role="listitem">• Use two different array positions.</div>
+          <div role="listitem">• Return indices, starting from zero.</div>
+          <div role="listitem">• Values may be negative or repeated.</div>
+        </div>
+
+        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Examples</div>
+        {examples.map((item, index) => (
+          <div sx={styles.example} key={index}>
+            <div sx={styles.exampleTitle}>Example {index + 1}</div>
+            <div sx={styles.exampleCode}>{`nums = ${item.nums}, target = ${item.target}\noutput = ${item.expected}`}</div>
+            <div sx={styles.exampleExplanation}>{item.explanation}</div>
+          </div>
+        ))}
+
+        <div role="heading" aria-level={2} sx={styles.sectionHeading}>Constraints</div>
+        <div sx={styles.requirements} role="list">
+          <div role="listitem">• <span sx={styles.inlineCode}>2 ≤ nums.size ≤ 10,000</span></div>
+          <div role="listitem">• <span sx={styles.inlineCode}>−10⁹ ≤ nums[i], target ≤ 10⁹</span></div>
+        </div>
+        <div sx={styles.followUp}>
+          <div sx={styles.followUpTitle}>Go a little further</div>
+          <div>Can you find the pair in a single pass through the array?</div>
+        </div>
+      </div>
+    </div>
+  );
+}

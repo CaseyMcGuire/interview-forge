@@ -18,43 +18,6 @@ function readDraft() {
   }
 }
 
-export default function CodingWorkspace() {
-  const [draft, setDraft] = useState(readDraft);
-
-  useEffect(() => {
-    const previousTitle = document.title;
-    document.title = `${problem.title} · Interview Forge`;
-    return () => {document.title = previousTitle;};
-  }, []);
-
-  function updateSource(source: string) {
-    let available = true;
-    try {
-      localStorage.setItem(draftKey, source);
-    } catch {
-      available = false;
-    }
-    setDraft({source, available});
-  }
-
-  return (
-    <div sx={styles.page}>
-      <WorkspaceHeader />
-      <div sx={styles.workspace} role="main">
-        <ProblemPanel title={problem.title} examples={problem.examples} />
-        <EditorPanel
-          filename={problem.filename}
-          source={draft.source}
-          starterCode={problem.starterCode}
-          onSourceChange={updateSource}
-        />
-        <SubmissionActions storageAvailable={draft.available} />
-        <TestResultsPanel examples={problem.examples} />
-      </div>
-    </div>
-  );
-}
-
 const styles = stylex.create({
   page: {
     height: {
@@ -93,3 +56,40 @@ const styles = stylex.create({
     boxShadow: "0 4px 20px #25332e05"
   }
 });
+
+export default function CodingWorkspace() {
+  const [draft, setDraft] = useState(readDraft);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = `${problem.title} · Interview Forge`;
+    return () => {document.title = previousTitle;};
+  }, []);
+
+  function updateSource(source: string) {
+    let available = true;
+    try {
+      localStorage.setItem(draftKey, source);
+    } catch {
+      available = false;
+    }
+    setDraft({source, available});
+  }
+
+  return (
+    <div sx={styles.page}>
+      <WorkspaceHeader />
+      <div sx={styles.workspace} role="main">
+        <ProblemPanel title={problem.title} examples={problem.examples} />
+        <EditorPanel
+          filename={problem.filename}
+          source={draft.source}
+          starterCode={problem.starterCode}
+          onSourceChange={updateSource}
+        />
+        <SubmissionActions storageAvailable={draft.available} />
+        <TestResultsPanel examples={problem.examples} />
+      </div>
+    </div>
+  );
+}

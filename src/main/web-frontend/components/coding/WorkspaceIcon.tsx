@@ -5,10 +5,6 @@ const iconGlyphs = {
   play: "▷", submit: "↑", check: "✓", terminal: "›_", clock: "◷",
 };
 
-export default function WorkspaceIcon({name, size = 16}: {name: keyof typeof iconGlyphs; size?: number}) {
-  return <span sx={styles.icon(size)} aria-hidden="true">{iconGlyphs[name]}</span>;
-}
-
 const styles = stylex.create({
   icon: (size: number) => ({
     fontSize: size,
@@ -22,3 +18,7 @@ const styles = stylex.create({
     fontFamily: "monospace"
   })
 });
+
+export default function WorkspaceIcon({name, size = 16}: {name: keyof typeof iconGlyphs; size?: number}) {
+  return <span sx={styles.icon(size)} aria-hidden="true">{iconGlyphs[name]}</span>;
+}
