@@ -16,7 +16,9 @@ const styles = stylex.create({
     gap: 12,
     minHeight: 49,
     padding: "0 24px",
-    borderBottom: "1px solid #e8ece5",
+    borderBottomWidth: 1,
+    borderBottomStyle: "solid",
+    borderBottomColor: "#393b40",
     flexShrink: 0
   },
   panelLabel: {
@@ -27,7 +29,9 @@ const styles = stylex.create({
     fontWeight: 600
   },
   results: {
-    borderTop: "1px solid #dce1d9",
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: "#43454a",
     minWidth: 0,
     minHeight: 0,
     display: "flex",
@@ -41,13 +45,14 @@ const styles = stylex.create({
     fontSize: 10,
     padding: "2px 7px",
     borderRadius: 4,
-    backgroundColor: "#f3f4f0",
-    color: "#7d8678"
+    backgroundColor: "#393b40",
+    color: "#9da0a8"
   },
   resultsBody: {
     padding: "16px 22px",
     overflowY: "auto",
-    scrollbarWidth: "thin"
+    scrollbarWidth: "thin",
+    scrollbarColor: "#4e5157 transparent"
   },
   caseTabs: {
     display: "flex",
@@ -56,19 +61,29 @@ const styles = stylex.create({
   },
   caseButton: {
     padding: "5px 11px",
-    border: "1px solid transparent",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
     borderRadius: 5,
-    backgroundColor: "transparent",
-    color: "#7d897c",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": "#393b40"
+    },
+    color: "#9da0a8",
     fontSize: 11,
     cursor: "pointer",
     fontFamily: "inherit",
+    outline: {
+      default: "none",
+      ":focus-visible": "2px solid #3574f0"
+    },
+    outlineOffset: 2,
     userSelect: "none"
   },
   selectedCase: {
-    backgroundColor: "#edf3e8",
-    color: "#4a6944",
-    borderColor: "#dce6d4",
+    backgroundColor: "#2e436e",
+    color: "#dfe1e5",
+    borderColor: "#375fad",
     fontWeight: 600
   },
   caseData: {
@@ -80,8 +95,10 @@ const styles = stylex.create({
     gap: 12
   },
   dataBlock: {
-    backgroundColor: "#f7f8f4",
-    border: "1px solid #ecefe7",
+    backgroundColor: "#1e1f22",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#393b40",
     padding: "9px 12px",
     borderRadius: 5,
     minWidth: 0
@@ -89,13 +106,13 @@ const styles = stylex.create({
   dataLabel: {
     fontSize: 10,
     fontWeight: 600,
-    color: "#87917f",
+    color: "#9da0a8",
     marginBottom: 4
   },
   dataValue: {
     fontFamily: '"SFMono-Regular", Consolas, monospace',
     fontSize: 11,
-    color: "#586b50",
+    color: "#bcbec4",
     lineHeight: 1.9,
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere"
@@ -103,7 +120,7 @@ const styles = stylex.create({
   resultsHint: {
     marginTop: 11,
     fontSize: 11,
-    color: "#8c9386",
+    color: "#9da0a8",
     display: "flex",
     alignItems: "center",
     gap: 7

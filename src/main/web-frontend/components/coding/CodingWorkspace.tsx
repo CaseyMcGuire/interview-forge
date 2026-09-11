@@ -27,8 +27,9 @@ const styles = stylex.create({
     minHeight: 640,
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#f3f4f1",
-    color: "#25332e",
+    backgroundColor: "#2b2d30",
+    colorScheme: "dark",
+    color: "#dfe1e5",
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontSize: 14,
     lineHeight: 1.6
@@ -49,11 +50,13 @@ const styles = stylex.create({
       default: "0 20px 20px",
       "@media (max-width: 600px)": "0 8px 8px"
     },
-    border: "1px solid #dce1d9",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#43454a",
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#ffffff",
-    boxShadow: "0 4px 20px #25332e05"
+    backgroundColor: "#2b2d30",
+    boxShadow: "0 4px 20px #00000026"
   }
 });
 

@@ -21,7 +21,9 @@ const styles = stylex.create({
     gap: 12,
     minHeight: 49,
     padding: "0 24px",
-    borderBottom: "1px solid #e8ece5",
+    borderBottomWidth: 1,
+    borderBottomStyle: "solid",
+    borderBottomColor: "#393b40",
     flexShrink: 0
   },
   editorPanel: {
@@ -29,18 +31,21 @@ const styles = stylex.create({
     flexDirection: "column",
     minWidth: 0,
     minHeight: 0,
-    backgroundColor: "#1d2428",
-    color: "#dce3e6"
+    backgroundColor: "#1e1f22",
+    color: "#bcbec4"
   },
   editorHeader: {
-    borderBottom: "1px solid #344047",
+    backgroundColor: "#2b2d30",
+    borderBottomWidth: 1,
+    borderBottomStyle: "solid",
+    borderBottomColor: "#393b40",
     padding: "0 20px",
     flexWrap: "wrap",
     rowGap: 4
   },
   editorTitle: {
     fontWeight: 500,
-    color: "#d0dbd4",
+    color: "#dfe1e5",
     fontSize: 12,
     display: "flex",
     alignItems: "center",
@@ -50,7 +55,7 @@ const styles = stylex.create({
     width: 7,
     height: 7,
     borderRadius: "50%",
-    backgroundColor: "#b79bdd"
+    backgroundColor: "#b589ec"
   },
   editorTools: {
     display: "flex",
@@ -66,21 +71,27 @@ const styles = stylex.create({
     minWidth: 30,
     padding: "4px 7px",
     backgroundColor: "transparent",
-    border: "1px solid transparent",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
     color: {
-      default: "#a5b2b9",
-      ":hover": "#edf4ef"
+      default: "#9da0a8",
+      ":hover": "#dfe1e5"
     },
     borderRadius: 5,
     cursor: "pointer",
     fontSize: 11,
+    outline: {
+      default: "none",
+      ":focus-visible": "2px solid #3574f0"
+    },
     outlineOffset: 2,
     userSelect: "none"
   },
   toolActive: {
-    backgroundColor: "#34443e",
-    color: "#c4dec9",
-    borderColor: "#4a6155"
+    backgroundColor: "#2e436e",
+    color: "#dfe1e5",
+    borderColor: "#375fad"
   },
   toolDisabled: {
     opacity: 0.35,
@@ -89,9 +100,11 @@ const styles = stylex.create({
   fontSelect: {
     fontFamily: "inherit",
     fontSize: 11,
-    backgroundColor: "#263036",
-    color: "#bac6ca",
-    border: "1px solid #425159",
+    backgroundColor: "#393b40",
+    color: "#b4b8bf",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#4e5157",
     padding: "4px 3px",
     borderRadius: 4,
     cursor: "pointer"
@@ -103,12 +116,14 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: 8,
-    color: "#91a097",
+    color: "#b589ec",
     fontSize: 11,
-    borderBottom: "1px solid #273236"
+    borderBottomWidth: 1,
+    borderBottomStyle: "solid",
+    borderBottomColor: "#393b40"
   },
   fileName: {
-    color: "#c5cfc7",
+    color: "#dfe1e5",
     fontFamily: '"SFMono-Regular", Consolas, monospace'
   },
   editor: {
@@ -124,9 +139,12 @@ const styles = stylex.create({
     flexShrink: 0,
     minHeight: 30,
     padding: "0 20px",
-    borderTop: "1px solid #344047",
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: "#393b40",
+    backgroundColor: "#2b2d30",
     fontSize: 10,
-    color: "#8c9ca2"
+    color: "#9da0a8"
   },
   screenReader: {
     position: "absolute",

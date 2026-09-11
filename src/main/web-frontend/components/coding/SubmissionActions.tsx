@@ -8,12 +8,16 @@ type SubmissionActionsProps = {
 
 const styles = stylex.create({
   controls: {
-    borderTop: "1px solid #dce1d9",
-    borderRight: {
-      default: "1px solid #dce1d9",
-      "@media (max-width: 800px)": "none"
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: "#43454a",
+    borderRightWidth: {
+      default: 1,
+      "@media (max-width: 800px)": 0
     },
-    backgroundColor: "#fafbf8",
+    borderRightStyle: "solid",
+    borderRightColor: "#43454a",
+    backgroundColor: "#2b2d30",
     padding: "25px 28px",
     display: "flex",
     flexDirection: "column",
@@ -40,18 +44,21 @@ const styles = stylex.create({
     userSelect: "none"
   },
   runButton: {
-    border: "1px solid #cfd7ca",
-    color: "#7a8977",
-    backgroundColor: "#f2f5ee"
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#4e5157",
+    color: "#9da0a8",
+    backgroundColor: "#393b40"
   },
   submitButton: {
-    border: "1px solid #56735a",
-    backgroundColor: "#56735a",
-    color: "#f4f8f0",
-    opacity: 0.65
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#2e436e",
+    backgroundColor: "#2e436e",
+    color: "#b5ceff"
   },
   executionNote: {
-    color: "#7e897d",
+    color: "#9da0a8",
     fontSize: 12,
     maxWidth: 360,
     lineHeight: 1.7
@@ -60,11 +67,11 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: 7,
-    color: "#69805f",
+    color: "#89cc8e",
     fontSize: 11
   },
   saveError: {
-    color: "#946a40"
+    color: "#f2c55c"
   }
 });
 

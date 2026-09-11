@@ -13,10 +13,12 @@ const styles = stylex.create({
     minWidth: 0,
     display: "flex",
     flexDirection: "column",
-    borderRight: {
-      default: "1px solid #dce1d9",
-      "@media (max-width: 800px)": "none"
-    }
+    borderRightWidth: {
+      default: 1,
+      "@media (max-width: 800px)": 0
+    },
+    borderRightStyle: "solid",
+    borderRightColor: "#43454a"
   },
   panelHeading: {
     display: "flex",
@@ -25,7 +27,9 @@ const styles = stylex.create({
     gap: 12,
     minHeight: 49,
     padding: "0 24px",
-    borderBottom: "1px solid #e8ece5",
+    borderBottomWidth: 1,
+    borderBottomStyle: "solid",
+    borderBottomColor: "#393b40",
     flexShrink: 0
   },
   panelLabel: {
@@ -36,7 +40,7 @@ const styles = stylex.create({
     fontWeight: 600
   },
   muted: {
-    color: "#748077",
+    color: "#9da0a8",
     fontSize: 12
   },
   problemBody: {
@@ -46,13 +50,18 @@ const styles = stylex.create({
       "@media (max-width: 1100px)": "24px"
     },
     scrollbarWidth: "thin",
-    scrollbarColor: "#d5ddd2 transparent"
+    scrollbarColor: "#4e5157 transparent",
+    outline: {
+      default: "none",
+      ":focus-visible": "2px solid #3574f0"
+    },
+    outlineOffset: -2
   },
   eyebrow: {
     fontSize: 10,
     letterSpacing: "1.6px",
     fontWeight: 650,
-    color: "#82907f",
+    color: "#9da0a8",
     textTransform: "uppercase"
   },
   title: {
@@ -75,48 +84,50 @@ const styles = stylex.create({
     lineHeight: 1.4,
     padding: "4px 9px",
     borderRadius: 5,
-    color: "#67736b",
-    backgroundColor: "#f1f3ee"
+    color: "#b4b8bf",
+    backgroundColor: "#393b40"
   },
   easyBadge: {
-    color: "#2a7051",
-    backgroundColor: "#eaf3e9",
+    color: "#89cc8e",
+    backgroundColor: "#253627",
     fontWeight: 600
   },
   paragraph: {
     marginBottom: 14,
-    color: "#536158",
+    color: "#bcbec4",
     fontSize: 14,
     lineHeight: 1.8
   },
   inlineCode: {
     fontFamily: '"SFMono-Regular", Consolas, monospace',
     fontSize: "0.9em",
-    backgroundColor: "#f1f3ee",
+    backgroundColor: "#393b40",
     padding: "2px 5px",
     borderRadius: 4,
-    color: "#435546"
+    color: "#dfe1e5"
   },
   sectionHeading: {
     fontSize: 13,
     fontWeight: 650,
     marginTop: 25,
     marginBottom: 12,
-    color: "#34483a"
+    color: "#dfe1e5"
   },
   requirements: {
-    color: "#536158",
+    color: "#bcbec4",
     fontSize: 13,
     lineHeight: 2
   },
   example: {
-    borderLeft: "2px solid #dce7d5",
+    borderLeftWidth: 2,
+    borderLeftStyle: "solid",
+    borderLeftColor: "#4e5157",
     padding: "1px 0 1px 16px",
     marginBottom: 23
   },
   exampleTitle: {
     fontSize: 11,
-    color: "#7c887b",
+    color: "#9da0a8",
     fontWeight: 600,
     marginBottom: 7
   },
@@ -124,23 +135,23 @@ const styles = stylex.create({
     fontFamily: '"SFMono-Regular", Consolas, monospace',
     fontSize: 12,
     lineHeight: 1.9,
-    color: "#435346",
+    color: "#bcbec4",
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere"
   },
   exampleExplanation: {
     fontSize: 12,
-    color: "#7a847b",
+    color: "#9da0a8",
     lineHeight: 1.7,
     marginTop: 7
   },
   followUp: {
     marginTop: 26,
     padding: "15px 17px",
-    backgroundColor: "#f5f7f2",
+    backgroundColor: "#25324d",
     borderRadius: 7,
     fontSize: 12,
-    color: "#61745e"
+    color: "#b5ceff"
   },
   followUpTitle: {
     fontWeight: 650,

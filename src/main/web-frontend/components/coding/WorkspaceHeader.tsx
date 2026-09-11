@@ -28,8 +28,8 @@ const styles = stylex.create({
     width: 30,
     height: 30,
     borderRadius: 8,
-    backgroundColor: "#244f3e",
-    color: "#e1f2df",
+    backgroundColor: "#3574f0",
+    color: "#ffffff",
     fontFamily: "monospace",
     fontSize: 16
   },
@@ -38,7 +38,7 @@ const styles = stylex.create({
     alignItems: "center",
     gap: 18,
     fontSize: 12,
-    color: "#68756d"
+    color: "#9da0a8"
   },
   contextLabel: {
     display: {
@@ -48,9 +48,11 @@ const styles = stylex.create({
   },
   previewBadge: {
     padding: "4px 10px",
-    border: "1px solid #d7ddd5",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#4e5157",
     borderRadius: 6,
-    color: "#627060",
+    color: "#b4b8bf",
     fontSize: 11,
     fontWeight: 600
   }
