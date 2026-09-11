@@ -1,5 +1,9 @@
 package com.application.config
 
+import com.application.db.policies.LanguagePolicy
+import com.application.db.policies.ProblemLanguagePolicy
+import com.application.db.policies.ProblemPolicy
+import com.application.db.policies.TestCasePolicy
 import com.application.db.policies.UserPolicy
 import com.application.ent.EntClient
 import entkt.postgres.PostgresDriver
@@ -15,6 +19,10 @@ class DatabaseConfiguration {
     return EntClient(PostgresDriver(dataSource, autoDdl = false)) {
       policies {
         users(UserPolicy)
+        problems(ProblemPolicy)
+        languages(LanguagePolicy)
+        problemLanguages(ProblemLanguagePolicy)
+        testCases(TestCasePolicy)
       }
     }
   }
