@@ -1,0 +1,86 @@
+extend type Query {
+  """
+  Finds a published, unarchived problem by its stable URL slug.
+  Returns null when the problem does not exist or is unavailable to the viewer.
+  """
+  problem(slug: String!): Problem
+}
+
+"""Public content needed to read a coding problem and start a solution."""
+type Problem {
+  """Opaque, globally unique problem identifier."""
+  id: ID!
+
+  """Stable URL identifier, such as two-sum."""
+  slug: String!
+
+  """Human-readable problem title."""
+  title: String!
+
+  """Markdown statement, including requirements and constraints."""
+  statementMarkdown: String!
+
+  """Difficulty displayed in the problem view and catalog."""
+  difficulty: ProblemDifficulty!
+
+  """Starter-code configurations for enabled languages, ordered by language key."""
+  languageConfigurations: [ProblemLanguage!]!
+
+  """Public example cases in ascending position order; never includes hidden tests."""
+  examples: [ProblemExample!]!
+}
+
+"""Broad difficulty classification for a coding problem."""
+enum ProblemDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+"""Public editor configuration for one problem and programming language."""
+type ProblemLanguage {
+  """Opaque, globally unique problem-language configuration identifier."""
+  id: ID!
+
+  """Programming language supported by this configuration."""
+  language: Language!
+
+  """Code stencil used to initialize or reset the editor."""
+  starterCode: String!
+
+  """Relative solution filename, such as Solution.kt."""
+  solutionFilename: String!
+}
+
+"""A programming language offered by the coding editor."""
+type Language {
+  """Opaque, globally unique language identifier."""
+  id: ID!
+
+  """Stable machine identifier, such as kotlin or python."""
+  key: String!
+
+  """Human-readable name shown in the language selector."""
+  displayName: String!
+}
+
+"""An official example that may be shown before the problem is solved."""
+type ProblemExample {
+  """Opaque, globally unique example identifier."""
+  id: ID!
+
+  """Nonnegative ordering position within the problem's official test suite."""
+  position: Int!
+
+  """Serialized JSON input describing arguments or a constructor and call sequence."""
+  inputJson: String!
+
+  """
+  Serialized JSON expected result or custom-checker reference data.
+  The string "null" is a valid expectation, not a missing value.
+  """
+  expectedOutputJson: String!
+
+  """Optional Markdown explanation of the example."""
+  explanationMarkdown: String
+}
