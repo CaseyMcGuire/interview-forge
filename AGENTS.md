@@ -2,31 +2,21 @@
 
 Kotlin/Spring Boot + DGS GraphQL, React/Relay, Postgres, EntKt, and Flyway. Gradle builds both server and frontend and downloads Node/npm.
 
-## Task scope
+## Shared instructions
 
-- Implement only what the user asks for, including the minimum supporting changes, required code generation, and focused validation needed for that request.
-- Broader project goals and earlier discussions provide context; they do not authorize implementing the next feature. Do not add adjacent functionality, refactor unrelated code, or introduce dependencies for work the user has not requested.
-- For example, a request to add a route through `spa-route-definitions` means adding the route definition and regenerating its artifacts. It does not authorize building the page, connecting GraphQL data, changing the editor, or adding a Markdown dependency.
-- If the scope is ambiguous, prefer the smallest reasonable interpretation and ask before expanding it. Once the requested change is complete, stop and let the user decide the next step.
+Before starting work, fetch and read [CaseyMcGuire/agent-config's AGENTS.md](https://github.com/CaseyMcGuire/agent-config/blob/master/AGENTS.md). Follow its workflow, general conventions, and applicable linked language and library conventions. Resolve remote links within that repository. If any referenced instructions cannot be retrieved, report the unavailable file or URL.
 
-## Commands and setup
+The project-specific instructions below override conflicting shared defaults.
 
-| Task | Command |
-|---|---|
-| Run app on `localhost:8080` | `./gradlew bootRun` |
-| Watch frontend; refresh browser after rebuild | `./gradlew watchFrontend` |
-| Generate Relay artifacts | `./gradlew buildRelay` |
-| Typecheck frontend | `npm run typecheck` |
-| Production frontend build | `npm run build` |
-| Backend tests (requires Docker) | `./gradlew test` |
-| Apply migrations | `./gradlew flywayMigrate` |
-| Generate EntKt code / validate schemas | `./gradlew generateEntkt` / `./gradlew validateEntSchemas` |
+## Local setup
 
-All Gradle commands require a root `.env` containing `DB_USER`, `DB_PASSWORD`, `DB_NAME`, and `DB_URL_PREFIX`. Use plain `KEY=value` lines without blanks, comments, quotes, or `=` inside values. For prerequisites and fresh-clone setup, read [setup-project](.agents/skills/setup-project/SKILL.md).
+For prerequisites, setup, and run commands, read [setup-project](.agents/skills/setup-project/SKILL.md). Backend integration tests require Docker.
+
+All Gradle commands require a root `.env` containing `DB_USER`, `DB_PASSWORD`, `DB_NAME`, and `DB_URL_PREFIX`. Use plain `KEY=value` lines without blanks, comments, quotes, or `=` inside values.
 
 ## Changes and generated code
 
-- Commit directly to `master` and push; do not create feature branches or PRs.
+- When asked to commit and push, use `master` by default. Create feature branches or PRs only when explicitly requested.
 - Database changes: update `ent-schema/`, add the next `V<N>__description.sql` under `src/main/resources/db/migration/`, run `flywayMigrate`, then rebuild. Flyway owns physical schema changes; keep EntKt automatic DDL disabled.
 - GraphQL schema lives in `src/main/resources/schema/`. After schema changes, rebuild the server for DGS types. After schema, query, or fragment changes, run `buildRelay` and commit its artifacts.
 - Routes and bundle entries originate in `spa-route-definitions/`. Run `./gradlew generateClientRoutes generateBundleEntries` after edits; `buildFrontend` and `watchFrontend` also regenerate them.
