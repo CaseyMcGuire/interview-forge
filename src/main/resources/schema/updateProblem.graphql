@@ -1,0 +1,54 @@
+extend type Mutation {
+  """Updates a problem's content, existing language stencils, and public examples. Admins only."""
+  updateProblem(slug: String!, input: UpdateProblemInput!): UpdateProblemResult!
+}
+
+union UpdateProblemResult = UpdateProblemSuccess | UpdateProblemValidationFailure | UpdateProblemNotFound | UpdateProblemForbidden | UpdateProblemContentChanged
+
+type UpdateProblemSuccess {
+  problem: Problem!
+}
+
+interface UpdateProblemFailure {
+  message: String!
+}
+
+type UpdateProblemValidationFailure implements UpdateProblemFailure {
+  message: String!
+}
+
+type UpdateProblemNotFound implements UpdateProblemFailure {
+  message: String!
+}
+
+type UpdateProblemForbidden implements UpdateProblemFailure {
+  message: String!
+}
+
+"""The submitted child IDs no longer match this problem's editable content."""
+type UpdateProblemContentChanged implements UpdateProblemFailure {
+  message: String!
+}
+
+input UpdateProblemInput {
+  title: String!
+  statementMarkdown: String!
+  difficulty: ProblemDifficulty!
+  languageConfigurations: [UpdateProblemLanguageInput!]!
+  examples: [UpdateProblemExampleInput!]!
+}
+
+input UpdateProblemLanguageInput {
+  """ID of an existing language configuration belonging to this problem."""
+  id: ID!
+  starterCode: String!
+  solutionFilename: String!
+}
+
+input UpdateProblemExampleInput {
+  """ID of an existing public example belonging to this problem."""
+  id: ID!
+  inputJson: String!
+  expectedOutputJson: String!
+  explanationMarkdown: String
+}
