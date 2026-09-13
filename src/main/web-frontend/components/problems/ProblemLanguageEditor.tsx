@@ -10,6 +10,7 @@ type Props = {
   configuration: CreateProblemLanguageInput;
   languages: ProblemCreationFormQuery$data["languages"];
   disabled: boolean;
+  languageLocked?: boolean;
   canRemove: boolean;
   onChange: (configuration: CreateProblemLanguageInput) => void;
   onRemove: () => void;
@@ -72,6 +73,7 @@ export default function ProblemLanguageEditor({
   configuration,
   languages,
   disabled,
+  languageLocked = false,
   canRemove,
   onChange,
   onRemove,
@@ -92,7 +94,7 @@ export default function ProblemLanguageEditor({
             sx={styles.select}
             aria-labelledby={`${id}-language`}
             value={configuration.languageKey}
-            disabled={disabled}
+            disabled={disabled || languageLocked}
             onChange={(event) => onChange({...configuration, languageKey: event.target.value})}
           >
             {languages.map((language) => (

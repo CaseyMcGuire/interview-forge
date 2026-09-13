@@ -3,6 +3,7 @@ import HomePage from "pages/HomePage";
 import ProblemPage from "pages/ProblemPage";
 import ProblemsPage from "pages/ProblemsPage";
 import CreateProblemPage from "pages/CreateProblemPage";
+import EditProblemPage from "pages/EditProblemPage";
 import {createRelayEnvironment, RelayRoot} from "@spa-kit/react-relay";
 import {renderComponent} from "@spa-kit/react";
 import {createSpaRoutingBrowserRouter} from "@spa-kit/react-router";
@@ -31,6 +32,11 @@ const routes: RouteObject[] = [
     id: AppRoutes.CreateProblem.routeId,
     path: AppRoutes.CreateProblem.path,
     element: <CreateProblemPage />
+  },
+  {
+    id: AppRoutes.EditProblem.routeId,
+    path: AppRoutes.EditProblem.path,
+    element: <EditProblemPage />
   },
   {
     id: AppRoutes.Problem.routeId,
