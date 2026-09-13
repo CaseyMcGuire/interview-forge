@@ -2,6 +2,7 @@ package com.application.db.policies
 
 import com.application.db.policies.rules.AllowIfProblemAndLanguageAvailableReadRule
 import com.application.db.policies.rules.AllowIfAdminCreateRule
+import com.application.db.policies.rules.AllowIfAdminUpdateRule
 import com.application.db.validation.EnabledProblemLanguageValidationRule
 import com.application.db.validation.ProblemLanguageContentValidationRule
 import com.application.ent.ProblemLanguage
@@ -13,12 +14,14 @@ import org.springframework.stereotype.Component
 @Component
 class ProblemLanguagePolicy(
   private val adminCreateRule: AllowIfAdminCreateRule,
+  private val adminUpdateRule: AllowIfAdminUpdateRule,
 ) : EntityPolicy<ProblemLanguage, ProblemLanguagePolicyScope> {
   private val contentValidationRule = ProblemLanguageContentValidationRule()
 
   override fun configure(scope: ProblemLanguagePolicyScope) = scope.run {
     privacy {
       create(adminCreateRule)
+      update(adminUpdateRule)
       load(AllowIfProblemAndLanguageAvailableReadRule())
     }
 
