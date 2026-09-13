@@ -5,6 +5,7 @@ import Control from "./WorkspaceControl";
 import Icon from "./WorkspaceIcon";
 
 type EditorPanelProps = {
+  languageKey: string;
   languageName: string;
   filename: string;
   source: string;
@@ -160,7 +161,7 @@ const styles = stylex.create({
   }
 });
 
-export default function EditorPanel({languageName, filename, source, starterCode, onSourceChange}: EditorPanelProps) {
+export default function EditorPanel({languageKey, languageName, filename, source, starterCode, onSourceChange}: EditorPanelProps) {
   const [fontSize, setFontSize] = useState(14);
   const [wordWrap, setWordWrap] = useState(false);
   const [cursor, setCursor] = useState({line: 1, column: 1});
@@ -206,6 +207,8 @@ export default function EditorPanel({languageName, filename, source, starterCode
       </div>
       <div sx={styles.editor}>
         <CodeEditor
+          languageKey={languageKey}
+          label={`${languageName} code editor`}
           value={source}
           fontSize={fontSize}
           wordWrap={wordWrap}

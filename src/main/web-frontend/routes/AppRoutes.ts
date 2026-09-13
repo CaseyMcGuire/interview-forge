@@ -20,6 +20,7 @@ function route<TParams extends object>(path: string, buildPath: (params: TParams
 export const AppRoutes = {
   About: routeWithoutParams("/about", { applicationId: "app", routeId: "About" }),
   Blog: routeWithoutParams("/blog", { applicationId: "app", routeId: "Blog" }),
+  CreateProblem: routeWithoutParams("/problem/create", { applicationId: "app", routeId: "CreateProblem" }),
   Home: routeWithoutParams("/", { applicationId: "app", routeId: "Home" }),
   Login: routeWithoutParams("/login", { applicationId: "app", routeId: "Login" }),
   Problem: route(

@@ -1,4 +1,7 @@
 extend type Query {
+  """Enabled programming languages, ordered by their stable key."""
+  languages: [Language!]!
+
   """Published, unarchived problems ordered by title, then slug, with forward cursor pagination."""
   problems(
     """Maximum edges to return, from 0 to 100. Defaults to 20."""

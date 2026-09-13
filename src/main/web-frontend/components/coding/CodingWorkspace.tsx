@@ -65,7 +65,7 @@ const styles = stylex.create({
 });
 
 export default function CodingWorkspace({problem}: {problem: CodingProblem}) {
-  const configuration = problem.languageConfigurations.find(({language}) => language.key === "kotlin");
+  const configuration = problem.languageConfigurations[0];
   // Device-local drafts. Authenticated workspaces must also scope this key by viewer ID.
   const draftKey = configuration ? `interview-forge:draft:${problem.id}:${configuration.id}:v1` : null;
   const [draft, setDraft] = useState(() => (
@@ -96,6 +96,7 @@ export default function CodingWorkspace({problem}: {problem: CodingProblem}) {
         <ProblemPanel problem={problem} />
         {configuration && draft ? (
           <EditorPanel
+            languageKey={configuration.language.key}
             languageName={configuration.language.displayName}
             filename={configuration.solutionFilename}
             source={draft.source}
@@ -104,7 +105,7 @@ export default function CodingWorkspace({problem}: {problem: CodingProblem}) {
           />
         ) : (
           <div sx={styles.unavailableEditor} role="region" aria-label="Code editor">
-            No Kotlin starter code is available for this problem.
+            No starter code is available for this problem.
           </div>
         )}
         <SubmissionActions storageAvailable={draft?.available} />

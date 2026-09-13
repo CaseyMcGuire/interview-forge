@@ -10,9 +10,6 @@ data class UserDetailsImpl(
 ) : UserDetails {
 
   override fun getAuthorities(): MutableCollection<out GrantedAuthority> {
-    if (user.role == null) {
-      return mutableListOf()
-    }
     return mutableListOf(SimpleGrantedAuthority("ROLE_${user.role}"))
   }
 

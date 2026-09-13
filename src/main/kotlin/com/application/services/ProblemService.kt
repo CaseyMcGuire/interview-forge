@@ -1,6 +1,7 @@
 package com.application.services
 
 import com.application.ent.EntClient
+import com.application.ent.EntTransactionClient
 import com.application.ent.Language
 import com.application.ent.Problem
 import com.application.ent.ProblemLanguage
@@ -9,6 +10,10 @@ import com.application.ent.ProblemQueryScope
 import com.application.ent.TestCase
 import com.application.schema.TestCaseVisibility
 import com.application.schema.ProblemDifficulty
+import com.application.security.CurrentUser
+import entkt.runtime.result.EntConstraintViolationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import entkt.query.isNull
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
@@ -17,9 +22,104 @@ import org.springframework.stereotype.Service
 import java.time.Instant
 
 @Service
-class ProblemService(private val entClient: EntClient) {
+class ProblemService(
+  private val entClient: EntClient,
+  private val currentUser: CurrentUser,
+) {
   // This catalog view uses the same public visibility for signed-in and anonymous visitors.
   private val publicContext = ViewerContext(Viewer.Anonymous)
+
+  fun findEnabledLanguages(): List<Language> = entClient.languages.query {
+    where(Language.enabled eq true)
+    orderBy(Language.key.asc())
+  }.all(publicContext).getOrThrow()
+
+  fun createProblem(input: CreateProblem): Problem {
+    val author = currentUser.requireAdmin()
+    validateRequest(input)
+    val context = ViewerContext(Viewer.User(author.id))
+
+    return try {
+      entClient.withTransaction { tx ->
+        val languageKeys = input.languageConfigurations.map { it.languageKey }
+        val languages = loadEnabledLanguages(tx, languageKeys, context)
+
+        val problem = tx.problems.create {
+          slug = input.slug.trim()
+          title = input.title.trim()
+          statementMarkdown = input.statementMarkdown
+          difficulty = input.difficulty
+          createdByUserId = author.id
+          publishedAt = Instant.now()
+        }.saveAndLoad(context).getOrThrow()
+
+        input.languageConfigurations.forEach { configuration ->
+          tx.problemLanguages.create {
+            problemId = problem.id
+            languageId = languages.getValue(configuration.languageKey).id
+            starterCode = configuration.starterCode
+            solutionFilename = configuration.solutionFilename
+          }.save(context).getOrThrow()
+        }
+
+        input.examples.forEachIndexed { index, example ->
+          tx.testCases.create {
+            problemId = problem.id
+            position = index
+            visibility = TestCaseVisibility.EXAMPLE
+            inputJson = parseExampleJson(example.inputJson, "Example ${index + 1} input")
+            expectedOutputJson = parseExampleJson(example.expectedOutputJson, "Example ${index + 1} expected output")
+            explanationMarkdown = example.explanationMarkdown?.takeIf { it.isNotBlank() }
+          }.save(context).getOrThrow()
+        }
+
+        tx.problems.query {
+          where(Problem.id eq problem.id)
+          loadPublicContent()
+        }.firstOrNull(context).getOrThrow() ?: error("Created problem could not be loaded")
+      }.getOrThrow()
+    } catch (exception: EntConstraintViolationException) {
+      if (exception.driverCode == "23505" && exception.constraint == "idx_problems_slug_unique") {
+        throw IllegalArgumentException("A problem with this slug already exists")
+      }
+      throw exception
+    }
+  }
+
+  private fun validateRequest(input: CreateProblem) {
+    require(input.languageConfigurations.size in 1..20) { "Provide between 1 and 20 language configurations" }
+
+    val languageKeys = input.languageConfigurations.map { it.languageKey }
+    require(languageKeys.distinct().size == languageKeys.size) { "Provide only one configuration per language" }
+
+    require(input.examples.size in 1..20) { "Provide between 1 and 20 examples" }
+  }
+
+  private fun loadEnabledLanguages(
+    tx: EntTransactionClient,
+    languageKeys: List<String>,
+    context: ViewerContext,
+  ): Map<String, Language> {
+    val languages = tx.languages.query {
+      where(Language.key `in` languageKeys)
+      where(Language.enabled eq true)
+    }.all(context).getOrThrow().associateBy { it.key }
+
+    require(languages.size == languageKeys.size) {
+      "Every configuration must use an enabled language from the catalog"
+    }
+
+    return languages
+  }
+
+  private fun parseExampleJson(value: String, label: String): JsonElement {
+    require(value.length <= 20_000) { "$label must be at most 20,000 characters" }
+    return try {
+      Json.parseToJsonElement(value)
+    } catch (_: IllegalArgumentException) {
+      throw IllegalArgumentException("$label must be valid JSON")
+    }
+  }
 
   fun findPublicProblems(
     first: Int,

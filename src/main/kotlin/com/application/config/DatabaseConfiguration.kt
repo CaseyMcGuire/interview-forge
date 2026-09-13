@@ -14,15 +14,22 @@ import javax.sql.DataSource
 @Configuration
 class DatabaseConfiguration {
   @Bean
-  fun entClient(dataSource: DataSource): EntClient {
+  fun entClient(
+    dataSource: DataSource,
+    userPolicy: UserPolicy,
+    problemPolicy: ProblemPolicy,
+    languagePolicy: LanguagePolicy,
+    problemLanguagePolicy: ProblemLanguagePolicy,
+    testCasePolicy: TestCasePolicy,
+  ): EntClient {
     // Flyway owns database changes; registering EntKt schemas only configures runtime metadata.
     return EntClient(PostgresDriver(dataSource, autoDdl = false)) {
       policies {
-        users(UserPolicy)
-        problems(ProblemPolicy)
-        languages(LanguagePolicy)
-        problemLanguages(ProblemLanguagePolicy)
-        testCases(TestCasePolicy)
+        users(userPolicy)
+        problems(problemPolicy)
+        languages(languagePolicy)
+        problemLanguages(problemLanguagePolicy)
+        testCases(testCasePolicy)
       }
     }
   }

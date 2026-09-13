@@ -4,8 +4,10 @@ import com.application.db.policies.rules.AllowIfLanguageEnabledReadRule
 import com.application.ent.Language
 import com.application.ent.LanguagePolicyScope
 import entkt.runtime.privacy.EntityPolicy
+import org.springframework.stereotype.Component
 
-object LanguagePolicy : EntityPolicy<Language, LanguagePolicyScope> {
+@Component
+class LanguagePolicy : EntityPolicy<Language, LanguagePolicyScope> {
   override fun configure(scope: LanguagePolicyScope) = scope.run {
     privacy {
       load(AllowIfLanguageEnabledReadRule())

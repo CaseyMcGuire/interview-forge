@@ -9,4 +9,7 @@ class User : EntSchema("users", clientName = "users") {
 
   val email by string("email").unique()
   val hashedPassword by string("hashed_password").sensitive()
+
+  /** Account permissions; public registration always creates an ordinary user. */
+  val role by enum<UserRole>("role").default(UserRole.USER)
 }

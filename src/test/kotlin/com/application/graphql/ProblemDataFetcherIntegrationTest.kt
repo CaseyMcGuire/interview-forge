@@ -184,8 +184,13 @@ class ProblemDataFetcherIntegrationTest {
   fun `returns public problem content with ordered examples and enabled language stencils`() {
     val problem = createProblem()
     val python = createConfiguration(problem, createLanguage("python"))
-    val kotlin = createConfiguration(problem, createLanguage("kotlin"))
-    createConfiguration(problem, createLanguage("java", enabled = false))
+    val kotlinLanguage = entClient.languages.query {
+      where(Language.key eq "kotlin")
+    }.firstOrNull(fixtureContext).getOrThrow()!!
+    val kotlin = createConfiguration(problem, kotlinLanguage)
+    val java = createLanguage("java")
+    createConfiguration(problem, java)
+    entClient.languages.update(java.id) { enabled = false }.save(fixtureContext).getOrThrow()
     val later = createExample(problem, position = 8, expected = "null")
     val first = createExample(problem, position = 2, explanation = "Use two different positions.")
     val hidden = createExample(problem, position = 1, visibility = TestCaseVisibility.HIDDEN)
@@ -212,7 +217,7 @@ class ProblemDataFetcherIntegrationTest {
     assertEquals("ProblemLanguage:${kotlin.id}", decodeId(configurations.first()["id"]))
     assertEquals(kotlin.starterCode, configurations.first()["starterCode"])
     assertEquals(kotlin.solutionFilename, configurations.first()["solutionFilename"])
-    assertEquals("kotlin display name", configurations.first().obj("language")["displayName"])
+    assertEquals("Kotlin", configurations.first().obj("language")["displayName"])
     assertEquals("Language:${kotlin.languageId}", decodeId(configurations.first().obj("language")["id"]))
 
     val examples = result.objects("examples")
@@ -247,7 +252,9 @@ class ProblemDataFetcherIntegrationTest {
   fun `returns empty lists when there are no public examples or enabled configurations`() {
     val problem = createProblem()
     createExample(problem, position = 0, visibility = TestCaseVisibility.HIDDEN)
-    createConfiguration(problem, createLanguage("disabled-${UUID.randomUUID()}", enabled = false))
+    val language = createLanguage("disabled-${UUID.randomUUID()}")
+    createConfiguration(problem, language)
+    entClient.languages.update(language.id) { enabled = false }.save(fixtureContext).getOrThrow()
 
     val result = requireNotNull(fetchProblem(problem.slug))
     assertEquals(emptyList<Any>(), result["examples"])
@@ -262,10 +269,11 @@ class ProblemDataFetcherIntegrationTest {
     val hidden = createExample(publicProblem, position = 1, visibility = TestCaseVisibility.HIDDEN)
     val draftExample = createExample(draft, position = 0)
     val enabledLanguage = createLanguage("enabled-${UUID.randomUUID()}")
-    val disabledLanguage = createLanguage("disabled-${UUID.randomUUID()}", enabled = false)
+    val disabledLanguage = createLanguage("disabled-${UUID.randomUUID()}")
     val publicConfiguration = createConfiguration(publicProblem, enabledLanguage)
     val draftConfiguration = createConfiguration(draft, enabledLanguage)
     val disabledConfiguration = createConfiguration(publicProblem, disabledLanguage)
+    entClient.languages.update(disabledLanguage.id) { enabled = false }.save(fixtureContext).getOrThrow()
 
     for (viewer in listOf(Viewer.Anonymous, Viewer.User(publicProblem.createdByUserId), Viewer.User(draft.createdByUserId))) {
       val context = ViewerContext(viewer)

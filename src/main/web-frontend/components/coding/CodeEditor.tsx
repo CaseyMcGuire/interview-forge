@@ -9,6 +9,9 @@ import {kotlin} from "@codemirror/legacy-modes/mode/clike";
 import {tags} from "@lezer/highlight";
 
 type CodeEditorProps = {
+  languageKey: string;
+  label?: string;
+  describedBy?: string;
   value: string;
   fontSize: number;
   wordWrap: boolean;
@@ -48,7 +51,7 @@ const editorTheme = EditorView.theme({
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": {backgroundColor: "#494d4e", color: "#9c9e9e"},
 }, {dark: true});
 
-const kotlinHighlighting = HighlightStyle.define([
+const editorHighlighting = HighlightStyle.define([
   {tag: tags.keyword, color: "#cc7832", fontWeight: "600"},
   {tag: [tags.bool, tags.null, tags.atom], color: "#cc7832"},
   {tag: [tags.typeName, tags.className], color: "#aabbcc", fontWeight: "bold"},
@@ -71,7 +74,16 @@ const styles = stylex.create({
   },
 });
 
-export default function CodeEditor({value, fontSize, wordWrap, onChange, onCursorChange}: CodeEditorProps) {
+export default function CodeEditor({
+  languageKey,
+  label = "Code editor",
+  describedBy = "editor-keyboard-help",
+  value,
+  fontSize,
+  wordWrap,
+  onChange,
+  onCursorChange,
+}: CodeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const initialValue = useRef(value);
@@ -79,6 +91,8 @@ export default function CodeEditor({value, fontSize, wordWrap, onChange, onCurso
   const cursorCallback = useRef(onCursorChange);
   const fontCompartment = useRef(new Compartment());
   const wrapCompartment = useRef(new Compartment());
+  const languageCompartment = useRef(new Compartment());
+  const attributesCompartment = useRef(new Compartment());
 
   useEffect(() => {
     changeCallback.current = onChange;
@@ -94,17 +108,13 @@ export default function CodeEditor({value, fontSize, wordWrap, onChange, onCurso
         doc: initialValue.current,
         extensions: [
           basicSetup,
-          StreamLanguage.define(kotlin),
-          syntaxHighlighting(kotlinHighlighting),
+          languageCompartment.current.of([]),
+          syntaxHighlighting(editorHighlighting),
           editorTheme,
           indentUnit.of("    "),
           EditorState.tabSize.of(4),
           keymap.of([indentWithTab]),
-          EditorView.contentAttributes.of({
-            "aria-label": "Kotlin code editor",
-            "aria-describedby": "editor-keyboard-help",
-            spellcheck: "false",
-          }),
+          attributesCompartment.current.of([]),
           fontCompartment.current.of([]),
           wrapCompartment.current.of([]),
           EditorView.updateListener.of((update) => {
@@ -124,6 +134,20 @@ export default function CodeEditor({value, fontSize, wordWrap, onChange, onCurso
       viewRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: [
+        // Languages without an installed parser still have a usable plain-text editor.
+        languageCompartment.current.reconfigure(languageKey === "kotlin" ? StreamLanguage.define(kotlin) : []),
+        attributesCompartment.current.reconfigure(EditorView.contentAttributes.of({
+          "aria-label": label,
+          "aria-describedby": describedBy,
+          spellcheck: "false",
+        })),
+      ],
+    });
+  }, [languageKey, label, describedBy]);
 
   // External changes (such as reset) preserve the editor instance and undo history.
   useEffect(() => {

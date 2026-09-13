@@ -4,6 +4,7 @@ import com.application.dao.UserDao
 import com.application.ent.EntClient
 import com.application.exceptions.UserAlreadyExistsException
 import com.application.services.UserService
+import com.application.schema.UserRole
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntConstraintViolationException
@@ -72,7 +73,8 @@ class UserDaoIntegrationTest {
     assertNotNull(found)
     assertEquals(email, found!!.username)
     assertEquals("hashed-password", found.hashedPassword)
-    assertNull(found.role)
+    assertEquals(UserRole.USER, found.role)
+    assertNotNull(found.id)
 
     // The database still supplies a BIGSERIAL id without changing the original Flyway migration.
     assertTrue(findEntityByEmail(email).id > 0)
@@ -96,12 +98,13 @@ class UserDaoIntegrationTest {
     val created = userService.createUser(email, password)
 
     assertTrue(passwordEncoder.matches(password, created.hashedPassword))
-    assertEquals(created, userService.getUserByUsername(email))
+    assertEquals(created, userService.getUserByUsername(email)?.copy(id = null))
 
     val details = userDetailsService.loadUserByUsername(email)
     assertEquals(email, details.username)
     assertTrue(passwordEncoder.matches(password, details.password))
     assertTrue(details.isEnabled)
+    assertEquals(listOf("ROLE_USER"), details.authorities.map { it.authority })
     assertThrows(UserAlreadyExistsException::class.java) {
       userService.createUser(email, "another-password")
     }
@@ -126,6 +129,18 @@ class UserDaoIntegrationTest {
       entClient.users.deleteById(anonymous, id).getOrThrow()
     }
     assertEquals("original-hash", userDao.findByEmail(email)!!.hashedPassword)
+  }
+
+  @Test
+  fun `public registration cannot create an administrator`() {
+    assertThrows(EntMutationPrivacyDeniedException::class.java) {
+      entClient.users.create {
+        email = "forged-admin@example.com"
+        hashedPassword = "hash"
+        role = UserRole.ADMIN
+      }.save(ViewerContext(Viewer.Anonymous)).getOrThrow()
+    }
+    assertNull(userDao.findByEmail("forged-admin@example.com"))
   }
 
   @Test

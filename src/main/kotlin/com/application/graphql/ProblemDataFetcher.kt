@@ -2,6 +2,10 @@ package com.application.graphql
 
 import com.application.services.ProblemService
 import com.application.services.ProblemCursor
+import com.application.services.CreateProblem
+import com.application.services.CreateProblemExample
+import com.application.services.CreateProblemLanguage
+import com.application.graphql.types.CreateProblemInput
 import com.application.graphql.types.Language
 import com.application.graphql.types.Problem
 import com.application.graphql.types.ProblemDifficulty
@@ -13,9 +17,11 @@ import com.application.graphql.types.ProblemFilterInput
 import com.application.graphql.types.PageInfo
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsQuery
+import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.exceptions.DgsBadRequestException
 import entkt.runtime.query.requireLoaded
+import entkt.runtime.result.EntValidationException
 import com.application.ent.Problem as ProblemEntity
 import com.application.schema.ProblemDifficulty as SchemaProblemDifficulty
 
@@ -24,6 +30,38 @@ class ProblemDataFetcher(
   private val problemService: ProblemService,
   private val globalIdUtil: GlobalIdUtil,
 ) {
+  @DgsQuery
+  fun languages(): List<Language> = problemService.findEnabledLanguages().map { language ->
+    Language(
+      id = globalIdUtil.toGlobalId(Language::class, language.id),
+      key = language.key,
+      displayName = language.displayName,
+    )
+  }
+
+  @DgsMutation
+  fun createProblem(@InputArgument input: CreateProblemInput): Problem {
+    val problem = try {
+      problemService.createProblem(CreateProblem(
+        slug = input.slug,
+        title = input.title,
+        statementMarkdown = input.statementMarkdown,
+        difficulty = SchemaProblemDifficulty.valueOf(input.difficulty.name),
+        languageConfigurations = input.languageConfigurations.map {
+          CreateProblemLanguage(it.languageKey, it.starterCode, it.solutionFilename)
+        },
+        examples = input.examples.map {
+          CreateProblemExample(it.inputJson, it.expectedOutputJson, it.explanationMarkdown)
+        },
+      ))
+    } catch (exception: EntValidationException) {
+      throw DgsBadRequestException(exception.violations.joinToString("; ") { it.message })
+    } catch (exception: IllegalArgumentException) {
+      throw DgsBadRequestException(exception.message ?: "Invalid problem")
+    }
+    return toGraphqlProblem(problem)
+  }
+
   @DgsQuery
   fun problems(
     @InputArgument first: Int?,

@@ -19,6 +19,7 @@ object AppSpaApplication : SpaApplicationDefinition {
   override val routes: List<SpaRouteDefinition> = listOf(
     route("", "Home"),
     route("problems", "Problems"),
+    route("problem/create", "CreateProblem"),
     route("problem/{slug}", "Problem", listOf(string("slug"))),
     route("about", "About"),
     route("blog", "Blog"),

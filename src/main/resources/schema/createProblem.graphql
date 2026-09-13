@@ -1,0 +1,27 @@
+type Mutation {
+  """Creates and publishes a problem with language-specific starter code and shared public examples. Admins only."""
+  createProblem(input: CreateProblemInput!): Problem
+}
+
+input CreateProblemInput {
+  slug: String!
+  title: String!
+  statementMarkdown: String!
+  difficulty: ProblemDifficulty!
+  languageConfigurations: [CreateProblemLanguageInput!]!
+  examples: [CreateProblemExampleInput!]!
+}
+
+input CreateProblemLanguageInput {
+  """Key of an enabled language in the language catalog."""
+  languageKey: String!
+  starterCode: String!
+  solutionFilename: String!
+}
+
+input CreateProblemExampleInput {
+  """Serialized JSON. The string \"null\" is a valid JSON value."""
+  inputJson: String!
+  expectedOutputJson: String!
+  explanationMarkdown: String
+}

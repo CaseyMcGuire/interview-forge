@@ -2,6 +2,7 @@ package com.application.services
 
 import com.application.dao.UserDao
 import com.application.db.models.UserDetailsImpl
+import com.application.schema.UserRole
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.core.userdetails.UsernameNotFoundException
@@ -21,4 +22,9 @@ class UserDetailsServiceImpl(private val userDao: UserDao): UserDetailsService {
 
 }
 
-data class User(val username: String, val hashedPassword: String, val role: String?)
+data class User(
+  val username: String,
+  val hashedPassword: String,
+  val role: UserRole,
+  val id: Long? = null,
+)

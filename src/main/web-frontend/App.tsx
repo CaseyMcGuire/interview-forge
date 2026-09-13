@@ -2,6 +2,7 @@ import {RouterProvider, type RouteObject} from "react-router";
 import HomePage from "pages/HomePage";
 import ProblemPage from "pages/ProblemPage";
 import ProblemsPage from "pages/ProblemsPage";
+import CreateProblemPage from "pages/CreateProblemPage";
 import {createRelayEnvironment, RelayRoot} from "@spa-kit/react-relay";
 import {renderComponent} from "@spa-kit/react";
 import {createSpaRoutingBrowserRouter} from "@spa-kit/react-router";
@@ -13,11 +14,8 @@ import CsrfUtils from "./utils/CsrfUtils";
 import {AppRoutes} from "routes/AppRoutes";
 
 // One route per generated AppRoutes entry (the single source of truth is
-// spa-route-definitions/…/AppSpaApplication.kt). react-router's route.id comes straight
-// from the generated routeId, which spaRoutingResolver sends to /__spa/route-decision;
-// withRouteAuthorization gates each leaf on that decision before it renders. This app
-// declares no server-side route rules, so every decision allows — the wiring exists so
-// adding a rule (e.g. require login) needs no client changes.
+// spa-route-definitions/…/AppSpaApplication.kt). The router sends the generated routeId
+// to /__spa/route-decision and gates each page on that decision before it renders.
 const routes: RouteObject[] = [
   {
     id: AppRoutes.Home.routeId,
@@ -28,6 +26,11 @@ const routes: RouteObject[] = [
     id: AppRoutes.Problems.routeId,
     path: AppRoutes.Problems.path,
     element: <ProblemsPage />
+  },
+  {
+    id: AppRoutes.CreateProblem.routeId,
+    path: AppRoutes.CreateProblem.path,
+    element: <CreateProblemPage />
   },
   {
     id: AppRoutes.Problem.routeId,
@@ -58,8 +61,8 @@ const routes: RouteObject[] = [
 
 const router = createSpaRoutingBrowserRouter(routes, {
   applicationId: AppRoutes.Home.applicationId,
-  // If the decision request fails, allow navigation; data access is enforced server-side.
-  onError: {type: "allow"},
+  // Use the server error page so a failed check cannot loop through another SPA route.
+  onError: {type: "redirect", location: "/error"},
 });
 
 const environment = createRelayEnvironment({
