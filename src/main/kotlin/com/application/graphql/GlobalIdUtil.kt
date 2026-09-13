@@ -25,6 +25,13 @@ class GlobalIdUtil {
     return decoded.substringAfter(':', missingDelimiterValue = "").toLongOrNull()
   }
 
+  // Check the type as well as the numeric ID: Problem:42 must not be accepted as
+  // ProblemExample:42. Re-encoding also verifies that the ID uses our canonical format.
+  fun fromGlobalIdOrNull(globalId: String, type: KClass<*>): Long? {
+    val id = fromGlobalIdOrNull(globalId) ?: return null
+    return id.takeIf { toGlobalId(type, it) == globalId }
+  }
+
   private fun nameOf(type: KClass<*>): String =
     requireNotNull(type.simpleName) { "Cannot create a global id for an anonymous class" }
 }

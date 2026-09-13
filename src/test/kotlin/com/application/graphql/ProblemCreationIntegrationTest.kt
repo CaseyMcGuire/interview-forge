@@ -7,6 +7,7 @@ import com.application.ent.ProblemLanguage
 import com.application.ent.TestCase
 import com.application.db.models.UserDetailsImpl
 import com.application.schema.ProblemDifficulty
+import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
 import jakarta.servlet.Filter
 import jakarta.servlet.http.Cookie
@@ -36,6 +37,7 @@ import entkt.runtime.privacy.Viewer
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntValidationException
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonNull
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.util.UUID
@@ -347,20 +349,177 @@ class ProblemCreationIntegrationTest {
     assertEquals("Create a pair", findProblem(input["slug"] as String)!!.title)
   }
 
-  private fun assertRouteAccess(session: MockHttpSession?, location: String?) {
-    val request = get("/problem/create")
-    session?.let { request.session(it) }
-    val response = mvc.perform(request).andReturn().response
-    assertEquals(if (location == null) 200 else 302, response.status)
-    assertEquals(location, response.redirectedUrl)
+  @Test
+  fun `admin edits existing content while preserving identity and hidden cases`() {
+    val (_, session) = login(UserRole.ADMIN)
+    val created = mutate(input(), session)["data"]["createProblem"]
+    val slug = created["slug"].asString()
+    val before = findProblem(slug)!!
+    val hidden = entClient.testCases.create {
+      problemId = before.id
+      position = 8
+      visibility = TestCaseVisibility.HIDDEN
+      inputJson = JsonPrimitive("private-input")
+      expectedOutputJson = JsonNull
+    }.saveAndLoad(fixtureContext).getOrThrow()
 
-    val decisionRequest = get("/__spa/route-decision")
-      .param("applicationId", "app")
-      .param("routeId", "CreateProblem")
-    session?.let { decisionRequest.session(it) }
-    val decision = objectMapper.readTree(mvc.perform(decisionRequest).andReturn().response.contentAsString)
-    assertEquals(if (location == null) 200 else 302, decision["statusCode"].asInt())
-    if (location != null) assertEquals(location, decision["location"].asString())
+    val edit = editInput(created) + mapOf(
+      "title" to "  Revised pair  ",
+      "statementMarkdown" to "Updated statement.",
+      "difficulty" to "HARD",
+      "languageConfigurations" to listOf(mapOf(
+        "id" to created["languageConfigurations"][0]["id"].asString(),
+        "starterCode" to "class Solution { fun solve() = 42 }",
+        "solutionFilename" to "Pair.kt",
+      )),
+      "examples" to created["examples"].toList().reversed().map { example ->
+        mapOf(
+          "id" to example["id"].asString(),
+          "inputJson" to "[1,2]",
+          "expectedOutputJson" to "null",
+          "explanationMarkdown" to "Updated example.",
+        )
+      },
+    )
+
+    val result = update(slug, edit, session)
+    assertFalse(result.has("errors"), result.toString())
+    assertEquals("UpdateProblemSuccess", result["data"]["updateProblem"]["__typename"].asString())
+    val updated = result["data"]["updateProblem"]["problem"]
+    assertEquals(created["id"], updated["id"])
+    assertEquals(slug, updated["slug"].asString())
+    assertEquals("Revised pair", updated["title"].asString())
+    assertEquals("Updated statement.", updated["statementMarkdown"].asString())
+    assertEquals("HARD", updated["difficulty"].asString())
+    assertEquals(created["languageConfigurations"][0]["id"], updated["languageConfigurations"][0]["id"])
+    assertEquals("Pair.kt", updated["languageConfigurations"][0]["solutionFilename"].asString())
+    assertEquals("class Solution { fun solve() = 42 }", updated["languageConfigurations"][0]["starterCode"].asString())
+    assertEquals(created["examples"].toList().map { it["id"] }, updated["examples"].toList().map { it["id"] })
+    assertEquals(created["examples"].toList().map { it["position"] }, updated["examples"].toList().map { it["position"] })
+    assertTrue(updated["examples"].toList().all { it["expectedOutputJson"].asString() == "null" })
+    assertFalse(updated.toString().contains("private-input"))
+
+    val after = findProblem(slug)!!
+    assertEquals(before.createdByUserId, after.createdByUserId)
+    assertEquals(before.createdAt, after.createdAt)
+    assertEquals(before.publishedAt, after.publishedAt)
+    assertEquals(hidden.inputJson, entClient.testCases.findById(fixtureContext, hidden.id).getOrThrow()!!.inputJson)
+  }
+
+  @Test
+  fun `edits require current admin permissions through GraphQL and Ent`() {
+    val (adminId, admin) = login(UserRole.ADMIN)
+    val (_, ordinary) = login(UserRole.USER)
+    val created = mutate(input(), admin)["data"]["createProblem"]
+    val slug = created["slug"].asString()
+    val edit = editInput(created) + ("title" to "Unauthorized edit")
+
+    for (session in listOf(null, ordinary)) {
+      assertUpdateFailure(update(slug, edit, session), "UpdateProblemForbidden")
+    }
+
+    val problem = findProblem(slug)!!
+    SecurityContextHolder.setContext(sessionContext(admin))
+    try {
+      assertThrows(EntMutationPrivacyDeniedException::class.java) {
+        entClient.problems.update(problem.id) { title = "Spoofed viewer" }
+          .save(ViewerContext(Viewer.User(adminId + 1))).getOrThrow()
+      }
+    } finally {
+      SecurityContextHolder.clearContext()
+    }
+
+    entClient.users.update(adminId) { role = UserRole.USER }.save(fixtureContext).getOrThrow()
+    assertUpdateFailure(update(slug, edit, admin), "UpdateProblemForbidden")
+    assertEquals(created["title"].asString(), findProblem(slug)!!.title)
+  }
+
+  @Test
+  fun `invalid edits and foreign child ids leave the entire problem unchanged`() {
+    val (_, session) = login(UserRole.ADMIN)
+    val created = mutate(input(), session)["data"]["createProblem"]
+    val other = mutate(input(), session)["data"]["createProblem"]
+    val slug = created["slug"].asString()
+    val original = editInput(created)
+    val edited = original + ("title" to "Should roll back")
+    val configuration = mapOf(
+      "id" to created["languageConfigurations"][0]["id"].asString(),
+      "starterCode" to "Changed stencil",
+      "solutionFilename" to "Solution.kt",
+    )
+    val examples = created["examples"].toList().map { example ->
+      mapOf(
+        "id" to example["id"].asString(),
+        "inputJson" to example["inputJson"].asString(),
+        "expectedOutputJson" to example["expectedOutputJson"].asString(),
+      )
+    }
+    val invalidEdits = listOf(
+      "UpdateProblemValidationFailure" to (edited + ("title" to " ")),
+      "UpdateProblemContentChanged" to (edited + ("languageConfigurations" to emptyList<Any>())),
+      "UpdateProblemContentChanged" to (edited + ("examples" to listOf(examples[0], examples[0]))),
+      "UpdateProblemValidationFailure" to (edited +
+        ("languageConfigurations" to listOf(configuration + ("starterCode" to " ")))),
+      "UpdateProblemValidationFailure" to (edited +
+        ("languageConfigurations" to listOf(configuration + ("id" to "not-an-id")))),
+      "UpdateProblemValidationFailure" to (edited +
+        ("languageConfigurations" to listOf(configuration + ("id" to created["id"].asString())))),
+      "UpdateProblemContentChanged" to (edited + ("languageConfigurations" to listOf(configuration +
+        ("id" to other["languageConfigurations"][0]["id"].asString())))),
+      "UpdateProblemContentChanged" to (edited +
+        ("examples" to listOf(examples[0], examples[1] + ("id" to other["examples"][0]["id"].asString())))),
+      "UpdateProblemValidationFailure" to (edited + mapOf(
+        "languageConfigurations" to listOf(configuration),
+        "examples" to listOf(examples[0], examples[1] + ("expectedOutputJson" to "{broken")),
+      )),
+      "UpdateProblemValidationFailure" to (edited + mapOf(
+        "languageConfigurations" to listOf(configuration),
+        "examples" to listOf(
+          examples[0] + ("inputJson" to "[42]"),
+          examples[1] + ("explanationMarkdown" to "x".repeat(10_001)),
+        ),
+      )),
+    )
+
+    for ((failureType, input) in invalidEdits) {
+      val result = update(slug, input, session)
+      assertUpdateFailure(result, failureType)
+      assertEquals(created, fetchProblem(slug))
+    }
+
+    val missing = update("missing-${UUID.randomUUID()}", original, session)
+    assertUpdateFailure(missing, "UpdateProblemNotFound")
+  }
+
+  private fun assertUpdateFailure(response: JsonNode, type: String) {
+    assertFalse(response.has("errors"), response.toString())
+    val result = response["data"]["updateProblem"]
+    assertEquals(type, result["__typename"].asString(), response.toString())
+    assertTrue(result["message"].asString().isNotBlank(), response.toString())
+  }
+
+  private fun assertRouteAccess(session: MockHttpSession?, location: String?) {
+    val routes = mapOf(
+      "CreateProblem" to "/problem/create",
+      "EditProblem" to "/problem/two-sum/edit",
+    )
+
+    for ((routeId, path) in routes) {
+      val request = get(path)
+      session?.let { request.session(it) }
+      val response = mvc.perform(request).andReturn().response
+      assertEquals(if (location == null) 200 else 302, response.status)
+      assertEquals(location, response.redirectedUrl)
+
+      val decisionRequest = get("/__spa/route-decision")
+        .param("applicationId", "app")
+        .param("routeId", routeId)
+      if (routeId == "EditProblem") decisionRequest.param("parameters.slug", "two-sum")
+      session?.let { decisionRequest.session(it) }
+      val decision = objectMapper.readTree(mvc.perform(decisionRequest).andReturn().response.contentAsString)
+      assertEquals(if (location == null) 200 else 302, decision["statusCode"].asInt())
+      if (location != null) assertEquals(location, decision["location"].asString())
+    }
   }
 
   private fun sessionContext(session: MockHttpSession): SecurityContext =
@@ -415,14 +574,52 @@ class ProblemCreationIntegrationTest {
     """
       mutation Create(${'$'}input: CreateProblemInput!) {
         createProblem(input: ${'$'}input) {
-          slug title languageConfigurations { starterCode solutionFilename language { key } }
-          examples { position inputJson expectedOutputJson }
+          $PROBLEM_FIELDS
         }
       }
     """.trimIndent(),
     session,
     mapOf("input" to input),
   )
+
+  private fun editInput(problem: JsonNode): Map<String, Any> = mapOf(
+    "title" to problem["title"].asString(),
+    "statementMarkdown" to problem["statementMarkdown"].asString(),
+    "difficulty" to problem["difficulty"].asString(),
+    "languageConfigurations" to problem["languageConfigurations"].toList().map { configuration ->
+      mapOf(
+        "id" to configuration["id"].asString(),
+        "starterCode" to configuration["starterCode"].asString(),
+        "solutionFilename" to configuration["solutionFilename"].asString(),
+      )
+    },
+    "examples" to problem["examples"].toList().map { example ->
+      mapOf(
+        "id" to example["id"].asString(),
+        "inputJson" to example["inputJson"].asString(),
+        "expectedOutputJson" to example["expectedOutputJson"].asString(),
+        "explanationMarkdown" to example["explanationMarkdown"].takeUnless { it.isNull }?.asString(),
+      )
+    },
+  )
+
+  private fun update(slug: String, input: Map<String, Any>, session: MockHttpSession?): JsonNode = graphql(
+    """
+      mutation Edit(${'$'}slug: String!, ${'$'}input: UpdateProblemInput!) {
+        updateProblem(slug: ${'$'}slug, input: ${'$'}input) {
+          __typename
+          ... on UpdateProblemSuccess { problem { $PROBLEM_FIELDS } }
+          ... on UpdateProblemFailure { message }
+        }
+      }
+    """.trimIndent(),
+    session,
+    mapOf("slug" to slug, "input" to input),
+  )
+
+  private fun fetchProblem(slug: String): JsonNode = graphql(
+    "query { problem(slug: \"$slug\") { $PROBLEM_FIELDS } }"
+  )["data"]["problem"]
 
   private fun graphql(query: String, session: MockHttpSession? = null, variables: Map<String, Any> = emptyMap()): JsonNode {
     val request = post("/graphql")
@@ -442,6 +639,12 @@ class ProblemCreationIntegrationTest {
   }.firstOrNull(fixtureContext).getOrThrow()
 
   companion object {
+    private const val PROBLEM_FIELDS = """
+      id slug title statementMarkdown difficulty
+      languageConfigurations { id starterCode solutionFilename language { key } }
+      examples { id position inputJson expectedOutputJson explanationMarkdown }
+    """
+
     @Container
     @ServiceConnection
     @JvmStatic

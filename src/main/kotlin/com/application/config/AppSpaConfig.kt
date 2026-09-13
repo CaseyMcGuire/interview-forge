@@ -2,6 +2,7 @@ package com.application.config
 
 import com.application.spa.AppSpaApplication
 import com.application.generated.spa.routes.app.CreateProblem
+import com.application.generated.spa.routes.app.EditProblem
 import com.application.security.RequireAdminRouteRule
 import com.sparouting.contract.SpaRouteKey
 import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
@@ -23,5 +24,8 @@ class AppSpaConfig(private val requireAdminRouteRule: RequireAdminRouteRule) : S
   override val rules: List<SpaRouteRule> = listOf(AllowAll())
 
   override val routeRules: Map<SpaRouteKey, List<SpaRouteRule>> =
-    mapOf(CreateProblem to listOf(requireAdminRouteRule))
+    mapOf(
+      CreateProblem to listOf(requireAdminRouteRule),
+      EditProblem to listOf(requireAdminRouteRule),
+    )
 }

@@ -5,7 +5,18 @@ import com.application.services.ProblemCursor
 import com.application.services.CreateProblem
 import com.application.services.CreateProblemExample
 import com.application.services.CreateProblemLanguage
+import com.application.services.UpdateProblem
+import com.application.services.UpdateProblemExample
+import com.application.services.UpdateProblemLanguage
+import com.application.services.ProblemContentChangedException
 import com.application.graphql.types.CreateProblemInput
+import com.application.graphql.types.UpdateProblemInput
+import com.application.graphql.types.UpdateProblemResult
+import com.application.graphql.types.UpdateProblemSuccess
+import com.application.graphql.types.UpdateProblemValidationFailure
+import com.application.graphql.types.UpdateProblemNotFound
+import com.application.graphql.types.UpdateProblemForbidden
+import com.application.graphql.types.UpdateProblemContentChanged
 import com.application.graphql.types.Language
 import com.application.graphql.types.Problem
 import com.application.graphql.types.ProblemDifficulty
@@ -22,6 +33,8 @@ import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.exceptions.DgsBadRequestException
 import entkt.runtime.query.requireLoaded
 import entkt.runtime.result.EntValidationException
+import entkt.runtime.result.EntMutationPrivacyDeniedException
+import org.springframework.security.access.AccessDeniedException
 import com.application.ent.Problem as ProblemEntity
 import com.application.schema.ProblemDifficulty as SchemaProblemDifficulty
 
@@ -60,6 +73,52 @@ class ProblemDataFetcher(
       throw DgsBadRequestException(exception.message ?: "Invalid problem")
     }
     return toGraphqlProblem(problem)
+  }
+
+  @DgsMutation
+  fun updateProblem(@InputArgument slug: String, @InputArgument input: UpdateProblemInput): UpdateProblemResult {
+    val problem = try {
+      problemService.updateProblem(slug, UpdateProblem(
+        title = input.title,
+        statementMarkdown = input.statementMarkdown,
+        difficulty = SchemaProblemDifficulty.valueOf(input.difficulty.name),
+        languageConfigurations = input.languageConfigurations.map {
+          UpdateProblemLanguage(
+            id = requireNotNull(globalIdUtil.fromGlobalIdOrNull(it.id, ProblemLanguage::class)) {
+              "Invalid language configuration ID"
+            },
+            starterCode = it.starterCode,
+            solutionFilename = it.solutionFilename,
+          )
+        },
+        examples = input.examples.map {
+          UpdateProblemExample(
+            id = requireNotNull(globalIdUtil.fromGlobalIdOrNull(it.id, ProblemExample::class)) {
+              "Invalid example ID"
+            },
+            inputJson = it.inputJson,
+            expectedOutputJson = it.expectedOutputJson,
+            explanationMarkdown = it.explanationMarkdown,
+          )
+        },
+      ))
+    } catch (exception: ProblemContentChangedException) {
+      return UpdateProblemContentChanged(message = requireNotNull(exception.message))
+    } catch (_: AccessDeniedException) {
+      return UpdateProblemForbidden(message = "Administrator access is required")
+    } catch (_: EntMutationPrivacyDeniedException) {
+      return UpdateProblemForbidden(message = "You no longer have permission to update this problem")
+    } catch (exception: EntValidationException) {
+      return UpdateProblemValidationFailure(message = exception.violations.joinToString("; ") { it.message })
+    } catch (exception: IllegalArgumentException) {
+      return UpdateProblemValidationFailure(message = exception.message ?: "Invalid problem")
+    }
+
+    return if (problem == null) {
+      UpdateProblemNotFound(message = "This problem is no longer available. Your edits are still here.")
+    } else {
+      UpdateProblemSuccess(problem = toGraphqlProblem(problem))
+    }
   }
 
   @DgsQuery

@@ -10,6 +10,15 @@ class GlobalIdUtilTest {
   private val globalIdUtil = GlobalIdUtil()
 
   private class Post
+  private class Comment
+
+  @Test
+  fun `typed ids reject ids for another entity`() {
+    val globalId = globalIdUtil.toGlobalId(Post::class, 42L)
+    assertEquals(42L, globalIdUtil.fromGlobalIdOrNull(globalId, Post::class))
+    assertNull(globalIdUtil.fromGlobalIdOrNull(globalId, Comment::class))
+    assertNull(globalIdUtil.fromGlobalIdOrNull("invalid", Post::class))
+  }
 
   @Test
   fun `round-trips an id`() {
