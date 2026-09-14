@@ -24,9 +24,6 @@ class ProblemLanguage : EntSchema("problem_languages", clientName = "problemLang
   /** Code stencil placed in the editor when the user starts solving this problem in this language. */
   val starterCode by string("starter_code")
 
-  /** Relative source filename expected by the harness, such as "solution.py" or "Solution.kt". */
-  val solutionFilename by string("solution_filename")
-
   /** Optional during authoring; a usable language configuration must eventually have a private judge. */
   val judgeConfiguration by hasOne<JudgeConfiguration>("judge_configuration")
 
@@ -36,7 +33,7 @@ class ProblemLanguage : EntSchema("problem_languages", clientName = "problemLang
   /** Time this language was added to the problem. */
   val createdAt by instant("created_at").defaultNow().immutable()
 
-  /** Time the starter code or filename was last edited. */
+  /** Time the starter code was last edited. */
   val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 
   /** Prevents competing starter-code configurations for the same problem and language. */

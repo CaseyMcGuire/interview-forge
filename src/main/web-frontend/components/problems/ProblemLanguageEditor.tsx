@@ -4,7 +4,6 @@ import type {CreateProblemLanguageInput} from "__generated__/ProblemCreationForm
 import type {ProblemCreationFormQuery$data} from "__generated__/ProblemCreationFormQuery.graphql";
 import CodeEditor from "components/coding/CodeEditor";
 import Control from "components/coding/WorkspaceControl";
-import ProblemCreationField from "./ProblemCreationField";
 
 type Props = {
   configuration: CreateProblemLanguageInput;
@@ -114,14 +113,6 @@ export default function ProblemLanguageEditor({
           </Control>
         )}
       </div>
-
-      <ProblemCreationField
-        label={`${languageName} solution filename`}
-        value={configuration.solutionFilename}
-        onChange={(solutionFilename) => onChange({...configuration, solutionFilename})}
-        maxLength={255}
-        disabled={disabled}
-      />
 
       <span>Starter code</span>
 

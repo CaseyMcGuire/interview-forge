@@ -58,7 +58,6 @@ class ProblemService(
             problemId = problem.id
             languageId = languages.getValue(configuration.languageKey).id
             starterCode = configuration.starterCode
-            solutionFilename = configuration.solutionFilename
           }.save(context).getOrThrow()
         }
 

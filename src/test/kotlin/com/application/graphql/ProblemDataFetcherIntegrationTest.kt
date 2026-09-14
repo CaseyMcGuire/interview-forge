@@ -216,7 +216,6 @@ class ProblemDataFetcherIntegrationTest {
     assertEquals(listOf(kotlin.id, python.id), configurations.map { decodeId(it["id"]).substringAfter(':').toLong() })
     assertEquals("ProblemLanguage:${kotlin.id}", decodeId(configurations.first()["id"]))
     assertEquals(kotlin.starterCode, configurations.first()["starterCode"])
-    assertEquals(kotlin.solutionFilename, configurations.first()["solutionFilename"])
     assertEquals("Kotlin", configurations.first().obj("language")["displayName"])
     assertEquals("Language:${kotlin.languageId}", decodeId(configurations.first().obj("language")["id"]))
 
@@ -350,7 +349,6 @@ class ProblemDataFetcherIntegrationTest {
       problemId = problem.id
       languageId = language.id
       starterCode = "// ${language.key} starter code"
-      solutionFilename = if (language.key == "python") "solution.py" else "Solution.kt"
     }.saveAndLoad(fixtureContext).getOrThrow()
 
   private fun createExample(
@@ -403,7 +401,7 @@ class ProblemDataFetcherIntegrationTest {
         problem(slug: ${'$'}slug) {
           id slug title statementMarkdown difficulty
           languageConfigurations {
-            id starterCode solutionFilename
+            id starterCode
             language { id key displayName }
           }
           examples { id position inputJson expectedOutputJson explanationMarkdown }

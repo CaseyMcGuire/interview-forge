@@ -85,9 +85,6 @@ type ProblemLanguage {
 
   """Code stencil used to initialize or reset the editor."""
   starterCode: String!
-
-  """Relative solution filename, such as Solution.kt."""
-  solutionFilename: String!
 }
 
 """A programming language offered by the coding editor."""

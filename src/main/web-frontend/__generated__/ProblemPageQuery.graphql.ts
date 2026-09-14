@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<81937c68e6337a58dbc26db854435959>>
+ * @generated SignedSource<<13549f79c27b6b89e82eeb4b2357fc3b>>
  * @lightSyntaxTransform
  */
 
@@ -30,7 +30,6 @@ export type ProblemPageQuery$data = {
         readonly id: string;
         readonly key: string;
       };
-      readonly solutionFilename: string;
       readonly starterCode: string;
     }>;
     readonly slug: string;
@@ -116,13 +115,6 @@ v2 = [
             "args": null,
             "kind": "ScalarField",
             "name": "starterCode",
-            "storageKey": null
-          },
-          {
-            "alias": null,
-            "args": null,
-            "kind": "ScalarField",
-            "name": "solutionFilename",
             "storageKey": null
           },
           {
@@ -218,16 +210,16 @@ return {
     "selections": (v2/*:: as any*/)
   },
   "params": {
-    "cacheID": "467520f164b0ef255dc6a7c027dac4dd",
+    "cacheID": "4c755533a9ea9737116d3dd213deaf19",
     "id": null,
     "metadata": {},
     "name": "ProblemPageQuery",
     "operationKind": "query",
-    "text": "query ProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    statementMarkdown\n    difficulty\n    languageConfigurations {\n      id\n      starterCode\n      solutionFilename\n      language {\n        id\n        key\n        displayName\n      }\n    }\n    examples {\n      id\n      position\n      inputJson\n      expectedOutputJson\n      explanationMarkdown\n    }\n  }\n}\n"
+    "text": "query ProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    statementMarkdown\n    difficulty\n    languageConfigurations {\n      id\n      starterCode\n      language {\n        id\n        key\n        displayName\n      }\n    }\n    examples {\n      id\n      position\n      inputJson\n      expectedOutputJson\n      explanationMarkdown\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "037b7db0595b3f670376ed6bc4da8c4a";
+(node as any).hash = "6188ef3cd9e0e7de2a8c3f5d6032ec61";
 
 export default node;

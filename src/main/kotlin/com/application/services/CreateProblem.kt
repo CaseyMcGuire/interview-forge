@@ -14,7 +14,6 @@ data class CreateProblem(
 data class CreateProblemLanguage(
   val languageKey: String,
   val starterCode: String,
-  val solutionFilename: String,
 )
 
 data class CreateProblemExample(

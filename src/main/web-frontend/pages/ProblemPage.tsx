@@ -29,7 +29,6 @@ export default function ProblemPage() {
         languageConfigurations {
           id
           starterCode
-          solutionFilename
           language {
             id
             key

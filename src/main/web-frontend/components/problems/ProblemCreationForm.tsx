@@ -108,8 +108,7 @@ export default function ProblemCreationForm() {
       ? [
         {
           languageKey: languages[0].key,
-          starterCode: "",
-          solutionFilename: ""
+          starterCode: ""
         }
       ]
       : []
@@ -192,8 +191,7 @@ export default function ProblemCreationForm() {
       ...languageConfigurations,
       {
         languageKey: nextLanguage.key,
-        starterCode: "",
-        solutionFilename: ""
+        starterCode: ""
       }
     ]);
   }

@@ -7,7 +7,6 @@ import Icon from "./WorkspaceIcon";
 type EditorPanelProps = {
   languageKey: string;
   languageName: string;
-  filename: string;
   source: string;
   starterCode: string;
   onSourceChange: (source: string) => void;
@@ -161,7 +160,13 @@ const styles = stylex.create({
   }
 });
 
-export default function EditorPanel({languageKey, languageName, filename, source, starterCode, onSourceChange}: EditorPanelProps) {
+export default function EditorPanel({
+  languageKey,
+  languageName,
+  source,
+  starterCode,
+  onSourceChange,
+}: EditorPanelProps) {
   const [fontSize, setFontSize] = useState(14);
   const [wordWrap, setWordWrap] = useState(false);
   const [cursor, setCursor] = useState({line: 1, column: 1});
@@ -203,7 +208,7 @@ export default function EditorPanel({languageKey, languageName, filename, source
       </div>
       <div sx={styles.fileBar}>
         <Icon name="code" size={14} />
-        <span sx={styles.fileName}>{filename}</span>
+        <span sx={styles.fileName}>Solution</span>
       </div>
       <div sx={styles.editor}>
         <CodeEditor

@@ -98,7 +98,6 @@ export default function CodingWorkspace({problem}: {problem: CodingProblem}) {
           <EditorPanel
             languageKey={configuration.language.key}
             languageName={configuration.language.displayName}
-            filename={configuration.solutionFilename}
             source={draft.source}
             starterCode={configuration.starterCode}
             onSourceChange={updateSource}

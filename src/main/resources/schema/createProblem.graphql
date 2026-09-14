@@ -16,7 +16,6 @@ input CreateProblemLanguageInput {
   """Key of an enabled language in the language catalog."""
   languageKey: String!
   starterCode: String!
-  solutionFilename: String!
 }
 
 input CreateProblemExampleInput {

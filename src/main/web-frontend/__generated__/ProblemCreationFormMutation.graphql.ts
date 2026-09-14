@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<b1ca2461dd612ce7a3944feca3d6620b>>
+ * @generated SignedSource<<6db3f33e4f0dca457568433fb613c516>>
  * @lightSyntaxTransform
  */
 
@@ -19,7 +19,6 @@ export type CreateProblemInput = {
 };
 export type CreateProblemLanguageInput = {
   languageKey: string;
-  solutionFilename: string;
   starterCode: string;
 };
 export type CreateProblemExampleInput = {

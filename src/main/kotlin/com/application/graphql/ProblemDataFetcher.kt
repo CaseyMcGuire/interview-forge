@@ -48,7 +48,7 @@ class ProblemDataFetcher(
         statementMarkdown = input.statementMarkdown,
         difficulty = SchemaProblemDifficulty.valueOf(input.difficulty.name),
         languageConfigurations = input.languageConfigurations.map {
-          CreateProblemLanguage(it.languageKey, it.starterCode, it.solutionFilename)
+          CreateProblemLanguage(it.languageKey, it.starterCode)
         },
         examples = input.examples.map {
           CreateProblemExample(it.inputJson, it.expectedOutputJson, it.explanationMarkdown)
@@ -124,7 +124,6 @@ class ProblemDataFetcher(
             displayName = language.displayName,
           ),
           starterCode = configuration.starterCode,
-          solutionFilename = configuration.solutionFilename,
         )
       }.sortedBy { it.language.key },
       examples = problem.edges.testCases.requireLoaded().map { example ->

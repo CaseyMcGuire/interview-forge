@@ -168,8 +168,8 @@ class ProblemCreationIntegrationTest {
     val python = createLanguage("python-${UUID.randomUUID()}")
     val java = createLanguage("java-${UUID.randomUUID()}")
     val configurations = listOf(
-      configuration(python.key, "def solve():\n    pass\n", "solution.py"),
-      configuration(java.key, "class Solution {}", "Solution.java"),
+      configuration(python.key, "def solve():\n    pass\n"),
+      configuration(java.key, "class Solution {}"),
     )
     val input = input() + ("languageConfigurations" to configurations)
     val result = mutate(input, session)
@@ -181,7 +181,6 @@ class ProblemCreationIntegrationTest {
     for ((index, expected) in configurations.sortedBy { it["languageKey"] }.withIndex()) {
       val configuration = created["languageConfigurations"][index]
       assertEquals(expected["languageKey"], configuration["language"]["key"].asString())
-      assertEquals(expected["solutionFilename"], configuration["solutionFilename"].asString())
       assertEquals(expected["starterCode"], configuration["starterCode"].asString())
     }
     val examples = created["examples"]
@@ -226,12 +225,6 @@ class ProblemCreationIntegrationTest {
       entClient.problemLanguages.update(configuration.id) { starterCode = " " }.save(fixtureContext).getOrThrow()
     }
 
-    expectValidation("solutionFilename") {
-      entClient.problemLanguages.update(configuration.id) {
-        solutionFilename = "../Solution.kt"
-      }.save(fixtureContext).getOrThrow()
-    }
-
     expectValidation("inputJson") {
       entClient.testCases.update(example.id) {
         inputJson = JsonPrimitive("x".repeat(20_000))
@@ -250,7 +243,6 @@ class ProblemCreationIntegrationTest {
         problemId = problem.id
         languageId = disabledLanguage.id
         starterCode = "class Solution {}"
-        solutionFilename = "Solution.kt"
       }.save(fixtureContext).getOrThrow()
     }
 
@@ -285,7 +277,7 @@ class ProblemCreationIntegrationTest {
     }.firstOrNull(fixtureContext).getOrThrow()!!
     entClient.languages.update(kotlin.id) { enabled = false }.save(fixtureContext).getOrThrow()
     try {
-      val input = input() + ("languageConfigurations" to listOf(configuration(python.key, "pass", "solution.py")))
+      val input = input() + ("languageConfigurations" to listOf(configuration(python.key, "pass")))
       val result = mutate(input, session)
       assertFalse(result.has("errors"), result.toString())
       assertEquals(python.key, result["data"]["createProblem"]["languageConfigurations"][0]["language"]["key"].asString())
@@ -305,8 +297,6 @@ class ProblemCreationIntegrationTest {
       listOf(valid, configuration("missing-${UUID.randomUUID()}")),
       listOf(valid, configuration(disabled.key)),
       listOf(valid + ("starterCode" to " ")),
-      listOf(valid + ("solutionFilename" to "")),
-      listOf(valid + ("solutionFilename" to "../Solution.kt")),
     )
     for (configurations in invalidConfigurations) {
       val input = input() + ("languageConfigurations" to configurations)
@@ -404,18 +394,16 @@ class ProblemCreationIntegrationTest {
   private fun configuration(
     languageKey: String = "kotlin",
     starterCode: String = "class Solution { fun solve(): IntArray = TODO() }",
-    solutionFilename: String = "Solution.kt",
   ): Map<String, String> = mapOf(
     "languageKey" to languageKey,
     "starterCode" to starterCode,
-    "solutionFilename" to solutionFilename,
   )
 
   private fun mutate(input: Map<String, Any>, session: MockHttpSession?): JsonNode = graphql(
     """
       mutation Create(${'$'}input: CreateProblemInput!) {
         createProblem(input: ${'$'}input) {
-          slug title languageConfigurations { starterCode solutionFilename language { key } }
+          slug title languageConfigurations { starterCode language { key } }
           examples { position inputJson expectedOutputJson }
         }
       }

@@ -3,7 +3,6 @@ export const sampleProblem = {
   slug: "two-sum",
   title: "Two Sum",
   language: "Kotlin",
-  filename: "Solution.kt",
   starterCode: `class Solution {
     fun twoSum(nums: IntArray, target: Int): IntArray {
         // Write your solution here.
