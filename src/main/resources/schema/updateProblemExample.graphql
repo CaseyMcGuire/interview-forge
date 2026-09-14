@@ -1,0 +1,35 @@
+extend type Mutation {
+  """
+  Updates an existing public example on a published problem. Admins only.
+  Its position and visibility stay unchanged. Other test cases are unaffected.
+  """
+  updateProblemExample(input: UpdateProblemExampleInput!): UpdateProblemExampleResult!
+}
+
+union UpdateProblemExampleResult =
+    UpdateProblemExampleSuccess
+  | ProblemMutationValidationFailure
+  | ProblemMutationNotFound
+  | ProblemMutationForbidden
+
+type UpdateProblemExampleSuccess {
+  example: ProblemExample!
+}
+
+"""
+Partial example update. Omitted fields stay unchanged.
+An input containing only id leaves the example unchanged.
+"""
+input UpdateProblemExampleInput {
+  """Opaque public-example ID returned by ProblemExample.id."""
+  id: ID!
+
+  """Serialized JSON input. The string "null" is valid JSON; explicit GraphQL null is invalid."""
+  inputJson: String
+
+  """Serialized JSON expectation. The string "null" is valid JSON; explicit GraphQL null is invalid."""
+  expectedOutputJson: String
+
+  """Omit to leave unchanged, provide text to update, or provide null to clear the explanation."""
+  explanationMarkdown: String
+}

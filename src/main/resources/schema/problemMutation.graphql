@@ -1,0 +1,25 @@
+interface ProblemMutationFailure {
+  message: String!
+}
+
+"""The mutation input is invalid. No changes were applied."""
+type ProblemMutationValidationFailure implements ProblemMutationFailure {
+  message: String!
+  fieldErrors: [FieldError!]!
+}
+
+type FieldError {
+  """Path within the mutation input, such as title, starterCode, or inputJson."""
+  field: String!
+  message: String!
+}
+
+"""The target problem, language configuration, or public example does not exist or is unavailable for this action."""
+type ProblemMutationNotFound implements ProblemMutationFailure {
+  message: String!
+}
+
+"""The viewer is not authorized to perform this admin action."""
+type ProblemMutationForbidden implements ProblemMutationFailure {
+  message: String!
+}

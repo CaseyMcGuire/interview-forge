@@ -1,0 +1,30 @@
+extend type Mutation {
+  """
+  Updates a published problem's title, statement, or difficulty. Admins only.
+  The slug, language configurations, and test cases stay unchanged.
+  """
+  updateProblem(input: UpdateProblemInput!): UpdateProblemResult!
+}
+
+union UpdateProblemResult =
+    UpdateProblemSuccess
+  | ProblemMutationValidationFailure
+  | ProblemMutationNotFound
+  | ProblemMutationForbidden
+
+type UpdateProblemSuccess {
+  problem: Problem!
+}
+
+"""
+Partial content update. Omitted fields stay unchanged; explicit null is invalid for these required properties.
+An input containing only id leaves the problem unchanged.
+"""
+input UpdateProblemInput {
+  """Opaque problem ID returned by Problem.id; identifies the problem to update."""
+  id: ID!
+
+  title: String
+  statementMarkdown: String
+  difficulty: ProblemDifficulty
+}
