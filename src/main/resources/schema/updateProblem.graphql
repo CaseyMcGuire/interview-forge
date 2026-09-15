@@ -8,16 +8,16 @@ extend type Mutation {
 
 union UpdateProblemResult =
     UpdateProblemSuccess
-  | ProblemMutationValidationFailure
-  | ProblemMutationNotFound
-  | ProblemMutationForbidden
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
 
 type UpdateProblemSuccess {
   problem: Problem!
 }
 
 """
-Partial content update. Omitted fields stay unchanged; explicit null is invalid for these required properties.
+Partial content update. Omitted fields and explicit null leave the existing values unchanged.
 An input containing only id leaves the problem unchanged.
 """
 input UpdateProblemInput {

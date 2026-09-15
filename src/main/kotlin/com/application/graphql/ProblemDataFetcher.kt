@@ -5,6 +5,11 @@ import com.application.services.ProblemCursor
 import com.application.services.CreateProblem
 import com.application.services.CreateProblemExample
 import com.application.services.CreateProblemLanguage
+import com.application.services.FieldUpdate
+import com.application.services.ProblemInputException
+import com.application.services.UpdateProblem
+import com.application.services.UpdateProblemExample
+import com.application.services.UpdateProblemLanguage
 import com.application.graphql.types.CreateProblemInput
 import com.application.graphql.types.Language
 import com.application.graphql.types.Problem
@@ -15,14 +20,37 @@ import com.application.graphql.types.ProblemConnection
 import com.application.graphql.types.ProblemEdge
 import com.application.graphql.types.ProblemFilterInput
 import com.application.graphql.types.PageInfo
+import com.application.graphql.types.DeleteProblemExampleInput
+import com.application.graphql.types.DeleteProblemExampleResult
+import com.application.graphql.types.DeleteProblemExampleSuccess
+import com.application.graphql.types.FieldError
+import com.application.graphql.types.ProblemForbidden
+import com.application.graphql.types.ProblemNotFound
+import com.application.graphql.types.ProblemValidationFailure
+import com.application.graphql.types.UpdateProblemInput
+import com.application.graphql.types.UpdateProblemResult
+import com.application.graphql.types.UpdateProblemSuccess
+import com.application.graphql.types.UpdateProblemExampleInput
+import com.application.graphql.types.UpdateProblemExampleResult
+import com.application.graphql.types.UpdateProblemExampleSuccess
+import com.application.graphql.types.UpdateProblemLanguageInput
+import com.application.graphql.types.UpdateProblemLanguageResult
+import com.application.graphql.types.UpdateProblemLanguageSuccess
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.exceptions.DgsBadRequestException
 import entkt.runtime.query.requireLoaded
+import entkt.runtime.result.EntMutationPrivacyDeniedException
+import entkt.runtime.result.EntTargetAbsentException
 import entkt.runtime.result.EntValidationException
+import graphql.schema.DataFetchingEnvironment
+import org.springframework.security.access.AccessDeniedException
+import kotlin.reflect.KClass
 import com.application.ent.Problem as ProblemEntity
+import com.application.ent.ProblemLanguage as ProblemLanguageEntity
+import com.application.ent.TestCase as TestCaseEntity
 import com.application.schema.ProblemDifficulty as SchemaProblemDifficulty
 
 @DgsComponent
@@ -107,6 +135,139 @@ class ProblemDataFetcher(
     return toGraphqlProblem(problem)
   }
 
+  @DgsMutation
+  fun updateProblem(
+    @InputArgument input: UpdateProblemInput,
+  ): UpdateProblemResult = try {
+    val problem = problemService.updateProblem(UpdateProblem(
+      id = problemContentId(input.id, Problem::class),
+      title = input.title,
+      statementMarkdown = input.statementMarkdown,
+      difficulty = input.difficulty?.let { SchemaProblemDifficulty.valueOf(it.name) },
+    ))
+
+    if (problem == null) {
+      contentNotFound()
+    } else {
+      UpdateProblemSuccess(toGraphqlProblem(problem))
+    }
+  } catch (_: AccessDeniedException) {
+    contentForbidden()
+  } catch (_: EntMutationPrivacyDeniedException) {
+    contentNotFound()
+  } catch (_: EntTargetAbsentException) {
+    contentNotFound()
+  } catch (exception: EntValidationException) {
+    validationFailure(exception)
+  } catch (exception: ProblemInputException) {
+    validationFailure(exception)
+  }
+
+  @DgsMutation
+  fun updateProblemLanguage(
+    @InputArgument input: UpdateProblemLanguageInput,
+  ): UpdateProblemLanguageResult = try {
+    val configuration = problemService.updateProblemLanguage(UpdateProblemLanguage(
+      id = problemContentId(input.id, ProblemLanguage::class),
+      starterCode = input.starterCode,
+    ))
+
+    if (configuration == null) {
+      contentNotFound()
+    } else {
+      UpdateProblemLanguageSuccess(toGraphqlProblemLanguage(configuration))
+    }
+  } catch (_: AccessDeniedException) {
+    contentForbidden()
+  } catch (_: EntMutationPrivacyDeniedException) {
+    contentNotFound()
+  } catch (_: EntTargetAbsentException) {
+    contentNotFound()
+  } catch (exception: EntValidationException) {
+    validationFailure(exception)
+  } catch (exception: ProblemInputException) {
+    validationFailure(exception)
+  }
+
+  @DgsMutation
+  fun updateProblemExample(
+    @InputArgument input: UpdateProblemExampleInput,
+    environment: DataFetchingEnvironment,
+  ): UpdateProblemExampleResult = try {
+    // Explanations can be cleared, so only this field needs to distinguish null from omission.
+    val inputFields = environment.getArgument<Map<String, Any?>>("input").orEmpty()
+    val explanation = if (inputFields.containsKey("explanationMarkdown")) {
+      FieldUpdate.Set(input.explanationMarkdown)
+    } else {
+      FieldUpdate.Unchanged
+    }
+
+    val example = problemService.updateProblemExample(UpdateProblemExample(
+      id = problemContentId(input.id, ProblemExample::class),
+      inputJson = input.inputJson,
+      expectedOutputJson = input.expectedOutputJson,
+      explanationMarkdown = explanation,
+    ))
+
+    if (example == null) {
+      contentNotFound()
+    } else {
+      UpdateProblemExampleSuccess(toGraphqlProblemExample(example))
+    }
+  } catch (_: AccessDeniedException) {
+    contentForbidden()
+  } catch (_: EntMutationPrivacyDeniedException) {
+    contentNotFound()
+  } catch (_: EntTargetAbsentException) {
+    contentNotFound()
+  } catch (exception: EntValidationException) {
+    validationFailure(exception)
+  } catch (exception: ProblemInputException) {
+    validationFailure(exception)
+  }
+
+  @DgsMutation
+  fun deleteProblemExample(
+    @InputArgument input: DeleteProblemExampleInput,
+  ): DeleteProblemExampleResult = try {
+    val problem = problemService.deleteProblemExample(problemContentId(input.id, ProblemExample::class))
+
+    if (problem == null) {
+      contentNotFound()
+    } else {
+      DeleteProblemExampleSuccess(deletedExampleId = input.id, problem = toGraphqlProblem(problem))
+    }
+  } catch (_: AccessDeniedException) {
+    contentForbidden()
+  } catch (_: EntMutationPrivacyDeniedException) {
+    contentNotFound()
+  } catch (_: EntTargetAbsentException) {
+    contentNotFound()
+  } catch (exception: EntValidationException) {
+    validationFailure(exception)
+  } catch (exception: ProblemInputException) {
+    validationFailure(exception)
+  }
+
+  private fun problemContentId(value: String, type: KClass<*>): Long =
+    globalIdUtil.fromGlobalIdOrNull(value, type)
+      ?: throw ProblemInputException("id", "Provide a valid ${type.simpleName} ID")
+
+  private fun contentNotFound() =
+    ProblemNotFound("The requested content does not exist or is unavailable")
+
+  private fun contentForbidden() = ProblemForbidden("Administrator access is required")
+
+  private fun validationFailure(exception: EntValidationException) = ProblemValidationFailure(
+    message = "The problem content is invalid",
+    fieldErrors = exception.violations.map { FieldError(field = it.field.orEmpty(), message = it.message) },
+  )
+
+  private fun validationFailure(exception: ProblemInputException) = ProblemValidationFailure(
+    message = "The problem content is invalid",
+    fieldErrors = listOf(FieldError(field = exception.field, message = exception.message)),
+  )
+
   private fun toGraphqlProblem(problem: ProblemEntity): Problem =
     Problem(
       id = globalIdUtil.toGlobalId(Problem::class, problem.id),
@@ -114,26 +275,31 @@ class ProblemDataFetcher(
       title = problem.title,
       statementMarkdown = problem.statementMarkdown,
       difficulty = ProblemDifficulty.valueOf(problem.difficulty.name),
-      languageConfigurations = problem.edges.languageConfigurations.requireLoaded().mapNotNull { configuration ->
-        val language = configuration.edges.language.requireLoaded() ?: return@mapNotNull null
-        ProblemLanguage(
-          id = globalIdUtil.toGlobalId(ProblemLanguage::class, configuration.id),
-          language = Language(
-            id = globalIdUtil.toGlobalId(Language::class, language.id),
-            key = language.key,
-            displayName = language.displayName,
-          ),
-          starterCode = configuration.starterCode,
-        )
-      }.sortedBy { it.language.key },
-      examples = problem.edges.testCases.requireLoaded().map { example ->
-        ProblemExample(
-          id = globalIdUtil.toGlobalId(ProblemExample::class, example.id),
-          position = example.position,
-          inputJson = example.inputJson.toString(),
-          expectedOutputJson = example.expectedOutputJson.toString(),
-          explanationMarkdown = example.explanationMarkdown,
-        )
-      },
+      languageConfigurations = problem.edges.languageConfigurations.requireLoaded()
+        .map(::toGraphqlProblemLanguage)
+        .sortedBy { it.language.key },
+      examples = problem.edges.testCases.requireLoaded().map(::toGraphqlProblemExample),
     )
+
+  private fun toGraphqlProblemLanguage(configuration: ProblemLanguageEntity): ProblemLanguage {
+    val language = checkNotNull(configuration.edges.language.requireLoaded())
+
+    return ProblemLanguage(
+      id = globalIdUtil.toGlobalId(ProblemLanguage::class, configuration.id),
+      language = Language(
+        id = globalIdUtil.toGlobalId(Language::class, language.id),
+        key = language.key,
+        displayName = language.displayName,
+      ),
+      starterCode = configuration.starterCode,
+    )
+  }
+
+  private fun toGraphqlProblemExample(example: TestCaseEntity): ProblemExample = ProblemExample(
+    id = globalIdUtil.toGlobalId(ProblemExample::class, example.id),
+    position = example.position,
+    inputJson = example.inputJson.toString(),
+    expectedOutputJson = example.expectedOutputJson.toString(),
+    explanationMarkdown = example.explanationMarkdown,
+  )
 }

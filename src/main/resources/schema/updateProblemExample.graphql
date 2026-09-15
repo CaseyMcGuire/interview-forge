@@ -8,9 +8,9 @@ extend type Mutation {
 
 union UpdateProblemExampleResult =
     UpdateProblemExampleSuccess
-  | ProblemMutationValidationFailure
-  | ProblemMutationNotFound
-  | ProblemMutationForbidden
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
 
 type UpdateProblemExampleSuccess {
   example: ProblemExample!
@@ -24,10 +24,10 @@ input UpdateProblemExampleInput {
   """Opaque public-example ID returned by ProblemExample.id."""
   id: ID!
 
-  """Serialized JSON input. The string "null" is valid JSON; explicit GraphQL null is invalid."""
+  """Serialized JSON input. Omit or provide GraphQL null to leave unchanged; the string "null" stores a JSON null value."""
   inputJson: String
 
-  """Serialized JSON expectation. The string "null" is valid JSON; explicit GraphQL null is invalid."""
+  """Serialized JSON expectation. Omit or provide GraphQL null to leave unchanged; the string "null" stores a JSON null value."""
   expectedOutputJson: String
 
   """Omit to leave unchanged, provide text to update, or provide null to clear the explanation."""

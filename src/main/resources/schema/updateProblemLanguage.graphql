@@ -8,16 +8,16 @@ extend type Mutation {
 
 union UpdateProblemLanguageResult =
     UpdateProblemLanguageSuccess
-  | ProblemMutationValidationFailure
-  | ProblemMutationNotFound
-  | ProblemMutationForbidden
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
 
 type UpdateProblemLanguageSuccess {
   problemLanguage: ProblemLanguage!
 }
 
 """
-Partial configuration update. Omitted fields stay unchanged; explicit null is invalid.
+Partial configuration update. Omitted fields and explicit null leave the existing values unchanged.
 An input containing only id leaves the configuration unchanged.
 """
 input UpdateProblemLanguageInput {

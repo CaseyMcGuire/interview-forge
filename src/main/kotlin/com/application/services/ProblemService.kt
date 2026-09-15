@@ -112,7 +112,6 @@ class ProblemService(
   }
 
   private fun parseExampleJson(value: String, label: String): JsonElement {
-    require(value.length <= 20_000) { "$label must be at most 20,000 characters" }
     return try {
       Json.parseToJsonElement(value)
     } catch (_: IllegalArgumentException) {
@@ -169,6 +168,84 @@ class ProblemService(
       where(Problem.slug eq slug)
       loadPublicContent()
     }.firstOrNull(publicContext).visibleOrNull().getOrThrow()
+
+  fun updateProblem(input: UpdateProblem): Problem? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+
+    return entClient.withTransaction { tx ->
+      tx.problems.update(input.id) {
+        input.title?.let { title = it.trim() }
+        input.statementMarkdown?.let { statementMarkdown = it }
+        input.difficulty?.let { difficulty = it }
+      }.save(context).getOrThrow()
+
+      tx.loadProblemContent(input.id, context)
+    }.getOrThrow()
+  }
+
+  fun updateProblemLanguage(input: UpdateProblemLanguage): ProblemLanguage? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+
+    return entClient.withTransaction { tx ->
+      tx.problemLanguages.findById(context, input.id).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      tx.problemLanguages.update(input.id) {
+        input.starterCode?.let { starterCode = it }
+      }.save(context).getOrThrow()
+
+      tx.problemLanguages.query {
+        where(ProblemLanguage.id eq input.id)
+        loadLanguage()
+      }.firstOrNull(context).getOrThrow()
+    }.getOrThrow()
+  }
+
+  fun updateProblemExample(input: UpdateProblemExample): TestCase? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+
+    return entClient.withTransaction { tx ->
+      tx.testCases.findById(context, input.id).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      tx.testCases.update(input.id) {
+        input.inputJson?.let { inputJson = parseUpdatedExampleJson(it, "inputJson") }
+        input.expectedOutputJson?.let { expectedOutputJson = parseUpdatedExampleJson(it, "expectedOutputJson") }
+        if (input.explanationMarkdown is FieldUpdate.Set) {
+          explanationMarkdown = input.explanationMarkdown.value
+        }
+      }.saveAndLoad(context).getOrThrow()
+    }.getOrThrow()
+  }
+
+  fun deleteProblemExample(id: Long): Problem? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+
+    return entClient.withTransaction { tx ->
+      val example = tx.testCases.findById(context, id).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      if (!tx.testCases.deleteById(context, id).getOrThrow()) {
+        return@withTransaction null
+      }
+
+      tx.loadProblemContent(example.problemId, context)
+    }.getOrThrow()
+  }
+
+  private fun EntTransactionClient.loadProblemContent(id: Long, context: ViewerContext): Problem? =
+    problems.query {
+      where(Problem.id eq id)
+      loadPublicContent()
+    }.firstOrNull(context).getOrThrow()
+
+  private fun parseUpdatedExampleJson(value: String, field: String): JsonElement {
+    return try {
+      Json.parseToJsonElement(value)
+    } catch (_: IllegalArgumentException) {
+      throw ProblemInputException(field, "Provide valid JSON")
+    }
+  }
 
   private fun ProblemQueryScope.loadPublicContent() {
     loadLanguageConfigurations {

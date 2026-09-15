@@ -10,6 +10,7 @@ class GlobalIdUtilTest {
   private val globalIdUtil = GlobalIdUtil()
 
   private class Post
+  private class Problem
 
   @Test
   fun `round-trips an id`() {
@@ -34,5 +35,38 @@ class GlobalIdUtilTest {
     val nonNumeric = Base64.getUrlEncoder().withoutPadding().encodeToString("Post:abc".toByteArray())
     assertNull(globalIdUtil.fromGlobalIdOrNull(noColon))
     assertNull(globalIdUtil.fromGlobalIdOrNull(nonNumeric))
+  }
+
+  @Test
+  fun `typed parsing requires a positive ID and the expected type`() {
+    val valid = globalIdUtil.toGlobalId(Problem::class, 42L)
+    assertEquals(42L, globalIdUtil.fromGlobalIdOrNull(valid, Problem::class))
+
+    val invalid = listOf(
+      "Post:42",
+      "Problem:0",
+      "Problem:-1",
+      "Problem",
+      "Problem:",
+      "Problem:abc",
+      "ProblemExtra:42",
+      "Problem:42:extra",
+      "Problem:9223372036854775808",
+    )
+    for (value in invalid) {
+      val encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(value.toByteArray())
+      assertNull(globalIdUtil.fromGlobalIdOrNull(encoded, Problem::class), value)
+    }
+    assertNull(globalIdUtil.fromGlobalIdOrNull("not!!valid@@base64", Problem::class))
+  }
+
+  @Test
+  fun `typed parsing accepts equivalent ID representations`() {
+    val padded = Base64.getUrlEncoder().encodeToString("Problem:42".toByteArray())
+    val leadingZero = Base64.getUrlEncoder().withoutPadding().encodeToString("Problem:042".toByteArray())
+
+    for (value in listOf(padded, leadingZero)) {
+      assertEquals(42L, globalIdUtil.fromGlobalIdOrNull(value, Problem::class), value)
+    }
   }
 }

@@ -1,9 +1,9 @@
-interface ProblemMutationFailure {
+interface ProblemFailure {
   message: String!
 }
 
 """The mutation input is invalid. No changes were applied."""
-type ProblemMutationValidationFailure implements ProblemMutationFailure {
+type ProblemValidationFailure implements ProblemFailure {
   message: String!
   fieldErrors: [FieldError!]!
 }
@@ -15,11 +15,11 @@ type FieldError {
 }
 
 """The target problem, language configuration, or public example does not exist or is unavailable for this action."""
-type ProblemMutationNotFound implements ProblemMutationFailure {
+type ProblemNotFound implements ProblemFailure {
   message: String!
 }
 
 """The viewer is not authorized to perform this admin action."""
-type ProblemMutationForbidden implements ProblemMutationFailure {
+type ProblemForbidden implements ProblemFailure {
   message: String!
 }

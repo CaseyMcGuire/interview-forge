@@ -8,9 +8,9 @@ extend type Mutation {
 
 union DeleteProblemExampleResult =
     DeleteProblemExampleSuccess
-  | ProblemMutationValidationFailure
-  | ProblemMutationNotFound
-  | ProblemMutationForbidden
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
 
 type DeleteProblemExampleSuccess {
   """Opaque ID of the deleted example, for removing it from client state."""

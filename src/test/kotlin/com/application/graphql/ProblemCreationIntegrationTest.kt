@@ -309,6 +309,7 @@ class ProblemCreationIntegrationTest {
   @Test
   fun `invalid content and duplicate slugs are reported without partial problems`() {
     val (_, session) = login(UserRole.ADMIN)
+    val oversizedJson = JsonPrimitive("x".repeat(20_000)).toString()
     val invalidInputs = listOf(
       input() + ("title" to " "),
       input() + ("slug" to "create"),
@@ -317,6 +318,14 @@ class ProblemCreationIntegrationTest {
       input() + ("examples" to emptyList<Any>()),
       input() + ("examples" to listOf(mapOf("inputJson" to "{broken", "expectedOutputJson" to "null"))),
       input() + ("examples" to listOf(mapOf("inputJson" to "null", "expectedOutputJson" to "{broken"))),
+      input() + ("examples" to listOf(mapOf(
+        "inputJson" to oversizedJson,
+        "expectedOutputJson" to "null",
+      ))),
+      input() + ("examples" to listOf(mapOf(
+        "inputJson" to "null",
+        "expectedOutputJson" to oversizedJson,
+      ))),
       input() + ("examples" to listOf(mapOf(
         "inputJson" to "null",
         "expectedOutputJson" to "null",
