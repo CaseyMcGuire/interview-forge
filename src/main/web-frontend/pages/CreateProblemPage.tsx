@@ -1,4 +1,4 @@
-import {Suspense, useEffect} from "react";
+import {Suspense} from "react";
 import * as stylex from "@stylexjs/stylex";
 import PageLayout from "components/PageLayout";
 import ProblemCreationForm from "components/problems/ProblemCreationForm";
@@ -25,12 +25,8 @@ const styles = stylex.create({
 });
 
 export default function CreateProblemPage() {
-  useEffect(() => {
-    document.title = "Create problem · Interview Forge";
-  }, []);
-
   return (
-    <PageLayout>
+    <PageLayout title="Create problem">
       <div sx={styles.content} role="main">
         <div sx={styles.title} role="heading" aria-level={1}>Create problem</div>
         <div sx={styles.description}>

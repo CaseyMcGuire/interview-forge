@@ -176,7 +176,9 @@ export default function ProblemList({query}: ProblemListProps) {
               setPaginationError(null);
               loadNext(20, {
                 onComplete: (error) => {
-                  if (error) setPaginationError("Could not load more problems. Try again.");
+                  if (error) {
+                    setPaginationError("Could not load more problems. Try again.");
+                  }
                 }
               });
             }}

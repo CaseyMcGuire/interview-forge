@@ -1,9 +1,14 @@
 import {useId, useState} from "react";
-import {graphql, useFragment} from "react-relay";
+import {graphql, useFragment, useMutation} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
 import type {ProblemDetailsForm_problem$key} from "__generated__/ProblemDetailsForm_problem.graphql";
+import type {
+  ProblemDetailsFormMutation,
+  UpdateProblemInput
+} from "__generated__/ProblemDetailsFormMutation.graphql";
 import Control from "components/coding/WorkspaceControl";
 import ProblemCreationField from "./ProblemCreationField";
+import ProblemEditFeedback from "./ProblemEditFeedback";
 
 type Props = {
   problem: ProblemDetailsForm_problem$key;
@@ -45,7 +50,9 @@ const styles = stylex.create({
   save: {
     backgroundColor: "#3574f0",
     borderColor: "#3574f0",
-    color: "#ffffff",
+    color: "#ffffff"
+  },
+  disabled: {
     opacity: 0.6,
     cursor: "default"
   }
@@ -64,16 +71,114 @@ export default function ProblemDetailsForm({problem}: Props) {
   const [title, setTitle] = useState(data.title);
   const [statementMarkdown, setStatementMarkdown] = useState(data.statementMarkdown);
   const [difficulty, setDifficulty] = useState(data.difficulty);
+  const [errors, setErrors] = useState<readonly string[]>([]);
+  const [saved, setSaved] = useState(false);
   const id = useId();
 
+  const [commit, isInFlight] = useMutation<ProblemDetailsFormMutation>(graphql`
+    mutation ProblemDetailsFormMutation($input: UpdateProblemInput!) {
+      updateProblem(input: $input) {
+        __typename
+        ... on UpdateProblemSuccess {
+          problem {
+            id
+            title
+            statementMarkdown
+            difficulty
+          }
+        }
+        ... on ProblemValidationFailure {
+          message
+          fieldErrors {
+            message
+          }
+        }
+        ... on ProblemNotFound {
+          message
+        }
+        ... on ProblemForbidden {
+          message
+        }
+      }
+    }
+  `);
+
+  const hasChanges = title !== data.title ||
+    statementMarkdown !== data.statementMarkdown ||
+    difficulty !== data.difficulty;
+  const saveDisabled = !hasChanges || isInFlight;
+
+  function save() {
+    if (saveDisabled) {
+      return;
+    }
+
+    const input: UpdateProblemInput = {id: data.id};
+
+    if (title !== data.title) {
+      input.title = title;
+    }
+
+    if (statementMarkdown !== data.statementMarkdown) {
+      input.statementMarkdown = statementMarkdown;
+    }
+
+    if (difficulty !== data.difficulty && difficulty !== "%future added value") {
+      input.difficulty = difficulty;
+    }
+
+    setErrors([]);
+    setSaved(false);
+
+    commit({
+      variables: {input},
+
+      onCompleted: (response, graphqlErrors) => {
+        const result = response.updateProblem;
+
+        if (graphqlErrors?.length || !result) {
+          setErrors(["The problem could not be saved. Please try again."]);
+          return;
+        }
+
+        switch (result.__typename) {
+          case "UpdateProblemSuccess":
+            setTitle(result.problem.title);
+            setStatementMarkdown(result.problem.statementMarkdown);
+            setDifficulty(result.problem.difficulty);
+            setSaved(true);
+            break;
+
+          case "ProblemValidationFailure":
+            setErrors(result.fieldErrors.length > 0
+              ? result.fieldErrors.map((error) => error.message)
+              : [result.message]);
+            break;
+
+          case "ProblemNotFound":
+          case "ProblemForbidden":
+            setErrors([result.message]);
+            break;
+
+          default:
+            setErrors(["The problem could not be saved. Please try again."]);
+        }
+      },
+
+      onError: () => {
+        setErrors(["The request failed. Your changes are still here; please try again."]);
+      },
+    });
+  }
+
   return (
-    <div sx={styles.form}>
+    <div sx={styles.form} aria-busy={isInFlight}>
       <ProblemCreationField
         label="Title"
         value={title}
         onChange={setTitle}
         maxLength={200}
-        disabled={false}
+        disabled={isInFlight}
       />
 
       <div>
@@ -88,6 +193,7 @@ export default function ProblemDetailsForm({problem}: Props) {
                 difficulty === option.value && styles.selected
               ]}
               pressed={difficulty === option.value}
+              disabled={isInFlight}
               onActivate={() => setDifficulty(option.value)}
             >
               {option.label}
@@ -102,12 +208,22 @@ export default function ProblemDetailsForm({problem}: Props) {
         onChange={setStatementMarkdown}
         rows={9}
         maxLength={100_000}
-        disabled={false}
+        disabled={isInFlight}
       />
 
+      <ProblemEditFeedback errors={errors} saved={saved && !hasChanges} />
+
       <div sx={styles.actions}>
-        <Control appearance={[styles.control, styles.save]} disabled>
-          Save details
+        <Control
+          appearance={[
+            styles.control,
+            styles.save,
+            saveDisabled && styles.disabled
+          ]}
+          disabled={saveDisabled}
+          onActivate={save}
+        >
+          {isInFlight ? "Saving…" : "Save details"}
         </Control>
       </div>
     </div>

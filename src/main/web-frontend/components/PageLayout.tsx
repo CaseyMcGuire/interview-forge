@@ -1,8 +1,9 @@
-import type {ReactNode} from "react";
+import {useEffect, type ReactNode} from "react";
 import * as stylex from "@stylexjs/stylex";
 import WorkspaceHeader from "components/coding/WorkspaceHeader";
 
 type Props = {
+  title: string;
   children: ReactNode;
 };
 
@@ -16,7 +17,11 @@ const styles = stylex.create({
   }
 });
 
-export default function PageLayout({children}: Props) {
+export default function PageLayout({title, children}: Props) {
+  useEffect(() => {
+    document.title = `${title} · Interview Forge`;
+  }, [title]);
+
   return (
     <div sx={styles.page}>
       <WorkspaceHeader />

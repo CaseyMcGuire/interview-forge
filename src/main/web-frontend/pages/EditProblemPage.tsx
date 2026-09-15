@@ -1,4 +1,4 @@
-import {Suspense, useEffect} from "react";
+import {Suspense} from "react";
 import {Link, useParams} from "react-router";
 import {graphql, useLazyLoadQuery} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
@@ -106,17 +106,13 @@ function EditProblemContent({slug}: {slug: string}) {
 export default function EditProblemPage() {
   const {slug} = useParams<"slug">();
 
-  useEffect(() => {
-    document.title = "Edit problem · Interview Forge";
-  }, []);
-
   return (
-    <PageLayout>
+    <PageLayout title="Edit problem">
       <div sx={styles.content} role="main">
         <div sx={styles.title} role="heading" aria-level={1}>Edit problem</div>
 
         <div sx={styles.description}>
-          Edit the problem details, starter code, and public examples. Changes on this page are not saved yet.
+          Edit the problem details, starter code, and public examples. Save each section separately; saved changes are published immediately.
         </div>
 
         <Suspense fallback={<div role="status">Loading problem…</div>}>
@@ -129,7 +125,7 @@ export default function EditProblemPage() {
 
 export function EditProblemPageError() {
   return (
-    <PageLayout>
+    <PageLayout title="Edit problem">
       <div sx={styles.content} role="main">
         <div sx={styles.description} role="alert">
           The problem could not be loaded. Reload the page to try again.

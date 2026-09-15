@@ -1,4 +1,4 @@
-import {Suspense, useEffect} from "react";
+import {Suspense} from "react";
 import * as stylex from "@stylexjs/stylex";
 import {graphql, useLazyLoadQuery} from "react-relay";
 import type {ProblemsPageQuery} from "__generated__/ProblemsPageQuery.graphql";
@@ -45,12 +45,8 @@ function ProblemsContent() {
 }
 
 export default function ProblemsPage() {
-  useEffect(() => {
-    document.title = "Problems · Interview Forge";
-  }, []);
-
   return (
-    <PageLayout>
+    <PageLayout title="Problems">
       <div sx={styles.content} role="main">
         <div sx={styles.title} role="heading" aria-level={1}>Problems</div>
         <div sx={styles.description}>

@@ -1,9 +1,11 @@
 import {useId, useState} from "react";
-import {graphql, useFragment} from "react-relay";
+import {graphql, useFragment, useMutation} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
 import type {ProblemLanguageEditForm_configuration$key} from "__generated__/ProblemLanguageEditForm_configuration.graphql";
+import type {ProblemLanguageEditFormMutation} from "__generated__/ProblemLanguageEditFormMutation.graphql";
 import CodeEditor from "components/coding/CodeEditor";
 import Control from "components/coding/WorkspaceControl";
+import ProblemEditFeedback from "./ProblemEditFeedback";
 
 type Props = {
   configuration: ProblemLanguageEditForm_configuration$key;
@@ -42,7 +44,11 @@ const styles = stylex.create({
     width: "fit-content",
     backgroundColor: "#3574f0",
     color: "#ffffff",
-    opacity: 0.6
+    cursor: "pointer"
+  },
+  disabled: {
+    opacity: 0.6,
+    cursor: "default"
   }
 });
 
@@ -59,17 +65,100 @@ export default function ProblemLanguageEditForm({configuration}: Props) {
   `, configuration);
 
   const [starterCode, setStarterCode] = useState(data.starterCode);
+  const [errors, setErrors] = useState<readonly string[]>([]);
+  const [saved, setSaved] = useState(false);
   const id = useId();
 
+  const [commit, isInFlight] = useMutation<ProblemLanguageEditFormMutation>(graphql`
+    mutation ProblemLanguageEditFormMutation($input: UpdateProblemLanguageInput!) {
+      updateProblemLanguage(input: $input) {
+        __typename
+        ... on UpdateProblemLanguageSuccess {
+          problemLanguage {
+            id
+            starterCode
+          }
+        }
+        ... on ProblemValidationFailure {
+          message
+          fieldErrors {
+            message
+          }
+        }
+        ... on ProblemNotFound {
+          message
+        }
+        ... on ProblemForbidden {
+          message
+        }
+      }
+    }
+  `);
+
+  const hasChanges = starterCode !== data.starterCode;
+  const saveDisabled = !hasChanges || isInFlight;
+
+  function save() {
+    if (saveDisabled) {
+      return;
+    }
+
+    setErrors([]);
+    setSaved(false);
+
+    commit({
+      variables: {
+        input: {
+          id: data.id,
+          starterCode
+        }
+      },
+
+      onCompleted: (response, graphqlErrors) => {
+        const result = response.updateProblemLanguage;
+
+        if (graphqlErrors?.length || !result) {
+          setErrors(["The starter code could not be saved. Please try again."]);
+          return;
+        }
+
+        switch (result.__typename) {
+          case "UpdateProblemLanguageSuccess":
+            setStarterCode(result.problemLanguage.starterCode);
+            setSaved(true);
+            break;
+
+          case "ProblemValidationFailure":
+            setErrors(result.fieldErrors.length > 0
+              ? result.fieldErrors.map((error) => error.message)
+              : [result.message]);
+            break;
+
+          case "ProblemNotFound":
+          case "ProblemForbidden":
+            setErrors([result.message]);
+            break;
+
+          default:
+            setErrors(["The starter code could not be saved. Please try again."]);
+        }
+      },
+
+      onError: () => {
+        setErrors(["The request failed. Your changes are still here; please try again."]);
+      },
+    });
+  }
+
   return (
-    <div sx={styles.form}>
+    <div sx={styles.form} aria-busy={isInFlight}>
       <div sx={styles.heading} role="heading" aria-level={3}>
         {data.language.displayName}
       </div>
 
       <span>Starter code</span>
 
-      <div sx={styles.editor}>
+      <div sx={styles.editor} inert={isInFlight}>
         <CodeEditor
           languageKey={data.language.key}
           label={`${data.language.displayName} starter code`}
@@ -87,10 +176,16 @@ export default function ProblemLanguageEditForm({configuration}: Props) {
       </div>
 
       <div sx={styles.actions}>
-        <Control appearance={styles.save} disabled>
-          Save starter code
+        <Control
+          appearance={[styles.save, saveDisabled && styles.disabled]}
+          disabled={saveDisabled}
+          onActivate={save}
+        >
+          {isInFlight ? "Saving…" : "Save starter code"}
         </Control>
       </div>
+
+      <ProblemEditFeedback errors={errors} saved={saved && !hasChanges} />
     </div>
   );
 }
