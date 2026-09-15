@@ -1,16 +1,9 @@
 import {Suspense, useEffect} from "react";
 import * as stylex from "@stylexjs/stylex";
-import WorkspaceHeader from "components/coding/WorkspaceHeader";
+import PageLayout from "components/PageLayout";
 import ProblemCreationForm from "components/problems/ProblemCreationForm";
 
 const styles = stylex.create({
-  page: {
-    minHeight: "100dvh",
-    backgroundColor: "#1e1f22",
-    color: "#dfe1e5",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    fontSize: 14
-  },
   content: {
     maxWidth: 920,
     margin: "0 auto",
@@ -37,8 +30,7 @@ export default function CreateProblemPage() {
   }, []);
 
   return (
-    <div sx={styles.page}>
-      <WorkspaceHeader />
+    <PageLayout>
       <div sx={styles.content} role="main">
         <div sx={styles.title} role="heading" aria-level={1}>Create problem</div>
         <div sx={styles.description}>
@@ -48,6 +40,6 @@ export default function CreateProblemPage() {
           <ProblemCreationForm />
         </Suspense>
       </div>
-    </div>
+    </PageLayout>
   );
 }

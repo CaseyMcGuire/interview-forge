@@ -1,3 +1,4 @@
+import type {ReactNode} from "react";
 import * as stylex from "@stylexjs/stylex";
 import Control from "components/coding/WorkspaceControl";
 import ProblemCreationField from "./ProblemCreationField";
@@ -9,7 +10,8 @@ type Props = {
   disabled: boolean;
   canRemove: boolean;
   onChange: (example: CreateProblemExampleInput) => void;
-  onRemove: () => void;
+  onRemove?: () => void;
+  children?: ReactNode;
 };
 
 const styles = stylex.create({
@@ -56,6 +58,7 @@ export default function ProblemExampleEditor({
   canRemove,
   onChange,
   onRemove,
+  children,
 }: Props) {
   return (
     <div sx={styles.example}>
@@ -102,6 +105,8 @@ export default function ProblemExampleEditor({
         maxLength={10_000}
         disabled={disabled}
       />
+
+      {children}
     </div>
   );
 }

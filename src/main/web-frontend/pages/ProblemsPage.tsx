@@ -2,17 +2,10 @@ import {Suspense, useEffect} from "react";
 import * as stylex from "@stylexjs/stylex";
 import {graphql, useLazyLoadQuery} from "react-relay";
 import type {ProblemsPageQuery} from "__generated__/ProblemsPageQuery.graphql";
-import WorkspaceHeader from "components/coding/WorkspaceHeader";
+import PageLayout from "components/PageLayout";
 import ProblemList from "components/problems/ProblemList";
 
 const styles = stylex.create({
-  page: {
-    minHeight: "100dvh",
-    backgroundColor: "#1e1f22",
-    color: "#dfe1e5",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    fontSize: 14
-  },
   content: {
     maxWidth: 1040,
     margin: "0 auto",
@@ -57,8 +50,7 @@ export default function ProblemsPage() {
   }, []);
 
   return (
-    <div sx={styles.page}>
-      <WorkspaceHeader />
+    <PageLayout>
       <div sx={styles.content} role="main">
         <div sx={styles.title} role="heading" aria-level={1}>Problems</div>
         <div sx={styles.description}>
@@ -68,6 +60,6 @@ export default function ProblemsPage() {
           <ProblemsContent />
         </Suspense>
       </div>
-    </div>
+    </PageLayout>
   );
 }

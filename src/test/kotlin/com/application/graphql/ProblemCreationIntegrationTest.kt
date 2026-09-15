@@ -347,19 +347,34 @@ class ProblemCreationIntegrationTest {
   }
 
   private fun assertRouteAccess(session: MockHttpSession?, location: String?) {
-    val request = get("/problem/create")
-    session?.let { request.session(it) }
-    val response = mvc.perform(request).andReturn().response
-    assertEquals(if (location == null) 200 else 302, response.status)
-    assertEquals(location, response.redirectedUrl)
+    val routes = listOf(
+      "/problem/create" to "CreateProblem",
+      "/problem/two-sum/edit" to "EditProblem",
+    )
 
-    val decisionRequest = get("/__spa/route-decision")
-      .param("applicationId", "app")
-      .param("routeId", "CreateProblem")
-    session?.let { decisionRequest.session(it) }
-    val decision = objectMapper.readTree(mvc.perform(decisionRequest).andReturn().response.contentAsString)
-    assertEquals(if (location == null) 200 else 302, decision["statusCode"].asInt())
-    if (location != null) assertEquals(location, decision["location"].asString())
+    for ((path, routeId) in routes) {
+      val request = get(path)
+      session?.let { request.session(it) }
+      val response = mvc.perform(request).andReturn().response
+      assertEquals(if (location == null) 200 else 302, response.status)
+      assertEquals(location, response.redirectedUrl)
+
+      val decisionRequest = get("/__spa/route-decision")
+        .param("applicationId", "app")
+        .param("routeId", routeId)
+
+      if (routeId == "EditProblem") {
+        decisionRequest.param("parameters.slug", "two-sum")
+      }
+
+      session?.let { decisionRequest.session(it) }
+      val decision = objectMapper.readTree(mvc.perform(decisionRequest).andReturn().response.contentAsString)
+      assertEquals(if (location == null) 200 else 302, decision["statusCode"].asInt())
+
+      if (location != null) {
+        assertEquals(location, decision["location"].asString())
+      }
+    }
   }
 
   private fun sessionContext(session: MockHttpSession): SecurityContext =
