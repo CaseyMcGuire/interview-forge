@@ -5,6 +5,23 @@ import Control from "components/coding/WorkspaceControl";
 import ProblemCreationField from "./ProblemCreationField";
 import ProblemEditFeedback from "./ProblemEditFeedback";
 
+export type JudgeLimit = {
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+};
+
+/** Bounds shared by the inputs, their hints, and the save-time parse; the server enforces the same ranges. */
+export const judgeLimits = {
+  timeLimitMs: {label: "Time limit", unit: "milliseconds", min: 1, max: 60_000},
+  memoryLimitMb: {label: "Memory limit", unit: "megabytes", min: 1, max: 8_192}
+} satisfies Record<string, JudgeLimit>;
+
+function limitHint(limit: JudgeLimit): string {
+  return `Per test case, from ${limit.min} to ${limit.max.toLocaleString("en-US")} ${limit.unit}.`;
+}
+
 /** Limits stay as text while editing so the fields can be emptied; they are parsed on save. */
 export type ProblemJudgeConfigurationDraft = {
   runtime: string;
@@ -135,10 +152,10 @@ export default function ProblemJudgeConfigurationForm(props: Props) {
           label="Time limit (ms)"
           value={draft.timeLimitMs}
           onChange={(timeLimitMs) => onChange({...draft, timeLimitMs})}
-          hint="Per test case, from 1 to 60,000 milliseconds."
+          hint={limitHint(judgeLimits.timeLimitMs)}
           type="number"
-          min={1}
-          max={60_000}
+          min={judgeLimits.timeLimitMs.min}
+          max={judgeLimits.timeLimitMs.max}
           disabled={isSaving}
         />
 
@@ -146,10 +163,10 @@ export default function ProblemJudgeConfigurationForm(props: Props) {
           label="Memory limit (MB)"
           value={draft.memoryLimitMb}
           onChange={(memoryLimitMb) => onChange({...draft, memoryLimitMb})}
-          hint="Per test case, from 1 to 8,192 megabytes."
+          hint={limitHint(judgeLimits.memoryLimitMb)}
           type="number"
-          min={1}
-          max={8_192}
+          min={judgeLimits.memoryLimitMb.min}
+          max={judgeLimits.memoryLimitMb.max}
           disabled={isSaving}
         />
       </div>
