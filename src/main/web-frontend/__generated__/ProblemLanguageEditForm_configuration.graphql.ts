@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<8f3718eec4ad6442d3d5732f82976352>>
+ * @generated SignedSource<<b07d278ed4f5b27246774ae411a9c0f2>>
  * @lightSyntaxTransform
  */
 
@@ -16,6 +16,7 @@ export type ProblemLanguageEditForm_configuration$data = {
     readonly key: string;
   };
   readonly starterCode: string;
+  readonly " $fragmentSpreads": FragmentRefs<"ProblemJudgeConfigurationEditor_configuration">;
   readonly " $fragmentType": "ProblemLanguageEditForm_configuration";
 };
 export type ProblemLanguageEditForm_configuration$key = {
@@ -67,12 +68,17 @@ const node: ReaderFragment = {
         }
       ],
       "storageKey": null
+    },
+    {
+      "args": null,
+      "kind": "FragmentSpread",
+      "name": "ProblemJudgeConfigurationEditor_configuration"
     }
   ],
   "type": "ProblemLanguage",
   "abstractKey": null
 };
 
-(node as any).hash = "92b7120cd92503ffb5317c1b75b44af3";
+(node as any).hash = "8f88e0733abe2135810812698052d306";
 
 export default node;

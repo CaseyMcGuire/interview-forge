@@ -6,6 +6,7 @@ import type {ProblemLanguageEditFormMutation} from "__generated__/ProblemLanguag
 import CodeEditor from "components/coding/CodeEditor";
 import Control from "components/coding/WorkspaceControl";
 import ProblemEditFeedback from "./ProblemEditFeedback";
+import ProblemJudgeConfigurationEditor from "./ProblemJudgeConfigurationEditor";
 
 type Props = {
   configuration: ProblemLanguageEditForm_configuration$key;
@@ -49,6 +50,10 @@ const styles = stylex.create({
   disabled: {
     opacity: 0.6,
     cursor: "default"
+  },
+  judge: {
+    paddingTop: 18,
+    borderTop: "1px solid #393b40"
   }
 });
 
@@ -61,6 +66,7 @@ export default function ProblemLanguageEditForm({configuration}: Props) {
         key
         displayName
       }
+      ...ProblemJudgeConfigurationEditor_configuration
     }
   `, configuration);
 
@@ -186,6 +192,10 @@ export default function ProblemLanguageEditForm({configuration}: Props) {
       </div>
 
       <ProblemEditFeedback errors={errors} saved={saved && !hasChanges} />
+
+      <div sx={styles.judge}>
+        <ProblemJudgeConfigurationEditor configuration={data} />
+      </div>
     </div>
   );
 }

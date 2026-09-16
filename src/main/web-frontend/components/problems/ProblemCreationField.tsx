@@ -7,7 +7,10 @@ type Props = {
   onChange: (value: string) => void;
   hint?: string;
   rows?: number;
-  maxLength: number;
+  maxLength?: number;
+  type?: "text" | "number";
+  min?: number;
+  max?: number;
   disabled: boolean;
 };
 
@@ -51,6 +54,9 @@ export default function ProblemCreationField({
   hint,
   rows,
   maxLength,
+  type = "text",
+  min,
+  max,
   disabled,
 }: Props) {
   const id = useId();
@@ -71,7 +77,7 @@ export default function ProblemCreationField({
       {rows ? (
         <textarea {...props} sx={styles.input} rows={rows} />
       ) : (
-        <input {...props} sx={styles.input} />
+        <input {...props} sx={styles.input} type={type} min={min} max={max} />
       )}
 
       {hint && <span id={`${id}-hint`} sx={styles.hint}>{hint}</span>}

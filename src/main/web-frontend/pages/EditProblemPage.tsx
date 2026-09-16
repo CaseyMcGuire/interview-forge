@@ -117,7 +117,7 @@ export default function EditProblemPage() {
         <div sx={styles.title} role="heading" aria-level={1}>Edit problem</div>
 
         <div sx={styles.description}>
-          Edit the problem details, starter code, and public examples, or add hidden test cases. Save each section separately; saved changes take effect immediately.
+          Edit the problem details, starter code, judge configurations, and public examples, or add hidden test cases. Save each section separately; saved changes take effect immediately.
         </div>
 
         <Suspense fallback={<div role="status">Loading problem…</div>}>
