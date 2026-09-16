@@ -1,0 +1,85 @@
+extend type Mutation {
+  """
+  Queues an authenticated user's Run for an enabled language on a published, unarchived problem.
+  Uses public examples or supplied custom cases; never reads hidden tests or marks a problem solved.
+  Each success creates a new retained submission. Expected failures create no submission.
+  Compilation and execution failures belong to the accepted submission's results.
+  """
+  runSubmission(input: RunSubmissionInput!): RunSubmissionResult!
+}
+
+union RunSubmissionResult =
+    RunSubmissionSuccess
+  | SubmissionValidationFailure
+  | AuthenticationRequired
+  | ProblemNotFound
+  | ExecutionUnavailable
+  | ExecutionBusy
+
+type RunSubmissionSuccess {
+  """Persisted Run, normally QUEUED; execution may advance before the response is resolved."""
+  submission: Submission!
+}
+
+input RunSubmissionInput {
+  """
+  Opaque ID returned by ProblemLanguage.id. The server derives ownership and execution settings.
+  Malformed, wrong-type, missing, or unavailable configuration IDs return ProblemNotFound.
+  """
+  problemLanguageId: ID!
+
+  """Nonblank solution source, at most 50,000 characters. Preserved without trimming."""
+  sourceCode: String!
+
+  """
+  Omit or provide null to run all public examples in their position order.
+  Provide 1 to 20 custom cases to replace the examples, preserving list order.
+  An empty list is invalid. Example suites must also contain 1 to 20 cases;
+  otherwise the server returns ExecutionUnavailable without truncating the suite.
+  """
+  customCases: [RunSubmissionCaseInput!]
+}
+
+input RunSubmissionCaseInput {
+  """
+  One serialized JSON value, at most 20,000 characters when compactly serialized.
+  The string "null" is a valid JSON input.
+  """
+  inputJson: String!
+
+  """
+  Optional serialized JSON expectation, at most 20,000 characters when compactly serialized.
+  Omit or provide GraphQL null to run without comparison; the string "null" is compared as JSON null.
+  Comparison ignores object key order and whitespace, preserves array order and JSON types,
+  and compares numbers by value without rounding through floating point.
+  """
+  expectedOutputJson: String
+}
+
+"""Invalid Run input. No submission or case records were created."""
+type SubmissionValidationFailure {
+  message: String!
+
+  """One or more errors at input paths such as sourceCode, customCases, or customCases[0].inputJson."""
+  fieldErrors: [FieldError!]!
+}
+
+"""A signed-in user is required. No submission was created."""
+type AuthenticationRequired {
+  message: String!
+}
+
+"""
+Execution is unavailable for this problem-language configuration. No submission was created.
+Includes missing execution settings, unsupported languages or checkers, unavailable runtimes,
+and an empty or oversized example suite. Initially only Kotlin with exact JSON comparison is supported.
+"""
+type ExecutionUnavailable {
+  """Safe explanation without private configuration or infrastructure diagnostics."""
+  message: String!
+}
+
+"""Execution admission limits were reached. No submission was created; the caller may retry later."""
+type ExecutionBusy {
+  message: String!
+}

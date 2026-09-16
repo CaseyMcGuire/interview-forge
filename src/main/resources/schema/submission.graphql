@@ -1,0 +1,151 @@
+extend type Query {
+  """
+  Polls a retained Run belonging to the signed-in user, including after its problem is edited or archived.
+  Returns null for unauthenticated viewers, malformed or wrong-type IDs, missing submissions,
+  other users' submissions, and submission kinds other than Run.
+  """
+  submission(id: ID!): Submission
+}
+
+"""A retained Run and its execution progress. Visible only to its authenticated owner."""
+type Submission {
+  """Opaque, globally unique submission identifier used for polling."""
+  id: ID!
+
+  status: SubmissionStatus!
+
+  """
+  Null until FINISHED, then always present. EXECUTED means the Run completed normally;
+  individual cases may still have WRONG_ANSWER outcomes. A Run never awards an accepted solution.
+  """
+  verdict: SubmissionVerdict
+
+  """Number of snapshotted cases, from 1 to 20; fixed when the Run is accepted."""
+  totalCases: Int!
+
+  """Number of PASSED cases so far. Cases without an expectation do not increase this count."""
+  passedCases: Int!
+
+  """Sum of available per-case runtimes in milliseconds, excluding compilation; null if none were measured."""
+  runtimeMs: Int
+
+  """Highest available per-case memory measurement in megabytes; null if none were measured."""
+  peakMemoryMb: Int
+
+  """Safe failure explanation, at most 20,000 characters; null when there is no explanation."""
+  publicErrorMessage: String
+
+  """Acceptance time as an ISO 8601 UTC timestamp."""
+  createdAt: String!
+
+  """Execution start as an ISO 8601 UTC timestamp; null until the worker starts the Run."""
+  startedAt: String
+
+  """Completion time as an ISO 8601 UTC timestamp; present exactly when status is FINISHED."""
+  finishedAt: String
+
+  """
+  All snapshotted cases in ascending position order, including pending and skipped cases.
+  Contains exactly totalCases results. Only public examples and custom cases are exposed.
+  """
+  testResults: [SubmissionTestResult!]!
+}
+
+enum SubmissionStatus {
+  """Accepted and waiting for a worker."""
+  QUEUED
+
+  """A worker has started compilation or case execution."""
+  RUNNING
+
+  """Terminal state, including compilation, runtime, and infrastructure failures."""
+  FINISHED
+}
+
+"""
+Overall Run result. If multiple cases fail to execute, use the first failure in case order;
+an infrastructure failure takes precedence. Comparison failures alone leave the Run EXECUTED.
+"""
+enum SubmissionVerdict {
+  EXECUTED
+  COMPILE_ERROR
+  RUNTIME_ERROR
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  INTERNAL_ERROR
+}
+
+"""An immutable case snapshot and its latest result, visible only to the Run's owner."""
+type SubmissionTestResult {
+  """Opaque, globally unique case-result identifier."""
+  id: ID!
+
+  """Zero-based order within this Run, independent of the original example's position."""
+  position: Int!
+
+  source: SubmissionTestSource!
+
+  """Snapshotted input as compact JSON, at most 20,000 characters."""
+  inputJson: String!
+
+  """
+  Snapshotted expectation as compact JSON, at most 20,000 characters.
+  GraphQL null means no comparison; the string "null" is a JSON null expectation.
+  """
+  expectedOutputJson: String
+
+  outcome: SubmissionTestOutcome!
+
+  """
+  Captured result as compact JSON, at most 20,000 characters; null if no valid result is available.
+  The string "null" represents a returned JSON null value. Invalid or oversized output is a runtime failure.
+  """
+  actualOutputJson: String
+
+  """
+  Captured stdout, truncated to at most 20,000 characters; null if unavailable.
+  The execution protocol reserves stdout for exactly one JSON result, not additional debug text.
+  """
+  stdout: String
+
+  """Captured diagnostic stderr, truncated to at most 20,000 characters; null if unavailable."""
+  stderr: String
+
+  """Measured case execution time in milliseconds, excluding compilation; null if unavailable."""
+  runtimeMs: Int
+
+  """Measured peak memory in megabytes; null if unavailable."""
+  peakMemoryMb: Int
+}
+
+enum SubmissionTestSource {
+  """A public example snapshotted when the Run was accepted."""
+  EXAMPLE
+
+  """A custom case supplied in the Run input."""
+  CUSTOM
+}
+
+enum SubmissionTestOutcome {
+  """The case has no final outcome yet, including while it is executing."""
+  PENDING
+
+  """Execution succeeded and the result matched the expectation."""
+  PASSED
+
+  """Execution succeeded but the result did not match the expectation."""
+  WRONG_ANSWER
+
+  """Execution succeeded without an expectation to compare against."""
+  EXECUTED
+
+  """The program failed, violated the output protocol, or exceeded the output limit."""
+  RUNTIME_ERROR
+
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  INTERNAL_ERROR
+
+  """Not executed because compilation failed or execution infrastructure stopped the Run."""
+  SKIPPED
+}
