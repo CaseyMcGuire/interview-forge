@@ -197,8 +197,8 @@ class ProblemDataFetcherIntegrationTest {
     createExample(createProblem(), position = 0)
     entClient.judgeConfigurations.create {
       problemLanguageId = kotlin.id
-      runtimeKey = "kotlin-test"
-      harnessSource = "private harness source"
+      runtime = "kotlin-test"
+      testDriverCode = "private test driver code"
       checkerSource = "private checker source"
       timeLimitMs = 1000
       memoryLimitMb = 256
@@ -229,7 +229,7 @@ class ProblemDataFetcherIntegrationTest {
     assertEquals(JsonNull, Json.parseToJsonElement(examples.last()["expectedOutputJson"] as String))
     assertNull(examples.last()["explanationMarkdown"])
     assertFalse(examples.any { decodeId(it["id"]) == "ProblemExample:${hidden.id}" })
-    assertFalse(result.toString().contains("private harness source"))
+    assertFalse(result.toString().contains("private test driver code"))
     assertFalse(result.toString().contains("private checker source"))
   }
 

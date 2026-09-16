@@ -4,7 +4,10 @@ import entkt.schema.EntId
 import entkt.schema.EntSchema
 import entkt.schema.OnDelete
 
-/** Private execution settings. Sensitive fields are redacted from strings, not access-controlled yet. */
+/**
+ * Private execution settings, created whole with every field present.
+ * Sensitive fields are redacted from strings, not access-controlled yet.
+ */
 class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judgeConfigurations") {
   /** Database-generated identity for this private configuration. */
   override fun id() = EntId.long()
@@ -16,11 +19,11 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
     .inverse(ProblemLanguage::judgeConfiguration)
     .onDelete(OnDelete.RESTRICT)
 
-  /** Trusted runner configuration identifier, including the runtime version; never a shell command. */
-  val runtimeKey by string("runtime_key")
+  /** The configured language/compiler environment used to execute submissions; never a shell command. */
+  val runtime by string("runtime")
 
-  /** Private source that deserializes input, invokes the solution, and serializes its output. */
-  val harnessSource by string("harness_source").sensitive()
+  /** Private code that parses test input, calls the submitted solution, and serializes its output. */
+  val testDriverCode by string("test_driver_code").sensitive()
 
   /** Private validator for multiple valid answers; absent for EXACT_JSON and required for CUSTOM. */
   val checkerSource by string("checker_source").nullable().sensitive()
@@ -34,6 +37,6 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   /** Time the judge configuration was created. */
   val createdAt by instant("created_at").defaultNow().immutable()
 
-  /** Time the harness, checker, runtime selection, or resource limits were last changed. */
+  /** Time the runtime, test driver, checker, or resource limits were last changed. */
   val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 }
