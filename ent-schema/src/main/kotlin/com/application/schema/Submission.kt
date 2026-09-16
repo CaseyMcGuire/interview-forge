@@ -4,7 +4,7 @@ import entkt.schema.EntId
 import entkt.schema.EntSchema
 import entkt.schema.OnDelete
 
-/** One user's code snapshot and execution summary, shared by Run and Submit workflows. */
+/** One user's retained code snapshot and official submission summary. */
 class Submission : EntSchema("submissions", clientName = "submissions") {
   /** Database-generated identity for a single attempt; running again creates another submission. */
   override fun id() = EntId.long()
@@ -26,9 +26,6 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
     .inverse(ProblemLanguage::submissions)
     .onDelete(OnDelete.RESTRICT)
 
-  /** Runtime selected from application config at enqueue time; retain it across later config changes. */
-  val runtime by string("runtime").immutable()
-
   /** Exact submitted source; retain it independently of later editor or starter-code changes. */
   val sourceCode by string("source_code").immutable().sensitive()
 
@@ -41,8 +38,8 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
   /** Null until execution finishes; ACCEPTED is reserved for successful official submissions. */
   val verdict by enum<SubmissionVerdict>("verdict").nullable()
 
-  /** Number of snapshotted cases selected before enqueueing; must match the result rows for this attempt. */
-  val totalCases by int("total_cases").immutable()
+  /** Zero while queued; the worker sets the count when it selects the official suite. */
+  val totalCases by int("total_cases")
 
   /** Number of cases with a PASSED outcome; grading must keep it between zero and totalCases. */
   val passedCases by int("passed_cases").default(0)
@@ -83,4 +80,7 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
 
   /** Supports language-configuration history and its foreign key. */
   val byProblemLanguage = index("idx_submissions_problem_language", problemLanguage.fk)
+
+  /** Supports admission checks and oldest-first worker claims. */
+  val byStatusAndCreatedAt = index("idx_submissions_status_created_at", status, createdAt)
 }

@@ -1,0 +1,61 @@
+extend type Mutation {
+  """
+  Queues an authenticated user's official submission for an enabled language on a
+  published, unarchived problem. The worker selects the problem's stored test suite,
+  including hidden tests; clients cannot supply or replace its cases.
+  Each success creates a persisted submission that can be polled after refreshing.
+  Expected failures create no submission. Compilation and execution failures belong
+  to the accepted submission's outcome.
+  """
+  submitSolution(input: SubmitSolutionInput!): SubmitSolutionResult!
+}
+
+union SubmitSolutionResult =
+    SubmitSolutionSuccess
+  | SubmissionValidationFailure
+  | AuthenticationRequired
+  | ProblemNotFound
+  | ExecutionUnavailable
+  | ExecutionBusy
+
+type SubmitSolutionSuccess {
+  """Persisted submission, normally QUEUED; a worker may already have advanced it."""
+  submission: Submission!
+}
+
+input SubmitSolutionInput {
+  """
+  Opaque ID returned by ProblemLanguage.id. Ownership and execution settings are server-derived.
+  Malformed, wrong-type, missing, or unavailable configuration IDs return ProblemNotFound.
+  """
+  problemLanguageId: ID!
+
+  """Nonblank solution source, at most 50,000 characters. Preserved without trimming."""
+  sourceCode: String!
+}
+
+"""Invalid submission input. No submission was created."""
+type SubmissionValidationFailure {
+  message: String!
+  fieldErrors: [FieldError!]!
+}
+
+"""A signed-in user is required. No submission was created."""
+type AuthenticationRequired {
+  message: String!
+}
+
+"""
+Execution is unavailable for this problem-language configuration. No submission was created.
+Includes missing execution settings, unsupported languages or checkers, unavailable runtimes,
+or an empty official test suite. Initially only Kotlin with exact JSON comparison is supported.
+"""
+type ExecutionUnavailable {
+  """Safe explanation without private configuration or infrastructure diagnostics."""
+  message: String!
+}
+
+"""Submission admission limits were reached. No submission was created; retry later."""
+type ExecutionBusy {
+  message: String!
+}

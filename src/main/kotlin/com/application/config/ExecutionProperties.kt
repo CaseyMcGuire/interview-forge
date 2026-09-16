@@ -6,4 +6,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties("execution")
 data class ExecutionProperties(
   val runtimes: Map<String, String> = emptyMap(),
-)
+  val maxActiveSubmissions: Int = 100,
+  val maxActiveSubmissionsPerUser: Int = 2,
+) {
+  init {
+    require(maxActiveSubmissions in 1..1000)
+    require(maxActiveSubmissionsPerUser in 1..maxActiveSubmissions)
+  }
+}

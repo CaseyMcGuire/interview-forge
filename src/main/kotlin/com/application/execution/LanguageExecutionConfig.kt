@@ -1,7 +1,7 @@
 package com.application.execution
 
-/** Language-specific preparation; the runner selects the runtime from application configuration. */
-interface Language {
+/** Defines the source files and commands the runner needs to execute a solution in a language. */
+interface LanguageExecutionConfig {
   /** Matches the language catalog key and the entry in execution.runtimes. */
   val key: String
 

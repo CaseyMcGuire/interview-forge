@@ -2,7 +2,8 @@
 
 Date: 2026-09-15
 
-Status: Accepted.
+Status: Accepted. Submission snapshot behavior superseded by
+[0018: Official submission admission and transient example Runs](0018-submission-admission.md).
 
 ## Decision
 

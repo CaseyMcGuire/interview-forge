@@ -6,6 +6,7 @@ import com.application.db.policies.ProblemLanguagePolicy
 import com.application.db.policies.ProblemPolicy
 import com.application.db.policies.TestCasePolicy
 import com.application.db.policies.UserPolicy
+import com.application.db.policies.SubmissionPolicy
 import com.application.ent.EntClient
 import entkt.postgres.PostgresDriver
 import org.springframework.context.annotation.Bean
@@ -23,6 +24,7 @@ class DatabaseConfiguration {
     problemLanguagePolicy: ProblemLanguagePolicy,
     testCasePolicy: TestCasePolicy,
     judgeConfigurationPolicy: JudgeConfigurationPolicy,
+    submissionPolicy: SubmissionPolicy,
   ): EntClient {
     // Flyway owns database changes; registering EntKt schemas only configures runtime metadata.
     return EntClient(PostgresDriver(dataSource, autoDdl = false)) {
@@ -33,6 +35,7 @@ class DatabaseConfiguration {
         problemLanguages(problemLanguagePolicy)
         testCases(testCasePolicy)
         judgeConfigurations(judgeConfigurationPolicy)
+        submissions(submissionPolicy)
       }
     }
   }

@@ -3,8 +3,8 @@ package com.application.execution
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-class KotlinLanguageTest {
-  private val language: Language = KotlinLanguage()
+class KotlinLanguageExecutionConfigTest {
+  private val executionConfig: LanguageExecutionConfig = KotlinLanguageExecutionConfig()
 
   @Test
   fun `keeps solution and driver separate and preserves their imports and contents`() {
@@ -25,7 +25,7 @@ class KotlinLanguageTest {
       }
     """.trimIndent() + "\n"
 
-    val program = language.prepare(solution, driver)
+    val program = executionConfig.prepare(solution, driver)
 
     assertEquals(mapOf("Solution.kt" to solution, "TestDriver.kt" to driver), program.sourceFiles)
     assertEquals(
@@ -37,11 +37,14 @@ class KotlinLanguageTest {
   @Test
   fun `source content cannot change commands or select the solution main as the entry point`() {
     val driver = "fun main() = println(Solution().solve())"
-    val ordinary = language.prepare("class Solution { fun solve() = 42 }", driver)
-    val withMain = language.prepare("""
-      class Solution { fun solve() = 42 }
-      fun main() = println("not the test driver; && echo unexpected")
-    """.trimIndent(), driver)
+    val ordinary = executionConfig.prepare("class Solution { fun solve() = 42 }", driver)
+    val withMain = executionConfig.prepare(
+      """
+        class Solution { fun solve() = 42 }
+        fun main() = println("not the test driver; && echo unexpected")
+      """.trimIndent(),
+      driver,
+    )
 
     assertEquals(ordinary.compileCommand, withMain.compileCommand)
     assertEquals(ordinary.runCommand, withMain.runCommand)
