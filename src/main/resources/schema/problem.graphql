@@ -85,6 +85,36 @@ type ProblemLanguage {
 
   """Code stencil used to initialize or reset the editor."""
   starterCode: String!
+
+  """
+  Private judge settings for this configuration. Admins only: null for other viewers,
+  and null until an admin creates the judge configuration.
+  """
+  judgeConfiguration: JudgeConfiguration
+}
+
+"""
+Private execution settings for one problem-language configuration. Created with every field
+present and edited in place afterward. Never visible to non-admin viewers.
+"""
+type JudgeConfiguration {
+  """Opaque, globally unique judge configuration identifier."""
+  id: ID!
+
+  """The configured language/compiler environment used to execute submissions, such as kotlin-2.1."""
+  runtime: String!
+
+  """Code that parses test input, calls the submitted solution, and serializes its output."""
+  testDriverCode: String!
+
+  """Validator for problems with multiple valid answers; null unless the problem uses a custom checker."""
+  checkerSource: String
+
+  """Maximum execution time per test case, in milliseconds."""
+  timeLimitMs: Int!
+
+  """Maximum memory per test case, in megabytes."""
+  memoryLimitMb: Int!
 }
 
 """A programming language offered by the coding editor."""

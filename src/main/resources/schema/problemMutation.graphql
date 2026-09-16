@@ -14,7 +14,7 @@ type FieldError {
   message: String!
 }
 
-"""The target problem, language configuration, or public example does not exist or is unavailable for this action."""
+"""The target problem, language configuration, judge configuration, or public example does not exist or is unavailable for this action."""
 type ProblemNotFound implements ProblemFailure {
   message: String!
 }

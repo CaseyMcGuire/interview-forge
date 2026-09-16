@@ -1,0 +1,36 @@
+extend type Mutation {
+  """
+  Updates an existing judge configuration for an enabled language on a published problem. Admins only.
+  The assigned language configuration stays unchanged. Each supplied field is validated with the
+  same rules as creation.
+  """
+  updateJudgeConfiguration(input: UpdateJudgeConfigurationInput!): UpdateJudgeConfigurationResult!
+}
+
+union UpdateJudgeConfigurationResult =
+    UpdateJudgeConfigurationSuccess
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
+
+type UpdateJudgeConfigurationSuccess {
+  judgeConfiguration: JudgeConfiguration!
+}
+
+"""
+Partial settings update. Omitted fields and explicit null leave the existing values unchanged.
+An input containing only id leaves the configuration unchanged.
+"""
+input UpdateJudgeConfigurationInput {
+  """Opaque judge configuration ID returned by JudgeConfiguration.id."""
+  id: ID!
+
+  runtime: String
+  testDriverCode: String
+
+  """Cannot be cleared: provide replacement checker code, or omit it to leave unchanged."""
+  checkerSource: String
+
+  timeLimitMs: Int
+  memoryLimitMb: Int
+}

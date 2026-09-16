@@ -1,0 +1,42 @@
+extend type Mutation {
+  """
+  Creates the private judge configuration for an enabled language on a published problem. Admins only.
+  Every setting is required. A language that already has a judge configuration is a validation
+  failure on problemLanguageId; update it instead.
+  """
+  createJudgeConfiguration(input: CreateJudgeConfigurationInput!): CreateJudgeConfigurationResult!
+}
+
+union CreateJudgeConfigurationResult =
+    CreateJudgeConfigurationSuccess
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
+
+type CreateJudgeConfigurationSuccess {
+  """The owning language configuration, with its new judgeConfiguration populated."""
+  problemLanguage: ProblemLanguage!
+}
+
+input CreateJudgeConfigurationInput {
+  """Opaque configuration ID returned by ProblemLanguage.id; identifies the language receiving the judge."""
+  problemLanguageId: ID!
+
+  """The configured language/compiler environment used to execute submissions; 1 to 100 characters, not blank."""
+  runtime: String!
+
+  """Code that parses test input, calls the submitted solution, and serializes its output; not blank, at most 50,000 characters."""
+  testDriverCode: String!
+
+  """
+  Validator for multiple valid answers, at most 50,000 characters. Required and not blank when the
+  problem uses a custom checker; must be omitted or null when it uses exact JSON comparison.
+  """
+  checkerSource: String
+
+  """Maximum execution time per test case, from 1 to 60,000 milliseconds."""
+  timeLimitMs: Int!
+
+  """Maximum memory per test case, from 1 to 8,192 megabytes."""
+  memoryLimitMb: Int!
+}
