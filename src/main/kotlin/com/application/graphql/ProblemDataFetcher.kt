@@ -3,6 +3,7 @@ package com.application.graphql
 import com.application.services.ProblemService
 import com.application.services.ProblemCursor
 import com.application.services.CreateProblem
+import com.application.services.CreateProblemHiddenTestCase
 import com.application.services.CreateProblemExample
 import com.application.services.CreateProblemLanguage
 import com.application.services.FieldUpdate
@@ -11,6 +12,9 @@ import com.application.services.UpdateProblem
 import com.application.services.UpdateProblemExample
 import com.application.services.UpdateProblemLanguage
 import com.application.graphql.types.CreateProblemInput
+import com.application.graphql.types.CreateProblemHiddenTestCaseInput
+import com.application.graphql.types.CreateProblemHiddenTestCaseResult
+import com.application.graphql.types.CreateProblemHiddenTestCaseSuccess
 import com.application.graphql.types.Language
 import com.application.graphql.types.Problem
 import com.application.graphql.types.ProblemDifficulty
@@ -126,6 +130,34 @@ class ProblemDataFetcher(
         endCursor = edges.lastOrNull()?.cursor,
       ),
     )
+  }
+
+  @DgsMutation
+  fun createProblemHiddenTestCase(
+    @InputArgument input: CreateProblemHiddenTestCaseInput,
+  ): CreateProblemHiddenTestCaseResult = try {
+    val problem = problemService.createProblemHiddenTestCase(CreateProblemHiddenTestCase(
+      problemId = problemContentId(input.problemId, Problem::class, "problemId"),
+      inputJson = input.inputJson,
+      expectedOutputJson = input.expectedOutputJson,
+      explanationMarkdown = input.explanationMarkdown,
+    ))
+
+    if (problem == null) {
+      contentNotFound()
+    } else {
+      CreateProblemHiddenTestCaseSuccess(toGraphqlProblem(problem))
+    }
+  } catch (_: AccessDeniedException) {
+    contentForbidden()
+  } catch (_: EntMutationPrivacyDeniedException) {
+    contentNotFound()
+  } catch (_: EntTargetAbsentException) {
+    contentNotFound()
+  } catch (exception: EntValidationException) {
+    validationFailure(exception)
+  } catch (exception: ProblemInputException) {
+    validationFailure(exception)
   }
 
   @DgsQuery
@@ -249,9 +281,9 @@ class ProblemDataFetcher(
     validationFailure(exception)
   }
 
-  private fun problemContentId(value: String, type: KClass<*>): Long =
+  private fun problemContentId(value: String, type: KClass<*>, field: String = "id"): Long =
     globalIdUtil.fromGlobalIdOrNull(value, type)
-      ?: throw ProblemInputException("id", "Provide a valid ${type.simpleName} ID")
+      ?: throw ProblemInputException(field, "Provide a valid ${type.simpleName} ID")
 
   private fun contentNotFound() =
     ProblemNotFound("The requested content does not exist or is unavailable")

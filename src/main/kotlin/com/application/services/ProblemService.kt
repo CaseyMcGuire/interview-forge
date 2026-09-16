@@ -183,6 +183,39 @@ class ProblemService(
     }.getOrThrow()
   }
 
+  fun createProblemHiddenTestCase(input: CreateProblemHiddenTestCase): Problem? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val parsedInput = parseTestCaseJson(input.inputJson, "inputJson")
+    val parsedOutput = parseTestCaseJson(input.expectedOutputJson, "expectedOutputJson")
+
+    return entClient.withTransaction { tx ->
+      // Lock the parent even when it has no cases, so concurrent additions cannot reuse a position.
+      tx.problems.query {
+        where(Problem.id eq input.problemId)
+      }.forUpdate().firstOrNull(context).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      val lastPosition = tx.testCases.indexes.problemId(input.problemId).query {
+        orderBy(TestCase.position.desc())
+      }.firstOrNull(context).getOrThrow()?.position
+
+      if (lastPosition == Int.MAX_VALUE) {
+        throw ProblemInputException("problemId", "This problem cannot accept more test cases")
+      }
+
+      tx.testCases.create {
+        problemId = input.problemId
+        position = (lastPosition ?: -1) + 1
+        visibility = TestCaseVisibility.HIDDEN
+        inputJson = parsedInput
+        expectedOutputJson = parsedOutput
+        explanationMarkdown = input.explanationMarkdown
+      }.save(context).getOrThrow()
+
+      tx.loadProblemContent(input.problemId, context)
+    }.getOrThrow()
+  }
+
   fun updateProblemLanguage(input: UpdateProblemLanguage): ProblemLanguage? {
     val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
 
@@ -205,12 +238,16 @@ class ProblemService(
     val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
 
     return entClient.withTransaction { tx ->
-      tx.testCases.findById(context, input.id).visibleOrNull().getOrThrow()
+      val example = tx.testCases.findById(context, input.id).visibleOrNull().getOrThrow()
         ?: return@withTransaction null
 
+      if (example.visibility != TestCaseVisibility.EXAMPLE) {
+        return@withTransaction null
+      }
+
       tx.testCases.update(input.id) {
-        input.inputJson?.let { inputJson = parseUpdatedExampleJson(it, "inputJson") }
-        input.expectedOutputJson?.let { expectedOutputJson = parseUpdatedExampleJson(it, "expectedOutputJson") }
+        input.inputJson?.let { inputJson = parseTestCaseJson(it, "inputJson") }
+        input.expectedOutputJson?.let { expectedOutputJson = parseTestCaseJson(it, "expectedOutputJson") }
         if (input.explanationMarkdown is FieldUpdate.Set) {
           explanationMarkdown = input.explanationMarkdown.value
         }
@@ -224,6 +261,10 @@ class ProblemService(
     return entClient.withTransaction { tx ->
       val example = tx.testCases.findById(context, id).visibleOrNull().getOrThrow()
         ?: return@withTransaction null
+
+      if (example.visibility != TestCaseVisibility.EXAMPLE) {
+        return@withTransaction null
+      }
 
       if (!tx.testCases.deleteById(context, id).getOrThrow()) {
         return@withTransaction null
@@ -239,7 +280,7 @@ class ProblemService(
       loadPublicContent()
     }.firstOrNull(context).getOrThrow()
 
-  private fun parseUpdatedExampleJson(value: String, field: String): JsonElement {
+  private fun parseTestCaseJson(value: String, field: String): JsonElement {
     return try {
       Json.parseToJsonElement(value)
     } catch (_: IllegalArgumentException) {

@@ -1,6 +1,6 @@
 package com.application.db.policies
 
-import com.application.db.policies.rules.AllowIfPublicExampleReadRule
+import com.application.db.policies.rules.AllowIfAvailableTestCaseReadRule
 import com.application.db.policies.rules.AllowIfAdminCreateRule
 import com.application.db.policies.rules.AllowIfAdminUpdateRule
 import com.application.db.policies.rules.AllowIfAdminDeleteRule
@@ -15,13 +15,14 @@ class TestCasePolicy(
   private val adminCreateRule: AllowIfAdminCreateRule,
   private val adminUpdateRule: AllowIfAdminUpdateRule,
   private val adminDeleteRule: AllowIfAdminDeleteRule,
+  private val testCaseReadRule: AllowIfAvailableTestCaseReadRule,
 ) : EntityPolicy<TestCase, TestCasePolicyScope> {
   override fun configure(scope: TestCasePolicyScope) = scope.run {
     privacy {
       create(adminCreateRule)
       update(adminUpdateRule)
       delete(adminDeleteRule)
-      load(AllowIfPublicExampleReadRule())
+      load(testCaseReadRule)
     }
 
     validation {
