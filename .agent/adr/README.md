@@ -84,3 +84,4 @@ Spring Security uses `CookieCsrfTokenRepository` (non-HttpOnly) with the plain r
 - [0014: Admin problem authoring](0014-admin-problem-authoring.md)
 - [0015: Current roles for authorization](0015-current-roles-for-authorization.md)
 - [0016: Language runtimes in application configuration](0016-language-runtime.md)
+- [0017: Language-specific program preparation](0017-language-preparation.md)
