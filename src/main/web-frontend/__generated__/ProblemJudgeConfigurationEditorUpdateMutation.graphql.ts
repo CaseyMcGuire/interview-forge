@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<3fd987e825e167a9e31c30071665bc86>>
+ * @generated SignedSource<<8ce5c26f99488cccb43c4d116e5df304>>
  * @lightSyntaxTransform
  */
 
@@ -12,7 +12,6 @@ export type UpdateJudgeConfigurationInput = {
   checkerSource?: string | null | undefined;
   id: string;
   memoryLimitMb?: number | null | undefined;
-  runtime?: string | null | undefined;
   testDriverCode?: string | null | undefined;
   timeLimitMs?: number | null | undefined;
 };
@@ -38,7 +37,6 @@ export type ProblemJudgeConfigurationEditorUpdateMutation$data = {
       readonly checkerSource: string | null | undefined;
       readonly id: string;
       readonly memoryLimitMb: number;
-      readonly runtime: string;
       readonly testDriverCode: string;
       readonly timeLimitMs: number;
     };
@@ -109,13 +107,6 @@ v3 = [
                 "args": null,
                 "kind": "ScalarField",
                 "name": "id",
-                "storageKey": null
-              },
-              {
-                "alias": null,
-                "args": null,
-                "kind": "ScalarField",
-                "name": "runtime",
                 "storageKey": null
               },
               {
@@ -205,16 +196,16 @@ return {
     "selections": (v3/*:: as any*/)
   },
   "params": {
-    "cacheID": "b3e57876df9ce6a5a39bfa78ba14bcb4",
+    "cacheID": "332f95ba900c8b002df7c75bbcf750dc",
     "id": null,
     "metadata": {},
     "name": "ProblemJudgeConfigurationEditorUpdateMutation",
     "operationKind": "mutation",
-    "text": "mutation ProblemJudgeConfigurationEditorUpdateMutation(\n  $input: UpdateJudgeConfigurationInput!\n) {\n  updateJudgeConfiguration(input: $input) {\n    __typename\n    ... on UpdateJudgeConfigurationSuccess {\n      judgeConfiguration {\n        id\n        runtime\n        testDriverCode\n        checkerSource\n        timeLimitMs\n        memoryLimitMb\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
+    "text": "mutation ProblemJudgeConfigurationEditorUpdateMutation(\n  $input: UpdateJudgeConfigurationInput!\n) {\n  updateJudgeConfiguration(input: $input) {\n    __typename\n    ... on UpdateJudgeConfigurationSuccess {\n      judgeConfiguration {\n        id\n        testDriverCode\n        checkerSource\n        timeLimitMs\n        memoryLimitMb\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "b6d28e3acb17c5f41d5d9e313fbeae51";
+(node as any).hash = "9365dff4048dc681da46bb7ba7a5145a";
 
 export default node;

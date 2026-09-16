@@ -245,7 +245,6 @@ class ProblemDataFetcher(
   ): CreateJudgeConfigurationResult = try {
     val configuration = problemService.createJudgeConfiguration(
       problemLanguageId = problemContentId(input.problemLanguageId, ProblemLanguage::class, "problemLanguageId"),
-      runtime = input.runtime,
       testDriverCode = input.testDriverCode,
       checkerSource = input.checkerSource,
       timeLimitMs = input.timeLimitMs,
@@ -284,7 +283,6 @@ class ProblemDataFetcher(
 
     val judge = problemService.updateJudgeConfiguration(
       id = problemContentId(input.id, JudgeConfiguration::class),
-      runtime = input.runtime,
       testDriverCode = input.testDriverCode,
       checkerSource = checkerSource,
       timeLimitMs = input.timeLimitMs,
@@ -416,7 +414,6 @@ class ProblemDataFetcher(
 
   private fun toGraphqlJudgeConfiguration(judge: JudgeConfigurationEntity): JudgeConfiguration = JudgeConfiguration(
     id = globalIdUtil.toGlobalId(JudgeConfiguration::class, judge.id),
-    runtime = judge.runtime,
     testDriverCode = judge.testDriverCode,
     checkerSource = judge.checkerSource,
     timeLimitMs = judge.timeLimitMs,

@@ -26,7 +26,7 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
     .inverse(ProblemLanguage::submissions)
     .onDelete(OnDelete.RESTRICT)
 
-  /** Runtime chosen when enqueueing; copy it instead of reading mutable judge settings later. */
+  /** Runtime selected from application config at enqueue time; retain it across later config changes. */
   val runtime by string("runtime").immutable()
 
   /** Exact submitted source; retain it independently of later editor or starter-code changes. */

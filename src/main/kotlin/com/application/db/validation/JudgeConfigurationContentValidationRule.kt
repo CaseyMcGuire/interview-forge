@@ -13,9 +13,6 @@ class JudgeConfigurationContentValidationRule : JudgeConfigurationCreateValidati
     context: ValidationRuleContext<ReadOnlyEntClient>,
     item: JudgeConfigurationWriteCandidate,
   ): ValidationDecision = when {
-    item.runtime.isBlank() || item.runtime.length > 100 ->
-      ValidationDecision.Invalid("Runtime is required and must be at most 100 characters", field = "runtime")
-
     item.testDriverCode.isBlank() || item.testDriverCode.length > 50_000 ->
       ValidationDecision.Invalid(
         "Test driver code is required and must be at most 50,000 characters",

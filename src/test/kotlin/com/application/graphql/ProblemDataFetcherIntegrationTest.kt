@@ -199,7 +199,6 @@ class ProblemDataFetcherIntegrationTest {
     entClient.problems.update(problem.id) { checkerKind = ProblemCheckerKind.CUSTOM }.save(fixtureContext).getOrThrow()
     entClient.judgeConfigurations.create {
       problemLanguageId = kotlin.id
-      runtime = "kotlin-test"
       testDriverCode = "private test driver code"
       checkerSource = "private checker source"
       timeLimitMs = 1000

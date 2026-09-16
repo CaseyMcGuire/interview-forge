@@ -19,9 +19,6 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
     .inverse(ProblemLanguage::judgeConfiguration)
     .onDelete(OnDelete.RESTRICT)
 
-  /** The configured language/compiler environment used to execute submissions; never a shell command. */
-  val runtime by string("runtime")
-
   /** Private code that parses test input, calls the submitted solution, and serializes its output. */
   val testDriverCode by string("test_driver_code").sensitive()
 
@@ -37,6 +34,6 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   /** Time the judge configuration was created. */
   val createdAt by instant("created_at").defaultNow().immutable()
 
-  /** Time the runtime, test driver, checker, or resource limits were last changed. */
+  /** Time the test driver, checker, or resource limits were last changed. */
   val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 }

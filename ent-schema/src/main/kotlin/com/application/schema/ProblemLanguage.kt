@@ -15,7 +15,7 @@ class ProblemLanguage : EntSchema("problem_languages", clientName = "problemLang
     .inverse(Problem::languageConfigurations)
     .onDelete(OnDelete.RESTRICT)
 
-  /** Fixed language for the starter code and submissions; runtime selection lives in the private judge. */
+  /** Fixed language for the starter code and submissions; its runtime comes from application config. */
   val language by belongsTo<Language>("language")
     .immutable()
     .inverse(Language::problemConfigurations)

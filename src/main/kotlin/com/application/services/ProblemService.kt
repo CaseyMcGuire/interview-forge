@@ -247,7 +247,6 @@ class ProblemService(
 
   fun createJudgeConfiguration(
     problemLanguageId: Long,
-    runtime: String,
     testDriverCode: String,
     checkerSource: String?,
     timeLimitMs: Int,
@@ -270,7 +269,6 @@ class ProblemService(
 
       tx.judgeConfigurations.create {
         this.problemLanguageId = problemLanguageId
-        this.runtime = runtime.trim()
         this.testDriverCode = testDriverCode
         this.checkerSource = checkerSource
         this.timeLimitMs = timeLimitMs
@@ -287,7 +285,6 @@ class ProblemService(
   /** Null parameters leave the existing values unchanged; the checker can be cleared explicitly. */
   fun updateJudgeConfiguration(
     id: Long,
-    runtime: String? = null,
     testDriverCode: String? = null,
     checkerSource: FieldUpdate<String?> = FieldUpdate.Unchanged,
     timeLimitMs: Int? = null,
@@ -304,7 +301,6 @@ class ProblemService(
         ?: return@withTransaction null
 
       tx.judgeConfigurations.update(id) {
-        runtime?.let { this.runtime = it.trim() }
         testDriverCode?.let { this.testDriverCode = it }
         if (checkerSource is FieldUpdate.Set) {
           this.checkerSource = checkerSource.value

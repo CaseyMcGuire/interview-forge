@@ -22,9 +22,6 @@ input CreateJudgeConfigurationInput {
   """Opaque configuration ID returned by ProblemLanguage.id; identifies the language receiving the judge."""
   problemLanguageId: ID!
 
-  """The configured language/compiler environment used to execute submissions; 1 to 100 characters, not blank."""
-  runtime: String!
-
   """Code that parses test input, calls the submitted solution, and serializes its output; not blank, at most 50,000 characters."""
   testDriverCode: String!
 

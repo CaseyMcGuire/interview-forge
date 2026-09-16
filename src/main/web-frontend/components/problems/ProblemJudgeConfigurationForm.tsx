@@ -24,7 +24,6 @@ function limitHint(limit: JudgeLimit): string {
 
 /** Limits stay as text while editing so the fields can be emptied; they are parsed on save. */
 export type ProblemJudgeConfigurationDraft = {
-  runtime: string;
   testDriverCode: string;
   checkerSource: string;
   timeLimitMs: string;
@@ -99,15 +98,6 @@ export default function ProblemJudgeConfigurationForm(props: Props) {
 
   return (
     <div sx={styles.form} aria-busy={isSaving}>
-      <ProblemCreationField
-        label="Runtime"
-        value={draft.runtime}
-        onChange={(runtime) => onChange({...draft, runtime})}
-        hint="The language and compiler environment used to execute submissions, such as kotlin-2.1."
-        maxLength={100}
-        disabled={isSaving}
-      />
-
       <span sx={styles.label}>Test driver code</span>
 
       <div sx={styles.editor} inert={isSaving}>

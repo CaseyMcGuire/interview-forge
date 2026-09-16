@@ -22,7 +22,6 @@ type Props = {
 };
 
 type Judge = {
-  readonly runtime: string;
   readonly testDriverCode: string;
   readonly checkerSource: string | null | undefined;
   readonly timeLimitMs: number;
@@ -49,7 +48,6 @@ const styles = stylex.create({
 });
 
 const emptyDraft: ProblemJudgeConfigurationDraft = {
-  runtime: "",
   testDriverCode: "",
   checkerSource: "",
   timeLimitMs: "",
@@ -64,7 +62,6 @@ function draftFrom(judge: Judge | null | undefined): ProblemJudgeConfigurationDr
   }
 
   return {
-    runtime: judge.runtime,
     testDriverCode: judge.testDriverCode,
     checkerSource: judge.checkerSource ?? "",
     timeLimitMs: String(judge.timeLimitMs),
@@ -73,15 +70,13 @@ function draftFrom(judge: Judge | null | undefined): ProblemJudgeConfigurationDr
 }
 
 function isComplete(draft: ProblemJudgeConfigurationDraft): boolean {
-  return draft.runtime.trim() !== "" &&
-    draft.testDriverCode.trim() !== "" &&
+  return draft.testDriverCode.trim() !== "" &&
     draft.timeLimitMs.trim() !== "" &&
     draft.memoryLimitMb.trim() !== "";
 }
 
 function isSameDraft(a: ProblemJudgeConfigurationDraft, b: ProblemJudgeConfigurationDraft): boolean {
-  return a.runtime === b.runtime &&
-    a.testDriverCode === b.testDriverCode &&
+  return a.testDriverCode === b.testDriverCode &&
     a.checkerSource === b.checkerSource &&
     a.timeLimitMs === b.timeLimitMs &&
     a.memoryLimitMb === b.memoryLimitMb;
@@ -123,7 +118,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
       }
       judgeConfiguration {
         id
-        runtime
         testDriverCode
         checkerSource
         timeLimitMs
@@ -141,7 +135,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
             id
             judgeConfiguration {
               id
-              runtime
               testDriverCode
               checkerSource
               timeLimitMs
@@ -172,7 +165,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
         ... on UpdateJudgeConfigurationSuccess {
           judgeConfiguration {
             id
-            runtime
             testDriverCode
             checkerSource
             timeLimitMs
@@ -238,7 +230,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
         variables: {
           input: {
             problemLanguageId: data.id,
-            runtime: draft.runtime,
             testDriverCode: draft.testDriverCode,
             checkerSource,
             timeLimitMs,
@@ -266,10 +257,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
     }
 
     const input: UpdateJudgeConfigurationInput = {id: current.id};
-
-    if (draft.runtime !== current.runtime) {
-      input.runtime = draft.runtime;
-    }
 
     if (draft.testDriverCode !== current.testDriverCode) {
       input.testDriverCode = draft.testDriverCode;

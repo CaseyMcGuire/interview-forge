@@ -48,7 +48,7 @@ class ProblemMutationPrivacyTest {
       .thenThrow(denied("TestCase", EntOperation.DELETE))
     `when`(service.createProblemHiddenTestCase(CreateProblemHiddenTestCase(42, "[]", "[]")))
       .thenThrow(denied("TestCase", EntOperation.CREATE))
-    `when`(service.createJudgeConfiguration(42, "kotlin-test", "driver", null, 1000, 256))
+    `when`(service.createJudgeConfiguration(42, "driver", null, 1000, 256))
       .thenThrow(denied("JudgeConfiguration", EntOperation.CREATE))
     `when`(service.updateJudgeConfiguration(42))
       .thenThrow(denied("JudgeConfiguration", EntOperation.UPDATE))
@@ -109,7 +109,6 @@ class ProblemMutationPrivacyTest {
 
   private fun judgeCreationInput(globalIdUtil: GlobalIdUtil) = CreateJudgeConfigurationInput(
     problemLanguageId = globalIdUtil.toGlobalId(ProblemLanguage::class, 42),
-    runtime = "kotlin-test",
     testDriverCode = "driver",
     timeLimitMs = 1000,
     memoryLimitMb = 256,

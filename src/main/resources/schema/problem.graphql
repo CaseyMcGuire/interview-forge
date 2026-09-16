@@ -101,9 +101,6 @@ type JudgeConfiguration {
   """Opaque, globally unique judge configuration identifier."""
   id: ID!
 
-  """The configured language/compiler environment used to execute submissions, such as kotlin-2.1."""
-  runtime: String!
-
   """Code that parses test input, calls the submitted solution, and serializes its output."""
   testDriverCode: String!
 

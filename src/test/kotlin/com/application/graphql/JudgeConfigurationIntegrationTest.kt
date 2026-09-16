@@ -71,7 +71,6 @@ class JudgeConfigurationIntegrationTest {
   private val otherConfigurationId get() = globalIdUtil.toGlobalId(GraphqlProblemLanguage::class, otherConfiguration.id)
 
   private val validSettings = mapOf(
-    "runtime" to "kotlin-2.1",
     "testDriverCode" to "fun main() = judge()",
     "timeLimitMs" to 1000,
     "memoryLimitMb" to 256,
@@ -101,12 +100,11 @@ class JudgeConfigurationIntegrationTest {
 
   @Test
   fun `creating a judge stores every setting and returns it on the owning language`() {
-    val result = createJudge(mapOf("runtime" to "  kotlin-2.1  "))
+    val result = createJudge()
     assertSuccess(result, "CreateJudgeConfigurationSuccess")
     val language = result["problemLanguage"]
     assertEquals(configurationId, language["id"].asString())
     val judge = language["judgeConfiguration"]
-    assertEquals("kotlin-2.1", judge["runtime"].asString())
     assertEquals("fun main() = judge()", judge["testDriverCode"].asString())
     assertTrue(judge["checkerSource"].isNull)
     assertEquals(1000, judge["timeLimitMs"].asInt())
@@ -114,7 +112,6 @@ class JudgeConfigurationIntegrationTest {
 
     val stored = storedJudge(configuration.id)!!
     assertEquals(globalIdUtil.toGlobalId(GraphqlJudgeConfiguration::class, stored.id), judge["id"].asString())
-    assertEquals("kotlin-2.1", stored.runtime)
     assertEquals("fun main() = judge()", stored.testDriverCode)
     assertNull(stored.checkerSource)
     assertEquals(1000, stored.timeLimitMs)
@@ -132,17 +129,15 @@ class JudgeConfigurationIntegrationTest {
     val created = createdJudge()
     val judgeId = judgeGlobalId(created)
 
-    val result = updateJudge(judgeId, mapOf("timeLimitMs" to 2500, "runtime" to " kotlin-2.2 "))
+    val result = updateJudge(judgeId, mapOf("timeLimitMs" to 2500))
     assertSuccess(result, "UpdateJudgeConfigurationSuccess")
     val judge = result["judgeConfiguration"]
     assertEquals(judgeId, judge["id"].asString())
-    assertEquals("kotlin-2.2", judge["runtime"].asString())
     assertEquals(2500, judge["timeLimitMs"].asInt())
     assertEquals(256, judge["memoryLimitMb"].asInt())
     assertEquals(created.testDriverCode, judge["testDriverCode"].asString())
 
     val stored = storedJudge(configuration.id)!!
-    assertEquals("kotlin-2.2", stored.runtime)
     assertEquals(2500, stored.timeLimitMs)
     assertEquals(256, stored.memoryLimitMb)
     assertEquals(created.testDriverCode, stored.testDriverCode)
@@ -151,7 +146,6 @@ class JudgeConfigurationIntegrationTest {
     // Explicit null clears the checker, so it is the one field excluded from this no-op check.
     assertSuccess(updateJudge(judgeId), "UpdateJudgeConfigurationSuccess")
     assertSuccess(updateJudge(judgeId, mapOf(
-      "runtime" to null,
       "testDriverCode" to null,
       "timeLimitMs" to null,
       "memoryLimitMb" to null,
@@ -161,8 +155,6 @@ class JudgeConfigurationIntegrationTest {
 
   @Test
   fun `invalid settings report field errors and reject the whole mutation`() {
-    assertValidation(createJudge(mapOf("runtime" to " ")), "runtime")
-    assertValidation(createJudge(mapOf("runtime" to "x".repeat(101))), "runtime")
     assertValidation(createJudge(mapOf("testDriverCode" to " ")), "testDriverCode")
     assertValidation(createJudge(mapOf("testDriverCode" to "x".repeat(50_001))), "testDriverCode")
     assertValidation(createJudge(mapOf("checkerSource" to "x".repeat(50_001))), "checkerSource")
@@ -174,7 +166,6 @@ class JudgeConfigurationIntegrationTest {
     assertTrue(storedJudges().isEmpty())
 
     val boundaries = createJudge(mapOf(
-      "runtime" to "x".repeat(100),
       "testDriverCode" to "x".repeat(50_000),
       "timeLimitMs" to 60_000,
       "memoryLimitMb" to 8_192,
@@ -183,12 +174,11 @@ class JudgeConfigurationIntegrationTest {
     val created = storedJudge(configuration.id)!!
     val judgeId = judgeGlobalId(created)
 
-    assertValidation(updateJudge(judgeId, mapOf("runtime" to " ")), "runtime")
     assertValidation(updateJudge(judgeId, mapOf("testDriverCode" to "x".repeat(50_001))), "testDriverCode")
     assertValidation(updateJudge(judgeId, mapOf("checkerSource" to "fun check() = true")), "checkerSource")
     assertValidation(updateJudge(judgeId, mapOf("timeLimitMs" to 0)), "timeLimitMs")
     assertValidation(updateJudge(judgeId, mapOf("memoryLimitMb" to 8_193)), "memoryLimitMb")
-    assertValidation(updateJudge(judgeId, mapOf("runtime" to "kotlin-2.2", "memoryLimitMb" to 0)), "memoryLimitMb")
+    assertValidation(updateJudge(judgeId, mapOf("timeLimitMs" to 2500, "memoryLimitMb" to 0)), "memoryLimitMb")
     assertEquals(created, storedJudge(configuration.id))
 
     assertSuccess(updateJudge(judgeId, mapOf("timeLimitMs" to 1, "memoryLimitMb" to 1)), "UpdateJudgeConfigurationSuccess")
@@ -276,7 +266,6 @@ class JudgeConfigurationIntegrationTest {
 
     val adminView = readProblem(adminSession)["languageConfigurations"].associateBy { it["id"].asString() }
     val judge = adminView.getValue(configurationId)["judgeConfiguration"]
-    assertEquals("kotlin-2.1", judge["runtime"].asString())
     assertEquals("fun main() = judge()", judge["testDriverCode"].asString())
     assertEquals(1000, judge["timeLimitMs"].asInt())
     assertTrue(adminView.getValue(otherConfigurationId)["judgeConfiguration"].isNull)
@@ -350,7 +339,6 @@ class JudgeConfigurationIntegrationTest {
     assertThrows(EntMutationPrivacyDeniedException::class.java) {
       entClient.judgeConfigurations.create {
         problemLanguageId = otherConfiguration.id
-        runtime = "kotlin-2.1"
         testDriverCode = "fun main() = judge()"
         timeLimitMs = 1000
         memoryLimitMb = 256
@@ -412,7 +400,7 @@ class JudgeConfigurationIntegrationTest {
     return user.id to (result.request.session as MockHttpSession)
   }
 
-  private val judgeFields = "id runtime testDriverCode checkerSource timeLimitMs memoryLimitMb"
+  private val judgeFields = "id testDriverCode checkerSource timeLimitMs memoryLimitMb"
 
   private fun createJudge(
     fields: Map<String, Any?> = emptyMap(),

@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<f8794875e0ea3901d1e8a335292fb33e>>
+ * @generated SignedSource<<b63f80c16c24ac461e2b9ffe953efde9>>
  * @lightSyntaxTransform
  */
 
@@ -15,7 +15,6 @@ export type ProblemJudgeConfigurationEditor_configuration$data = {
     readonly checkerSource: string | null | undefined;
     readonly id: string;
     readonly memoryLimitMb: number;
-    readonly runtime: string;
     readonly testDriverCode: string;
     readonly timeLimitMs: number;
   } | null | undefined;
@@ -83,13 +82,6 @@ return {
           "alias": null,
           "args": null,
           "kind": "ScalarField",
-          "name": "runtime",
-          "storageKey": null
-        },
-        {
-          "alias": null,
-          "args": null,
-          "kind": "ScalarField",
           "name": "testDriverCode",
           "storageKey": null
         },
@@ -123,6 +115,6 @@ return {
 };
 })();
 
-(node as any).hash = "2102f5742256b318518150915ea1e5d3";
+(node as any).hash = "dc941f76cb13baed5718951592150509";
 
 export default node;
