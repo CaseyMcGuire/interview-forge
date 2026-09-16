@@ -1,0 +1,40 @@
+extend type Mutation {
+  """
+  Adds one hidden test case to a published, unarchived problem. Admins only.
+  The server assigns the next position after all existing public and hidden cases,
+  or zero when the problem has no cases. Existing cases and their positions stay unchanged.
+  The new case is never included in Problem.examples.
+  """
+  createProblemHiddenTestCase(input: CreateProblemHiddenTestCaseInput!): CreateProblemHiddenTestCaseResult!
+}
+
+union CreateProblemHiddenTestCaseResult =
+    CreateProblemHiddenTestCaseSuccess
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
+
+type CreateProblemHiddenTestCaseSuccess {
+  """The owning problem with its public content; excludes the new hidden test case."""
+  problem: Problem!
+}
+
+input CreateProblemHiddenTestCaseInput {
+  """Opaque problem ID returned by Problem.id; identifies the problem receiving the hidden case."""
+  problemId: ID!
+
+  """
+  Serialized JSON input, at most 20,000 characters when compactly serialized.
+  The string "null" stores a JSON null value.
+  """
+  inputJson: String!
+
+  """
+  Serialized JSON expectation, at most 20,000 characters when compactly serialized.
+  The string "null" is a valid expectation, not a missing value.
+  """
+  expectedOutputJson: String!
+
+  """Optional private Markdown explanation, at most 10,000 characters. Omit or provide null for no explanation."""
+  explanationMarkdown: String
+}
