@@ -18,7 +18,8 @@ type UpdateJudgeConfigurationSuccess {
 }
 
 """
-Partial settings update. Omitted fields and explicit null leave the existing values unchanged.
+Partial settings update. Omitted fields stay unchanged. Explicit null also leaves a field
+unchanged, except checkerSource, where null clears the checker.
 An input containing only id leaves the configuration unchanged.
 """
 input UpdateJudgeConfigurationInput {
@@ -28,7 +29,10 @@ input UpdateJudgeConfigurationInput {
   runtime: String
   testDriverCode: String
 
-  """Cannot be cleared: provide replacement checker code, or omit it to leave unchanged."""
+  """
+  Omit to leave unchanged, provide code to replace it, or provide null to clear it.
+  Clearing is valid only for problems using exact JSON comparison.
+  """
   checkerSource: String
 
   timeLimitMs: Int

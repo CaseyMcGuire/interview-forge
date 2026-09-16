@@ -1,5 +1,6 @@
 package com.application.config
 
+import com.application.db.policies.JudgeConfigurationPolicy
 import com.application.db.policies.LanguagePolicy
 import com.application.db.policies.ProblemLanguagePolicy
 import com.application.db.policies.ProblemPolicy
@@ -21,6 +22,7 @@ class DatabaseConfiguration {
     languagePolicy: LanguagePolicy,
     problemLanguagePolicy: ProblemLanguagePolicy,
     testCasePolicy: TestCasePolicy,
+    judgeConfigurationPolicy: JudgeConfigurationPolicy,
   ): EntClient {
     // Flyway owns database changes; registering EntKt schemas only configures runtime metadata.
     return EntClient(PostgresDriver(dataSource, autoDdl = false)) {
@@ -30,6 +32,7 @@ class DatabaseConfiguration {
         languages(languagePolicy)
         problemLanguages(problemLanguagePolicy)
         testCases(testCasePolicy)
+        judgeConfigurations(judgeConfigurationPolicy)
       }
     }
   }

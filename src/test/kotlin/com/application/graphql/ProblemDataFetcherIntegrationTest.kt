@@ -5,6 +5,7 @@ import com.application.ent.Language
 import com.application.ent.Problem
 import com.application.ent.ProblemLanguage
 import com.application.ent.TestCase
+import com.application.schema.ProblemCheckerKind
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TestCaseVisibility
 import com.netflix.graphql.dgs.DgsQueryExecutor
@@ -195,6 +196,7 @@ class ProblemDataFetcherIntegrationTest {
     val first = createExample(problem, position = 2, explanation = "Use two different positions.")
     val hidden = createExample(problem, position = 1, visibility = TestCaseVisibility.HIDDEN)
     createExample(createProblem(), position = 0)
+    entClient.problems.update(problem.id) { checkerKind = ProblemCheckerKind.CUSTOM }.save(fixtureContext).getOrThrow()
     entClient.judgeConfigurations.create {
       problemLanguageId = kotlin.id
       runtime = "kotlin-test"

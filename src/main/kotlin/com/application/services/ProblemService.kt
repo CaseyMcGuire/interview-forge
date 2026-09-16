@@ -2,6 +2,7 @@ package com.application.services
 
 import com.application.ent.EntClient
 import com.application.ent.EntTransactionClient
+import com.application.ent.JudgeConfiguration
 import com.application.ent.Language
 import com.application.ent.Problem
 import com.application.ent.ProblemLanguage
@@ -231,6 +232,86 @@ class ProblemService(
         where(ProblemLanguage.id eq input.id)
         loadLanguage()
       }.firstOrNull(context).getOrThrow()
+    }.getOrThrow()
+  }
+
+  /** Null when absent or when the judge's admin-only read policy denies the current viewer. */
+  fun findJudgeConfiguration(problemLanguageId: Long): JudgeConfiguration? {
+    val viewer = currentUser.get()?.let { Viewer.User(it.id) } ?: Viewer.Anonymous
+
+    return entClient.judgeConfigurations.indexes.problemLanguageId(problemLanguageId)
+      .find(ViewerContext(viewer))
+      .visibleOrNull()
+      .getOrThrow()
+  }
+
+  fun createJudgeConfiguration(
+    problemLanguageId: Long,
+    runtime: String,
+    testDriverCode: String,
+    checkerSource: String?,
+    timeLimitMs: Int,
+    memoryLimitMb: Int,
+  ): ProblemLanguage? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+
+    return entClient.withTransaction { tx ->
+      // Lock the language configuration so concurrent creations cannot both pass the existence check.
+      tx.problemLanguages.query {
+        where(ProblemLanguage.id eq problemLanguageId)
+      }.forUpdate().firstOrNull(context).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      val existing = tx.judgeConfigurations.indexes.problemLanguageId(problemLanguageId)
+        .find(context).getOrThrow()
+      if (existing != null) {
+        throw ProblemInputException("problemLanguageId", "This language already has a judge configuration")
+      }
+
+      tx.judgeConfigurations.create {
+        this.problemLanguageId = problemLanguageId
+        this.runtime = runtime.trim()
+        this.testDriverCode = testDriverCode
+        this.checkerSource = checkerSource
+        this.timeLimitMs = timeLimitMs
+        this.memoryLimitMb = memoryLimitMb
+      }.save(context).getOrThrow()
+
+      tx.problemLanguages.query {
+        where(ProblemLanguage.id eq problemLanguageId)
+        loadLanguage()
+      }.firstOrNull(context).getOrThrow()
+    }.getOrThrow()
+  }
+
+  /** Null parameters leave the existing values unchanged; the checker can be cleared explicitly. */
+  fun updateJudgeConfiguration(
+    id: Long,
+    runtime: String? = null,
+    testDriverCode: String? = null,
+    checkerSource: FieldUpdate<String?> = FieldUpdate.Unchanged,
+    timeLimitMs: Int? = null,
+    memoryLimitMb: Int? = null,
+  ): JudgeConfiguration? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+
+    return entClient.withTransaction { tx ->
+      val configuration = tx.judgeConfigurations.findById(context, id).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      // Judge reads are admin-only, so problem and language availability is checked through the parent.
+      tx.problemLanguages.findById(context, configuration.problemLanguageId).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      tx.judgeConfigurations.update(id) {
+        runtime?.let { this.runtime = it.trim() }
+        testDriverCode?.let { this.testDriverCode = it }
+        if (checkerSource is FieldUpdate.Set) {
+          this.checkerSource = checkerSource.value
+        }
+        timeLimitMs?.let { this.timeLimitMs = it }
+        memoryLimitMb?.let { this.memoryLimitMb = it }
+      }.saveAndLoad(context).getOrThrow()
     }.getOrThrow()
   }
 

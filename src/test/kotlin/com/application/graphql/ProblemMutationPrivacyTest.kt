@@ -1,11 +1,14 @@
 package com.application.graphql
 
 import com.application.graphql.types.DeleteProblemExampleInput
+import com.application.graphql.types.CreateJudgeConfigurationInput
 import com.application.graphql.types.CreateProblemHiddenTestCaseInput
+import com.application.graphql.types.JudgeConfiguration
 import com.application.graphql.types.Problem
 import com.application.graphql.types.ProblemExample
 import com.application.graphql.types.ProblemLanguage
 import com.application.graphql.types.ProblemNotFound
+import com.application.graphql.types.UpdateJudgeConfigurationInput
 import com.application.graphql.types.UpdateProblemExampleInput
 import com.application.graphql.types.UpdateProblemInput
 import com.application.graphql.types.UpdateProblemLanguageInput
@@ -45,6 +48,10 @@ class ProblemMutationPrivacyTest {
       .thenThrow(denied("TestCase", EntOperation.DELETE))
     `when`(service.createProblemHiddenTestCase(CreateProblemHiddenTestCase(42, "[]", "[]")))
       .thenThrow(denied("TestCase", EntOperation.CREATE))
+    `when`(service.createJudgeConfiguration(42, "kotlin-test", "driver", null, 1000, 256))
+      .thenThrow(denied("JudgeConfiguration", EntOperation.CREATE))
+    `when`(service.updateJudgeConfiguration(42))
+      .thenThrow(denied("JudgeConfiguration", EntOperation.UPDATE))
 
     val expected = ProblemNotFound("The requested content does not exist or is unavailable")
 
@@ -67,6 +74,11 @@ class ProblemMutationPrivacyTest {
         inputJson = "[]",
         expectedOutputJson = "[]",
       ),
+    ))
+    assertEquals(expected, fetcher.createJudgeConfiguration(judgeCreationInput(globalIdUtil)))
+    assertEquals(expected, fetcher.updateJudgeConfiguration(
+      UpdateJudgeConfigurationInput(id = globalIdUtil.toGlobalId(JudgeConfiguration::class, 42)),
+      environment,
     ))
   }
 
@@ -94,6 +106,14 @@ class ProblemMutationPrivacyTest {
     }
     assertSame(failure, creationFailure)
   }
+
+  private fun judgeCreationInput(globalIdUtil: GlobalIdUtil) = CreateJudgeConfigurationInput(
+    problemLanguageId = globalIdUtil.toGlobalId(ProblemLanguage::class, 42),
+    runtime = "kotlin-test",
+    testDriverCode = "driver",
+    timeLimitMs = 1000,
+    memoryLimitMb = 256,
+  )
 
   private fun denied(entityType: String, operation: EntOperation) = EntMutationPrivacyDeniedException(
     writeState = MutationWriteState.NotPersisted,

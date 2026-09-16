@@ -11,10 +11,14 @@ import com.application.services.ProblemInputException
 import com.application.services.UpdateProblem
 import com.application.services.UpdateProblemExample
 import com.application.services.UpdateProblemLanguage
+import com.application.graphql.types.CreateJudgeConfigurationInput
+import com.application.graphql.types.CreateJudgeConfigurationResult
+import com.application.graphql.types.CreateJudgeConfigurationSuccess
 import com.application.graphql.types.CreateProblemInput
 import com.application.graphql.types.CreateProblemHiddenTestCaseInput
 import com.application.graphql.types.CreateProblemHiddenTestCaseResult
 import com.application.graphql.types.CreateProblemHiddenTestCaseSuccess
+import com.application.graphql.types.JudgeConfiguration
 import com.application.graphql.types.Language
 import com.application.graphql.types.Problem
 import com.application.graphql.types.ProblemDifficulty
@@ -31,6 +35,9 @@ import com.application.graphql.types.FieldError
 import com.application.graphql.types.ProblemForbidden
 import com.application.graphql.types.ProblemNotFound
 import com.application.graphql.types.ProblemValidationFailure
+import com.application.graphql.types.UpdateJudgeConfigurationInput
+import com.application.graphql.types.UpdateJudgeConfigurationResult
+import com.application.graphql.types.UpdateJudgeConfigurationSuccess
 import com.application.graphql.types.UpdateProblemInput
 import com.application.graphql.types.UpdateProblemResult
 import com.application.graphql.types.UpdateProblemSuccess
@@ -41,6 +48,8 @@ import com.application.graphql.types.UpdateProblemLanguageInput
 import com.application.graphql.types.UpdateProblemLanguageResult
 import com.application.graphql.types.UpdateProblemLanguageSuccess
 import com.netflix.graphql.dgs.DgsComponent
+import com.netflix.graphql.dgs.DgsData
+import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
 import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.InputArgument
@@ -52,6 +61,7 @@ import entkt.runtime.result.EntValidationException
 import graphql.schema.DataFetchingEnvironment
 import org.springframework.security.access.AccessDeniedException
 import kotlin.reflect.KClass
+import com.application.ent.JudgeConfiguration as JudgeConfigurationEntity
 import com.application.ent.Problem as ProblemEntity
 import com.application.ent.ProblemLanguage as ProblemLanguageEntity
 import com.application.ent.TestCase as TestCaseEntity
@@ -221,6 +231,83 @@ class ProblemDataFetcher(
     validationFailure(exception)
   }
 
+  @DgsData(parentType = "ProblemLanguage", field = "judgeConfiguration")
+  fun judgeConfiguration(environment: DgsDataFetchingEnvironment): JudgeConfiguration? {
+    val configuration: ProblemLanguage = environment.getSource() ?: return null
+    val id = globalIdUtil.fromGlobalIdOrNull(configuration.id, ProblemLanguage::class) ?: return null
+
+    return problemService.findJudgeConfiguration(id)?.let(::toGraphqlJudgeConfiguration)
+  }
+
+  @DgsMutation
+  fun createJudgeConfiguration(
+    @InputArgument input: CreateJudgeConfigurationInput,
+  ): CreateJudgeConfigurationResult = try {
+    val configuration = problemService.createJudgeConfiguration(
+      problemLanguageId = problemContentId(input.problemLanguageId, ProblemLanguage::class, "problemLanguageId"),
+      runtime = input.runtime,
+      testDriverCode = input.testDriverCode,
+      checkerSource = input.checkerSource,
+      timeLimitMs = input.timeLimitMs,
+      memoryLimitMb = input.memoryLimitMb,
+    )
+
+    if (configuration == null) {
+      contentNotFound()
+    } else {
+      CreateJudgeConfigurationSuccess(toGraphqlProblemLanguage(configuration))
+    }
+  } catch (_: AccessDeniedException) {
+    contentForbidden()
+  } catch (_: EntMutationPrivacyDeniedException) {
+    contentNotFound()
+  } catch (_: EntTargetAbsentException) {
+    contentNotFound()
+  } catch (exception: EntValidationException) {
+    validationFailure(exception)
+  } catch (exception: ProblemInputException) {
+    validationFailure(exception)
+  }
+
+  @DgsMutation
+  fun updateJudgeConfiguration(
+    @InputArgument input: UpdateJudgeConfigurationInput,
+    environment: DataFetchingEnvironment,
+  ): UpdateJudgeConfigurationResult = try {
+    // Checkers can be cleared, so only this field needs to distinguish null from omission.
+    val inputFields = environment.getArgument<Map<String, Any?>>("input").orEmpty()
+    val checkerSource = if (inputFields.containsKey("checkerSource")) {
+      FieldUpdate.Set(input.checkerSource)
+    } else {
+      FieldUpdate.Unchanged
+    }
+
+    val judge = problemService.updateJudgeConfiguration(
+      id = problemContentId(input.id, JudgeConfiguration::class),
+      runtime = input.runtime,
+      testDriverCode = input.testDriverCode,
+      checkerSource = checkerSource,
+      timeLimitMs = input.timeLimitMs,
+      memoryLimitMb = input.memoryLimitMb,
+    )
+
+    if (judge == null) {
+      contentNotFound()
+    } else {
+      UpdateJudgeConfigurationSuccess(toGraphqlJudgeConfiguration(judge))
+    }
+  } catch (_: AccessDeniedException) {
+    contentForbidden()
+  } catch (_: EntMutationPrivacyDeniedException) {
+    contentNotFound()
+  } catch (_: EntTargetAbsentException) {
+    contentNotFound()
+  } catch (exception: EntValidationException) {
+    validationFailure(exception)
+  } catch (exception: ProblemInputException) {
+    validationFailure(exception)
+  }
+
   @DgsMutation
   fun updateProblemExample(
     @InputArgument input: UpdateProblemExampleInput,
@@ -326,6 +413,15 @@ class ProblemDataFetcher(
       starterCode = configuration.starterCode,
     )
   }
+
+  private fun toGraphqlJudgeConfiguration(judge: JudgeConfigurationEntity): JudgeConfiguration = JudgeConfiguration(
+    id = globalIdUtil.toGlobalId(JudgeConfiguration::class, judge.id),
+    runtime = judge.runtime,
+    testDriverCode = judge.testDriverCode,
+    checkerSource = judge.checkerSource,
+    timeLimitMs = judge.timeLimitMs,
+    memoryLimitMb = judge.memoryLimitMb,
+  )
 
   private fun toGraphqlProblemExample(example: TestCaseEntity): ProblemExample = ProblemExample(
     id = globalIdUtil.toGlobalId(ProblemExample::class, example.id),
