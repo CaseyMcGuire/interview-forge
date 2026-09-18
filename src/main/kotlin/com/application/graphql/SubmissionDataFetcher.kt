@@ -10,12 +10,15 @@ import com.application.graphql.types.SubmitSolutionInput
 import com.application.graphql.types.SubmitSolutionResult
 import com.application.graphql.types.SubmitSolutionSuccess
 import com.application.graphql.types.Submission
+import com.application.graphql.types.SubmissionFailedExample
 import com.application.graphql.types.SubmissionStatus
 import com.application.graphql.types.SubmissionValidationFailure
 import com.application.graphql.types.SubmissionVerdict
 import com.application.services.SubmitSolutionOutcome
 import com.application.services.SubmissionService
 import com.netflix.graphql.dgs.DgsComponent
+import com.netflix.graphql.dgs.DgsData
+import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
 import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.InputArgument
@@ -58,6 +61,23 @@ class SubmissionDataFetcher(
     val databaseId = globalIdUtil.fromGlobalIdOrNull(id, Submission::class) ?: return null
 
     return submissionService.findSubmissionForCurrentUser(databaseId)?.let(::toGraphqlSubmission)
+  }
+
+  @DgsData(
+    parentType = DgsConstants.SUBMISSION.TYPE_NAME,
+    field = DgsConstants.SUBMISSION.FailedExample,
+  )
+  fun failedExample(environment: DgsDataFetchingEnvironment): SubmissionFailedExample? {
+    val submission = environment.getSource<Submission>() ?: return null
+    val id = globalIdUtil.fromGlobalIdOrNull(submission.id, Submission::class) ?: return null
+    val failedCase = submissionService.findFailedExampleForCurrentUser(id) ?: return null
+
+    return SubmissionFailedExample(
+      position = failedCase.position,
+      inputJson = failedCase.inputJson.toString(),
+      expectedOutputJson = checkNotNull(failedCase.expectedOutputJson).toString(),
+      output = failedCase.stdout.orEmpty(),
+    )
   }
 
   private fun toGraphqlSubmission(submission: SubmissionEntity): Submission = Submission(

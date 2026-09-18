@@ -4,7 +4,7 @@ Status: The official submission API and admission/polling backend are reviewed a
 committed. They supersede the earlier Run API commit `0f8efe3`. JSON output checking is
 committed in `4d3d81d`. The submission worker and execution interfaces are reviewed and
 committed in `e403ec5`. Docker/JVM execution and scheduled activation are reviewed and committed.
-The failed-example API remains stashed.
+The failed-example API is reviewed and committed.
 
 ## Current scope
 
@@ -41,6 +41,11 @@ and [submission.graphql](../src/main/resources/schema/submission.graphql).
 - Hidden input/output and private judge details are not part of the summary response.
   Expected request failures use the mutation union; unexpected database/application
   failures remain GraphQL errors.
+- `failedExample` exposes the retained position, JSON input, JSON expectation, and captured
+  stdout when the first failure was a public example. It is null before completion, when
+  no case failed, or when the first failure was hidden. Output may be empty or invalid JSON;
+  stored NUL characters are replaced with the Unicode replacement character. No stderr,
+  private compiler diagnostics, or unmeasured per-case timing is exposed.
 
 ## Admission and polling backend
 
@@ -89,8 +94,12 @@ Passing outputs are not retained. Compilation failures and JVM failures before a
 starts have no failed-case row. Suite timing belongs to the summary; individual case
 timing stays null because the executor does not measure it.
 
-Only the execution identity can create or read failed-case records in this stage.
-Public-example access is a separate API stage. Public errors exclude private diagnostics.
+Only the execution identity can create failed-case records. The authenticated submission
+owner may read a failed example from a finished official submission; hidden and custom
+records remain execution-only. The EntKt privacy rule uses the retained visibility, so a
+hidden test made public later does not expose old failures. A retained public example stays
+available to its owner after test edits or problem archival. Other users and administrators
+cannot read it. Public errors exclude private diagnostics.
 The existing owner polling API exposes RUNNING and the terminal summary; there are no
 per-case progress writes during the suite.
 
@@ -190,18 +199,21 @@ to the local Docker daemon. Reserve it for this application.
 - [x] **Docker/JVM runtime and activation:** Docker API implementation, one-JVM suite,
   container labels and recovery, scheduling, default runtime mapping, and admission wiring.
   Implemented, reviewed, and committed.
-- [ ] **Failed-example API:** Owner-only public-example results and privacy tests. Stashed.
+- [x] **Failed-example API:** Owner-only public-example results and privacy tests.
+  Implemented, reviewed, and committed.
 
 Stash `9d4a201` preserves the runtime before the worker review; earlier backups remain
 intact. The active implementation has been reconciled with the reviewed worker API.
 `TestSuiteResult` and `JsonOutputChecker` now live in the shared `kotlin-runtime` module.
-Restore only the failed-example API files for the next stage; its saved worker draft
-predates suite execution and must not replace the current scheduler, service, or runner.
+The failed-example API has been reapplied against the current service and suite execution
+model. The backups remain intact; their old worker drafts must not replace the current
+scheduler, service, or runner.
 
 Each stage is reviewed before committing. Example/custom execution and frontend integration
-remain follow-ups. V8 has already been applied locally; later physical schema changes
-require a new Flyway migration. The mutable `totalCases` metadata change does not alter
-its physical database column.
+remain follow-ups, along with skipping locked queue rows and recovering submissions stuck
+in RUNNING beyond their allowed execution window. V8 has already been applied locally;
+later physical schema changes require a new Flyway migration. The mutable `totalCases`
+metadata change does not alter its physical database column.
 
 After the execution work is complete, remove the mandatory ADR rule and the new execution
 ADRs as a separate follow-up. Existing ADRs remain as history.

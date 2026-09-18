@@ -6,6 +6,7 @@ import com.application.ent.EntTransactionClient
 import com.application.ent.Problem
 import com.application.ent.ProblemLanguage
 import com.application.ent.Submission
+import com.application.ent.SubmissionTestResult
 import com.application.ent.TestCase
 import com.application.execution.LanguageExecutionConfig
 import com.application.execution.RuntimeAvailability
@@ -164,6 +165,19 @@ class SubmissionService(
 
     return entClient.withTransaction { tx ->
       loadOwnedSubmission(tx, id, user.id)
+    }.getOrThrow()
+  }
+
+  fun findFailedExampleForCurrentUser(submissionId: Long): SubmissionTestResult? {
+    val user = currentUser.get() ?: return null
+
+    return entClient.withTransaction { tx ->
+      loadOwnedSubmission(tx, submissionId, user.id) ?: return@withTransaction null
+
+      tx.submissionTestResults.indexes.submissionId(submissionId).query {}
+        .firstOrNull(ViewerContext(Viewer.User(user.id)))
+        .visibleOrNull()
+        .getOrThrow()
     }.getOrThrow()
   }
 

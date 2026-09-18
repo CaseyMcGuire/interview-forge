@@ -1,6 +1,7 @@
 package com.application.db.policies
 
 import com.application.db.policies.rules.AllowIfExecutionRule
+import com.application.db.policies.rules.AllowIfFailedExampleOwnerReadRule
 import com.application.ent.SubmissionTestResult
 import com.application.ent.SubmissionTestResultPolicyScope
 import entkt.runtime.privacy.EntityPolicy
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Component
 class SubmissionTestResultPolicy : EntityPolicy<SubmissionTestResult, SubmissionTestResultPolicyScope> {
   override fun configure(scope: SubmissionTestResultPolicyScope) = scope.run {
     privacy {
-      load(AllowIfExecutionRule())
+      load(AllowIfExecutionRule(), AllowIfFailedExampleOwnerReadRule())
       create(AllowIfExecutionRule())
     }
   }

@@ -7,6 +7,7 @@ import com.application.graphql.GlobalIdUtil
 import com.application.schema.ProblemDifficulty
 import com.application.schema.SubmissionKind
 import com.application.schema.SubmissionStatus
+import com.application.schema.SubmissionTestOutcome
 import com.application.schema.SubmissionVerdict
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
@@ -14,9 +15,11 @@ import com.application.security.ExecutionAccess
 import com.application.services.SubmissionService
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
+import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntPrivacyDeniedException
 import jakarta.servlet.Filter
 import jakarta.servlet.http.Cookie
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -30,7 +33,10 @@ import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.mock.web.MockHttpSession
+import org.springframework.security.core.context.SecurityContext
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
@@ -179,6 +185,7 @@ class SubmissionExecutionIntegrationTest {
       assertEquals("RUNNING", running["status"].asString())
       assertEquals(3, running["totalCases"].asInt())
       assertEquals(0, running["passedCases"].asInt())
+      assertTrue(running["failedExample"].isNull)
       assertTrue(storedResults().isEmpty())
       TestSuiteResult(TestSuiteStatus.PASSED, 3, runtimeMs = 42)
     }
@@ -196,6 +203,7 @@ class SubmissionExecutionIntegrationTest {
     assertEquals("ACCEPTED", result["verdict"].asString())
     assertEquals(3, result["passedCases"].asInt())
     assertEquals(42, result["runtimeMs"].asInt())
+    assertTrue(result["failedExample"].isNull)
     assertFalse(result["startedAt"].isNull)
     assertFalse(result["finishedAt"].isNull)
     assertTrue(storedResults().isEmpty())
@@ -226,6 +234,7 @@ class SubmissionExecutionIntegrationTest {
     assertEquals("WRONG_ANSWER", result["verdict"].asString())
     assertEquals(1, result["passedCases"].asInt())
     assertEquals(3, result["totalCases"].asInt())
+    assertTrue(result["failedExample"].isNull)
     assertFalse(result.toString().contains("private diagnostic"))
 
     val retained = storedResults().single()
@@ -251,6 +260,147 @@ class SubmissionExecutionIntegrationTest {
   }
 
   @Test
+  fun `the owner can poll a failed example after its input visibility and problem change`() {
+    val example = createCase(4, TestCaseVisibility.EXAMPLE, 4)
+    val id = submit("solution")
+    assertTrue(poll(id)["failedExample"].isNull)
+    executor.runSuite = { _, _, _ ->
+      TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "0", stderr = "private driver diagnostic")
+    }
+
+    scheduler.processQueuedSubmissions()
+
+    entClient.testCases.update(example.id) {
+      inputJson = JsonPrimitive(99)
+      expectedOutputJson = JsonPrimitive(99)
+      visibility = TestCaseVisibility.HIDDEN
+    }.save(fixtures).getOrThrow()
+    entClient.problems.update(problemId) { archivedAt = Instant.now() }.save(fixtures).getOrThrow()
+
+    val submission = poll(id)
+    val failed = submission["failedExample"]
+    assertEquals(4, failed["position"].asInt())
+    assertEquals("4", failed["inputJson"].asString())
+    assertEquals("4", failed["expectedOutputJson"].asString())
+    assertEquals("0", failed["output"].asString())
+    assertFalse(submission.toString().contains("private driver diagnostic"))
+    assertEquals(1, storedResults().size)
+
+    assertTrue(poll(id, null).isNull)
+    assertTrue(poll(id, signIn()).isNull)
+    assertTrue(poll(id, signIn(UserRole.ADMIN)).isNull)
+  }
+
+  @Test
+  fun `failed examples preserve JSON null and output that is not valid JSON`() {
+    val example = createCase(0, TestCaseVisibility.EXAMPLE, 1)
+    entClient.testCases.update(example.id) {
+      inputJson = JsonNull
+      expectedOutputJson = JsonNull
+    }.save(fixtures).getOrThrow()
+    val id = submit("solution")
+    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.INVALID_OUTPUT, 0, 0, stdout = "not JSON") }
+
+    scheduler.processQueuedSubmissions()
+
+    val submission = poll(id)
+    assertEquals("RUNTIME_ERROR", submission["verdict"].asString())
+    val failed = submission["failedExample"]
+    assertEquals("null", failed["inputJson"].asString())
+    assertEquals("null", failed["expectedOutputJson"].asString())
+    assertEquals("not JSON", failed["output"].asString())
+  }
+
+  @Test
+  fun `failed-example privacy requires the authenticated owner and denies result mutations`() {
+    createCase(0, TestCaseVisibility.EXAMPLE, 1)
+    submit("solution")
+    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "0") }
+    scheduler.processQueuedSubmissions()
+
+    val result = storedResults().single()
+    val ownerId = userId
+    val owner = ViewerContext(Viewer.User(ownerId))
+    val stranger = signIn()
+    val strangerId = userId
+    val admin = signIn(UserRole.ADMIN)
+    val adminId = userId
+
+    try {
+      authenticate(session)
+      assertEquals(result.id, entClient.submissionTestResults.findById(owner, result.id).getOrThrow()!!.id)
+
+      for (viewer in listOf(Viewer.Anonymous, Viewer.User(strangerId), Viewer.User(adminId))) {
+        assertThrows(EntPrivacyDeniedException::class.java) {
+          entClient.submissionTestResults.findById(ViewerContext(viewer), result.id).getOrThrow()
+        }
+      }
+
+      assertThrows(EntMutationPrivacyDeniedException::class.java) {
+        entClient.submissionTestResults.update(result.id) { stdout = "forged" }.save(owner).getOrThrow()
+      }
+      assertThrows(EntMutationPrivacyDeniedException::class.java) {
+        entClient.submissionTestResults.deleteById(owner, result.id).getOrThrow()
+      }
+      assertThrows(EntMutationPrivacyDeniedException::class.java) {
+        entClient.submissionTestResults.create {
+          submissionId = result.submissionId
+          position = result.position + 1
+          source = result.source
+          inputJson = result.inputJson
+          expectedOutputJson = result.expectedOutputJson
+          outcome = result.outcome
+        }.save(owner).getOrThrow()
+      }
+
+      for ((login, viewerId) in listOf(stranger to strangerId, admin to adminId)) {
+        authenticate(login)
+        assertThrows(EntPrivacyDeniedException::class.java) {
+          entClient.submissionTestResults.findById(ViewerContext(Viewer.User(viewerId)), result.id).getOrThrow()
+        }
+        assertThrows(EntPrivacyDeniedException::class.java) {
+          entClient.submissionTestResults.findById(owner, result.id).getOrThrow()
+        }
+      }
+
+      SecurityContextHolder.clearContext()
+      assertThrows(EntPrivacyDeniedException::class.java) {
+        entClient.submissionTestResults.findById(owner, result.id).getOrThrow()
+      }
+    } finally {
+      SecurityContextHolder.clearContext()
+    }
+  }
+
+  @Test
+  fun `unfinished attempts and non-failing case records have no failed example`() {
+    createCase(0, TestCaseVisibility.EXAMPLE, 1)
+    val id = submit("solution")
+    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "0") }
+    scheduler.processQueuedSubmissions()
+    val result = storedResults().single()
+
+    for (status in listOf(SubmissionStatus.QUEUED, SubmissionStatus.RUNNING)) {
+      entClient.submissions.update(result.submissionId) { this.status = status }.save(fixtures).getOrThrow()
+      assertTrue(poll(id)["failedExample"].isNull)
+    }
+
+    entClient.submissions.update(result.submissionId) {
+      status = SubmissionStatus.FINISHED
+    }.save(fixtures).getOrThrow()
+
+    for (outcome in listOf(
+      SubmissionTestOutcome.PENDING,
+      SubmissionTestOutcome.PASSED,
+      SubmissionTestOutcome.EXECUTED,
+      SubmissionTestOutcome.SKIPPED,
+    )) {
+      entClient.submissionTestResults.update(result.id) { this.outcome = outcome }.save(fixtures).getOrThrow()
+      assertTrue(poll(id)["failedExample"].isNull)
+    }
+  }
+
+  @Test
   fun `compilation failures close the program without running or retaining cases`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val id = submit("invalid solution")
@@ -261,6 +411,7 @@ class SubmissionExecutionIntegrationTest {
     val result = poll(id)
     assertEquals("FINISHED", result["status"].asString())
     assertEquals("COMPILE_ERROR", result["verdict"].asString())
+    assertTrue(result["failedExample"].isNull)
     assertFalse(result.toString().contains("TestDriver"))
     assertEquals(listOf("cleanup", "prepare", "compile", "close"), executor.events)
     assertTrue(storedResults().isEmpty())
@@ -540,23 +691,26 @@ class SubmissionExecutionIntegrationTest {
     return response["submission"]["id"].asString()
   }
 
-  private fun poll(id: String, viewer: MockHttpSession = session): JsonNode = graphql(
+  private fun poll(id: String, viewer: MockHttpSession? = session): JsonNode = graphql(
     """query(${'$'}id: ID!) { submission(id: ${'$'}id) {
       status verdict totalCases passedCases runtimeMs startedAt finishedAt publicErrorMessage
+      failedExample { position inputJson expectedOutputJson output }
     } }""".trimIndent(),
     mapOf("id" to id),
     viewer,
   )["submission"]
 
-  private fun graphql(query: String, variables: Map<String, Any>, viewer: MockHttpSession): JsonNode {
-    var result = mvc.perform(
-      post("/graphql")
-        .session(viewer)
-        .contentType("application/json")
-        .cookie(Cookie("XSRF-TOKEN", "token"))
-        .header("X-XSRF-TOKEN", "token")
-        .content(mapper.writeValueAsString(mapOf("query" to query, "variables" to variables))),
-    ).andReturn()
+  private fun graphql(query: String, variables: Map<String, Any>, viewer: MockHttpSession?): JsonNode {
+    val request = post("/graphql")
+      .contentType("application/json")
+      .cookie(Cookie("XSRF-TOKEN", "token"))
+      .header("X-XSRF-TOKEN", "token")
+      .content(mapper.writeValueAsString(mapOf("query" to query, "variables" to variables)))
+    if (viewer != null) {
+      request.session(viewer)
+    }
+
+    var result = mvc.perform(request).andReturn()
 
     if (result.request.isAsyncStarted) {
       result = mvc.perform(asyncDispatch(result)).andReturn()
@@ -566,6 +720,13 @@ class SubmissionExecutionIntegrationTest {
     val response = mapper.readTree(result.response.contentAsString)
     assertFalse(response.has("errors"), response.toString())
     return response["data"]
+  }
+
+  private fun authenticate(session: MockHttpSession) {
+    val securityContext = session.getAttribute(
+      HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+    ) as SecurityContext
+    SecurityContextHolder.setContext(securityContext)
   }
 
   /** Keeps the review focused on how the runner uses the execution contract. */

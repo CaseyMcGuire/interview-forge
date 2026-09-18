@@ -23,7 +23,7 @@ type Submission {
   """Number of official cases passed so far."""
   passedCases: Int!
 
-  """Sum of available case runtimes in milliseconds, excluding compilation; null if unavailable."""
+  """Suite runtime in milliseconds, including JVM startup but excluding compilation; null if unavailable."""
   runtimeMs: Int
 
   """Highest available case memory measurement in megabytes; null if unavailable."""
@@ -40,6 +40,28 @@ type Submission {
 
   """Completion time as an ISO 8601 UTC timestamp; present exactly when status is FINISHED."""
   finishedAt: String
+
+  """
+  The retained first failure when it was a public example at execution time.
+  Null before completion, when no case failed, or when the first failure was hidden.
+  Later test edits do not change the retained input, expectation, or visibility.
+  """
+  failedExample: SubmissionFailedExample
+}
+
+"""A failed public example, visible only to the owner of its official submission."""
+type SubmissionFailedExample {
+  """The test case's stored position at execution time."""
+  position: Int!
+
+  """The example input serialized as JSON."""
+  inputJson: String!
+
+  """The expected answer serialized as JSON, including the literal null when that is the expected value."""
+  expectedOutputJson: String!
+
+  """Captured stdout, at most 20,000 characters. May be empty or invalid JSON; NUL is replaced with �."""
+  output: String!
 }
 
 enum SubmissionStatus {
