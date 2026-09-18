@@ -6,6 +6,6 @@ class PreparedProgram(
   val sourceFiles: Map<String, String>,
   /** Executable and arguments, without shell expansion; null when compilation is unnecessary. */
   val compileCommand: List<String>?,
-  /** Executable and arguments to run after successful compilation, once per test case. */
+  /** Executable and arguments to run after successful compilation, once for the complete suite. */
   val runCommand: List<String>,
 )

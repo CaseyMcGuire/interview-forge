@@ -1,8 +1,9 @@
 # Official submission execution: API and backend
 
 Status: The official submission API and admission/polling backend are reviewed and
-committed. They supersede the earlier Run API commit `0f8efe3`. The execution worker
-is the next review stage and is not implemented.
+committed. They supersede the earlier Run API commit `0f8efe3`. JSON output checking is
+committed in `4d3d81d`. The submission worker and execution interfaces are awaiting review;
+the Docker/JVM implementation is stashed so the caller can be reviewed first.
 
 ## Current scope
 
@@ -69,20 +70,35 @@ worker accepts work it cannot execute.
 
 ## Worker and result retention
 
-The next execution stage will atomically claim queued submissions, record RUNNING, and
-load current judge settings, configured runtime, and the official suite. Keep those inputs
-in memory while executing and keep database transactions outside compilation/process work.
-Do not persist runtime, driver, checker, resource-limit, or full-suite snapshots.
+`SubmissionWorker.executeNextSubmission()` claims the oldest queued official submission,
+records RUNNING, and loads current judge settings, runtime configuration, and ordered cases.
+It prepares and compiles the program, calls `runTestSuite` once, then saves the result.
+Inputs stay in memory while executing; database transactions remain outside compilation
+and suite execution. No runtime, driver, checker, limit, or full-suite snapshots are persisted.
 
-Persist the execution summary and at most the first failed case; successful case outputs
-are not retained. Admission currently writes no case results. The existing case-result
-schema remains unchanged in this removal; implementing first-failure-only storage and
-its privacy-safe result response belongs with the worker's result persistence.
-Compilation failures require a summary error but no failed-case row.
+The summary and at most the first failed case are saved together in one transaction.
+The returned zero-based failure index selects the original case, including its input,
+expectation, position, and visibility. Later test edits cannot change that retained data.
+Passing outputs are not retained. Compilation failures and JVM failures before any case
+starts have no failed-case row. Suite timing belongs to the summary; individual case
+timing stays null because the executor does not measure it.
 
-The worker must persist terminal status, bound runtime resources and outputs, and recover
-interrupted work without leaving submissions permanently RUNNING. Retained state and
-polling survive browser refresh and are independent of the original admission request.
+Only the execution identity can create or read failed-case records in this stage.
+Public-example access is a separate API stage. Public errors exclude private diagnostics.
+The existing owner polling API exposes RUNNING and the terminal summary; there are no
+per-case progress writes during the suite.
+
+The worker cleans abandoned executor resources before its first attempt and finishes
+leftover RUNNING rows as INTERNAL_ERROR before claiming more work. This assumes one
+worker for the application. Exceptions close the prepared program and finish the attempt;
+interruptions also propagate to the caller with the thread's interruption flag restored.
+Final database writes are not retried because a lost connection can leave their commit
+outcome unknown. A remaining RUNNING row is recovered before the next attempt.
+
+For this review, the worker is constructor-injected and not registered or scheduled in
+Spring. Integration tests use a fake `ProgramExecutor`, a real PostgreSQL database, and
+the existing submission/polling API. Production activation belongs with the runtime
+stage; admission remains unavailable while its implementation is stashed.
 
 ## Runtime boundary
 
@@ -91,11 +107,17 @@ isolated compilation, process lifecycle, stdin/stdout/stderr, limits, and cleanu
 with Kotlin and exact JSON comparison. Select `execution.runtimes[language.key]` and current
 judge settings when the worker starts each attempt.
 
-Run submitted code outside the web process with no application credentials or network
-access, restricted mounts, and bounded CPU/memory/process/output use. Enforce deadlines
-and clean up on all exit paths. Send one JSON value on stdin and require exactly one JSON
-value on stdout. Keep stderr bounded. Compare outputs outside the submitted program and
-never pass expected answers or private checker code into it.
+`ProgramExecutor.prepareProgram` returns a `ProgramExecution` that the worker closes
+after compilation and execution. `runTestSuite` accepts all ordered inputs and expected
+outputs together, plus the case time limit and shared memory limit. `TestSuiteResult`
+reports all passed or the first failure, its index, passed count, bounded failure output,
+and optional suite duration. The worker maps that result to persisted verdicts without
+parsing process output or performing comparisons.
+
+The stashed implementation runs one JVM for the whole suite, preserving state between
+cases. It enforces limits, performs strict JSON comparison, and reports the first failure.
+Its containers run without application credentials or network access. Expected outputs
+are available inside the submission JVM; this is not a tamper-proof grading boundary.
 
 Only record available measurements. Preserve JSON numeric values during comparison;
 object key order and whitespace do not matter, array order and JSON types do. Compilation,
@@ -110,11 +132,25 @@ outcomes, with safe diagnostics excluding hidden inputs.
 - [x] **Submission backend:** Persist official attempts with transactional admission,
   source validation, scoped execution access, and owner polling. Remove example/custom
   selection, case snapshots, and Run-only validation. Implemented, reviewed, and committed.
-- [ ] **Execution backend:** Implement worker claims, the isolated Kotlin executor,
-  comparison, first-failure-only result persistence, limits, cleanup, and interrupted-work
-  recovery. Validate complete official submissions end to end.
+- [x] **JSON output checking:** Strict JSON parsing and comparison, reviewed and committed.
+- [ ] **Submission worker and execution API:** Claim submissions, load current settings,
+  compile, run the suite once, and persist the summary and first failure. Implemented
+  with fake-executor integration tests; awaiting review.
+- [ ] **Docker/JVM runtime and activation:** Restore the implementation, scheduling,
+  default runtime mapping, and admission wiring; validate the complete path. Stashed/deferred.
+- [ ] **Failed-example API:** Owner-only public-example results and privacy tests. Stashed.
+
+The complete runtime is saved in stash `9d4a201` ("Single-JVM Docker runtime before
+submission worker API review"). Earlier implementation backups remain intact. Restore
+individual files after reviewing the worker, rather than applying the entire old diff.
+`TestSuiteResult` currently lives beside the worker's interfaces; the runtime stage will
+move the shared contract into its Gradle module. Reconcile any API changes before restoring
+the caller wiring, and keep the original worker draft's per-case loop out of the final code.
 
 Each stage is reviewed before committing. Example/custom execution and frontend integration
 remain follow-ups. V8 has already been applied locally; later physical schema changes
 require a new Flyway migration. The mutable `totalCases` metadata change does not alter
 its physical database column.
+
+After the execution work is complete, remove the mandatory ADR rule and the new execution
+ADRs as a separate follow-up. Existing ADRs remain as history.

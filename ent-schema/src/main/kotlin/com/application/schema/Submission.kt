@@ -44,7 +44,7 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
   /** Number of cases with a PASSED outcome; grading must keep it between zero and totalCases. */
   val passedCases by int("passed_cases").default(0)
 
-  /** Sum of measured case execution times in milliseconds; null before timing is available. */
+  /** Measured suite execution time in milliseconds; null before timing is available. */
   val runtimeMs by long("runtime_ms").nullable()
 
   /** Highest measured memory use among executed cases, in megabytes; null if unavailable. */
@@ -59,7 +59,7 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
   /** Null until terminal completion, including compilation and infrastructure failures. */
   val finishedAt by instant("finished_at").nullable()
 
-  /** Per-case snapshots and outcomes; hidden-case details require stricter access than this summary. */
+  /** At most the first failed case is retained; its details remain private to execution. */
   val testResults by hasMany<SubmissionTestResult>("test_results")
 
   /** Time the user created this attempt, used to order submission history. */

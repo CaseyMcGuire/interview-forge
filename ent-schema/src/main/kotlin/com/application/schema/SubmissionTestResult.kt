@@ -5,7 +5,7 @@ import entkt.schema.EntSchema
 import entkt.schema.OnDelete
 import kotlinx.serialization.json.JsonElement
 
-/** A selected test's immutable input snapshot plus its eventual execution result. */
+/** The first failed official case; successful cases are not retained by the submission worker. */
 class SubmissionTestResult : EntSchema("submission_test_results", clientName = "submissionTestResults") {
   /** Database-generated identity for one case within one attempt. */
   override fun id() = EntId.long()
@@ -36,7 +36,7 @@ class SubmissionTestResult : EntSchema("submission_test_results", clientName = "
     .immutable()
     .sensitive()
 
-  /** Initially pending; EXECUTED means a custom case returned without an expected-output comparison. */
+  /** The worker writes a terminal failure outcome when recording this row. */
   val outcome by enum<SubmissionTestOutcome>("outcome").default(SubmissionTestOutcome.PENDING)
 
   /** Serialized return value; SQL null means no captured result, while JSON null is a returned value. */
@@ -54,7 +54,7 @@ class SubmissionTestResult : EntSchema("submission_test_results", clientName = "
   /** Peak measured memory for this case in megabytes; null when it was not measured. */
   val peakMemoryMb by int("peak_memory_mb").nullable()
 
-  /** Time the case snapshot was recorded, before its execution starts. */
+  /** Time the first failed case was retained, after execution. */
   val createdAt by instant("created_at").defaultNow().immutable()
 
   /** Time the outcome, captured output, or execution measurements were last updated. */
