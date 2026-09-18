@@ -2,10 +2,10 @@
 
 Date: 2026-09-15
 
-Status: Accepted.
+Status: Historical.
 
 The Kotlin launch command is extended by
-[0021: One JVM for each submission's test suite](0021-single-jvm-test-suites.md).
+[the current single-JVM suite implementation](../../docs/submission-execution.md#runtime-boundary).
 The driver contract below remains unchanged.
 
 ## Decision

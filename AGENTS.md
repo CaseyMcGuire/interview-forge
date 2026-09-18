@@ -33,7 +33,7 @@ All Gradle commands require a root `.env` containing `DB_USER`, `DB_PASSWORD`, `
 - Never hand-edit generated files. Commit Relay's `src/main/web-frontend/__generated__/`, client `src/main/web-frontend/routes/`, and `SinglePageApplicationBundles.ts`. Keep routes outside `__generated__/` because Relay deletes unexpected files there. DGS, EntKt, and Kotlin route outputs under `build/generated/` are not committed.
 - Frontend dependencies live in root `package.json`; commit corresponding `package-lock.json` changes.
 - Keep exactly one application directory under `src/main/kotlin/com/`; codegen derives package paths from it.
-- Before changing the stack, read the relevant [ADRs](.agent/adr/README.md); add a numbered ADR when making an architectural decision.
+- Existing [ADRs](.agent/adr/README.md) provide historical context when changing the stack. Create new ADRs only when explicitly requested; discuss consequential design choices in the conversation before implementation.
 
 ## Database access
 

@@ -1,6 +1,8 @@
 # Architecture Decision Records
 
-This directory records the architectural decisions baked into this template and the reasoning behind them. When you make a new significant decision (or reverse one below), add a numbered file (`NNNN-short-title.md`) here and list it in the index at the bottom. The baseline decisions that shaped the template are summarized inline below.
+This directory preserves historical architectural decisions and their reasoning. New ADRs are created only when explicitly requested; design choices are discussed in the conversation before implementation. The baseline decisions that shaped the template are summarized inline below.
+
+The current submission execution design and Docker setup live in [the execution documentation](../../docs/submission-execution.md).
 
 ## 1. Kotlin + Spring Boot server, Gradle orchestrates everything
 
@@ -85,7 +87,3 @@ Spring Security uses `CookieCsrfTokenRepository` (non-HttpOnly) with the plain r
 - [0015: Current roles for authorization](0015-current-roles-for-authorization.md)
 - [0016: Language runtimes in application configuration](0016-language-runtime.md)
 - [0017: Language-specific program preparation](0017-language-preparation.md)
-- [0018: Official submission admission and transient example Runs](0018-submission-admission.md)
-- [0019: Local Docker execution for official submissions](0019-local-docker-execution.md)
-- [0020: Docker API client for container execution](0020-docker-api-client.md)
-- [0021: One JVM for each submission's test suite](0021-single-jvm-test-suites.md)

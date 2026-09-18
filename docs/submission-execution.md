@@ -215,5 +215,7 @@ in RUNNING beyond their allowed execution window. V8 has already been applied lo
 later physical schema changes require a new Flyway migration. The mutable `totalCases`
 metadata change does not alter its physical database column.
 
-After the execution work is complete, remove the mandatory ADR rule and the new execution
-ADRs as a separate follow-up. Existing ADRs remain as history.
+The ADR cleanup follow-up is reviewed and committed: submission execution ADRs
+0018–0021 have been removed, earlier ADRs remain as history, and new ADRs are created only
+when explicitly requested. This document holds the current execution design and setup
+instructions; consequential design choices are discussed in the conversation before implementation.
