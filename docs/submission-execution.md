@@ -2,8 +2,9 @@
 
 Status: The official submission API and admission/polling backend are reviewed and
 committed. They supersede the earlier Run API commit `0f8efe3`. JSON output checking is
-committed in `4d3d81d`. The submission worker and execution interfaces are awaiting review;
-the Docker/JVM implementation is stashed so the caller can be reviewed first.
+committed in `4d3d81d`. The submission worker and execution interfaces are reviewed and
+committed in `e403ec5`. Docker/JVM execution and scheduled activation are reviewed and committed.
+The failed-example API remains stashed.
 
 ## Current scope
 
@@ -15,7 +16,7 @@ There is no example/custom Run mutation, custom-case input, or transient executi
 Official execution uses the problem's stored examples and hidden tests. Admission verifies
 that at least one official case exists but does not select or copy the suite, create pending
 case results, or impose the former custom-Run limit of twenty cases. `totalCases` is zero
-while queued; the worker sets it when it selects the current suite at execution start.
+while queued; the service sets it when it selects the current suite at execution start.
 
 Example/custom Runs are a separate follow-up: execute and return results directly, with
 page state lost on refresh. Saving user-authored sample inputs would be another optional
@@ -30,7 +31,7 @@ and [submission.graphql](../src/main/resources/schema/submission.graphql).
   most 50,000 characters and retain it without trimming.
 - Expected failures are authentication required, problem not found/unavailable, invalid
   input, execution unavailable, and execution busy. They create no submission.
-- Successful admission returns a persisted submission, normally QUEUED. The worker may
+- Successful admission returns a persisted submission, normally QUEUED. The scheduler may
   already have advanced its state before the response is read.
 - Polling exposes ID, lifecycle, overall verdict, total/passed counts, measurements,
   timestamps, and a safe error message. It returns null for malformed, wrong-type,
@@ -63,16 +64,21 @@ including hidden inputs, and manage submission lifecycle. It cannot read credent
 change test inputs or judge settings, or delete submissions. Ordinary test-case privacy
 rules remain in force for public requests. Tests use EntKt for fixtures and assertions.
 
-`RuntimeAvailability` is a read-only adapter check. There is no production adapter yet,
-so admission returns ExecutionUnavailable until the execution stage installs one. Tests
-supply an available adapter to exercise queue creation and concurrency. No fake production
-worker accepts work it cannot execute.
+`DockerExecutionService` supplies `RuntimeAvailability` by inspecting the configured
+local image. Missing Docker or a missing image returns ExecutionUnavailable; admission
+never pulls images or installs tools. Tests can substitute availability to exercise
+admission without starting executions. The default Kotlin image is configured in
+`application.yaml` and must be built before submitting solutions locally.
 
-## Worker and result retention
+## Submission execution and result retention
 
-`SubmissionWorker.executeNextSubmission()` claims the oldest queued official submission,
-records RUNNING, and loads current judge settings, runtime configuration, and ordered cases.
-It prepares and compiles the program, calls `runTestSuite` once, then saves the result.
+`SubmissionScheduler` coordinates claiming, running, and finishing one submission.
+`SubmissionService.claimNextQueuedSubmission()` atomically claims the oldest queued
+official submission and returns it with RUNNING status. The service also loads current
+judge settings, runtime configuration, and ordered cases, and saves final outcomes.
+`SubmissionRunner.runSubmission()` loads those settings through the service, prepares
+and compiles the program, calls `runTestSuite` once, and returns a result after closing
+the program. The scheduler passes that result to `SubmissionService.finishSubmission()`.
 Inputs stay in memory while executing; database transactions remain outside compilation
 and suite execution. No runtime, driver, checker, limit, or full-suite snapshots are persisted.
 
@@ -88,33 +94,43 @@ Public-example access is a separate API stage. Public errors exclude private dia
 The existing owner polling API exposes RUNNING and the terminal summary; there are no
 per-case progress writes during the suite.
 
-The worker cleans abandoned executor resources before its first attempt and finishes
+The scheduler cleans abandoned executor resources before its first attempt and finishes
 leftover RUNNING rows as INTERNAL_ERROR before claiming more work. This assumes one
-worker for the application. Exceptions close the prepared program and finish the attempt;
+scheduler for the application. Exceptions close the prepared program and finish the attempt;
 interruptions also propagate to the caller with the thread's interruption flag restored.
 Final database writes are not retried because a lost connection can leave their commit
 outcome unknown. A remaining RUNNING row is recovered before the next attempt.
 
-For this review, the worker is constructor-injected and not registered or scheduled in
-Spring. Integration tests use a fake `ProgramExecutor`, a real PostgreSQL database, and
-the existing submission/polling API. Production activation belongs with the runtime
-stage; admission remains unavailable while its implementation is stashed.
+`SubmissionScheduler` checks for queued work every second after application startup,
+provided a configured runtime is available. Calls are sequential, with a delay after
+each attempt. `execution.worker-enabled=false` pauses automatic processing; tests use
+that setting and invoke the runner or scheduler directly. Fake-executor tests cover
+failure handling, while real Docker tests exercise compilation and suite results through
+the submission/polling API.
+
+`prepareProgram` receives the submission ID. Docker attaches both a workspace ownership
+label and a submission label when creating compilation and suite containers. Recovery
+can find leftovers even if the app crashes immediately after creation; container IDs
+are not stored in submission rows. Startup cleanup removes owned containers and temporary
+workspaces before interrupted database rows are finished. If cleanup fails, those rows
+stay RUNNING and the next scheduled call retries recovery. Only one application instance
+may manage a database/workspace.
 
 ## Runtime boundary
 
 `LanguageExecutionConfig` describes source files and commands. The runtime executor owns
 isolated compilation, process lifecycle, stdin/stdout/stderr, limits, and cleanup. Start
 with Kotlin and exact JSON comparison. Select `execution.runtimes[language.key]` and current
-judge settings when the worker starts each attempt.
+judge settings when the runner starts each attempt.
 
-`ProgramExecutor.prepareProgram` returns a `ProgramExecution` that the worker closes
+`ProgramExecutor.prepareProgram` returns a `ProgramExecution` that the runner closes
 after compilation and execution. `runTestSuite` accepts all ordered inputs and expected
 outputs together, plus the case time limit and shared memory limit. `TestSuiteResult`
 reports all passed or the first failure, its index, passed count, bounded failure output,
-and optional suite duration. The worker maps that result to persisted verdicts without
+and optional suite duration. The runner maps that result to submission verdicts without
 parsing process output or performing comparisons.
 
-The stashed implementation runs one JVM for the whole suite, preserving state between
+The Docker implementation runs one JVM for the whole suite, preserving state between
 cases. It enforces limits, performs strict JSON comparison, and reports the first failure.
 Its containers run without application credentials or network access. Expected outputs
 are available inside the submission JVM; this is not a tamper-proof grading boundary.
@@ -123,6 +139,41 @@ Only record available measurements. Preserve JSON numeric values during comparis
 object key order and whitespace do not matter, array order and JSON types do. Compilation,
 runtime, time/memory limits, output errors, and infrastructure failures need explicit
 outcomes, with safe diagnostics excluding hidden inputs.
+
+`KotlinTestSuite` invokes the existing driver's top-level `main()` or `main(args)` for each
+case in the same JVM and class loader. Only stdin/stdout/stderr are rebound between calls.
+Driver invocations retain the configured per-case deadline and independent 20,000-byte
+stdout/stderr limits. A watchdog halts a looping case; the container's outer deadline is
+`min(caseCount * timeLimitMs + 2,000, 600,000)` milliseconds. An all-pass report also requires
+a successful JVM exit, so leftover non-daemon threads can cause a timeout.
+
+The Docker sandbox uses an unprivileged user, a read-only root, dropped capabilities,
+one CPU, 128 processes, a 64 MiB temporary filesystem, and the configured shared memory
+limit. Compilation has a separate 60-second/1 GiB budget. Source files are removed after
+compilation, and the suite's program mount is read-only. A temporary read-only suite input
+file supplies stdin and EOF. Container-side deadlines continue if the application stops.
+
+The suite emits a case-start checkpoint before each invocation and one terminal report.
+The host reserves 256,000 bytes for the escaped failure report plus 64 bytes per checkpoint.
+Checkpoints identify the active case after an abrupt JVM exit. All containers, temporary
+inputs, and program workspaces are removed on normal completion, failure, or interruption;
+startup recovery handles leftovers. Docker availability is required for removal.
+
+## Local runtime setup
+
+With Docker running, build the standalone driver distribution and image:
+
+```sh
+./gradlew :kotlin-runtime:installDist
+docker build -t interview-forge-kotlin:2.4.20 runtime/kotlin
+```
+
+Rebuild the image after changing the suite driver or JSON checker. It contains Kotlin
+2.4.20, Java 21, GNU timeout, and the shared JSON libraries. The application uses
+`docker-java` and its standard Docker context/environment settings; execution does not
+launch the Docker CLI or download images. `execution.workspace-directory` defaults to
+`interview-forge-execution` under the system temporary directory and must be accessible
+to the local Docker daemon. Reserve it for this application.
 
 ## Review stages
 
@@ -133,19 +184,19 @@ outcomes, with safe diagnostics excluding hidden inputs.
   source validation, scoped execution access, and owner polling. Remove example/custom
   selection, case snapshots, and Run-only validation. Implemented, reviewed, and committed.
 - [x] **JSON output checking:** Strict JSON parsing and comparison, reviewed and committed.
-- [ ] **Submission worker and execution API:** Claim submissions, load current settings,
-  compile, run the suite once, and persist the summary and first failure. Implemented
-  with fake-executor integration tests; awaiting review.
-- [ ] **Docker/JVM runtime and activation:** Restore the implementation, scheduling,
-  default runtime mapping, and admission wiring; validate the complete path. Stashed/deferred.
+- [x] **Submission worker and execution API:** Claim submissions, load current settings,
+  compile, run the suite once, and persist the summary and first failure. Reviewed and
+  committed in `e403ec5`.
+- [x] **Docker/JVM runtime and activation:** Docker API implementation, one-JVM suite,
+  container labels and recovery, scheduling, default runtime mapping, and admission wiring.
+  Implemented, reviewed, and committed.
 - [ ] **Failed-example API:** Owner-only public-example results and privacy tests. Stashed.
 
-The complete runtime is saved in stash `9d4a201` ("Single-JVM Docker runtime before
-submission worker API review"). Earlier implementation backups remain intact. Restore
-individual files after reviewing the worker, rather than applying the entire old diff.
-`TestSuiteResult` currently lives beside the worker's interfaces; the runtime stage will
-move the shared contract into its Gradle module. Reconcile any API changes before restoring
-the caller wiring, and keep the original worker draft's per-case loop out of the final code.
+Stash `9d4a201` preserves the runtime before the worker review; earlier backups remain
+intact. The active implementation has been reconciled with the reviewed worker API.
+`TestSuiteResult` and `JsonOutputChecker` now live in the shared `kotlin-runtime` module.
+Restore only the failed-example API files for the next stage; its saved worker draft
+predates suite execution and must not replace the current scheduler, service, or runner.
 
 Each stage is reviewed before committing. Example/custom execution and frontend integration
 remain follow-ups. V8 has already been applied locally; later physical schema changes

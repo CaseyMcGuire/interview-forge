@@ -36,6 +36,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.core.context.SecurityContext
 import org.springframework.security.core.context.SecurityContextHolder
@@ -676,6 +677,7 @@ class SubmissionIntegrationTest {
   @TestConfiguration(proxyBeanMethods = false)
   class SubmissionTestConfiguration {
     @Bean
+    @Primary
     fun runtimeAvailability() = TestRuntimeAvailability()
   }
 

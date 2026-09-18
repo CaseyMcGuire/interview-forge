@@ -2,8 +2,8 @@
 
 Date: 2026-09-16
 
-Status: Accepted design. Official admission/polling is implemented and reviewed;
-the worker and transient example/custom Run flow are not implemented. Supersedes the
+Status: Accepted design. Official admission/polling and the worker are reviewed and committed;
+the transient example/custom Run flow is not implemented. Supersedes the
 submission runtime snapshot portion of [0016](0016-language-runtime.md).
 
 ## Decision
@@ -44,7 +44,8 @@ and polling. Remove custom-case DTOs/parsing, example-only selection, snapshot c
 and per-case Run response/privacy/validation code. Keep durable admission concurrency
 protections and owner polling for real submissions.
 
-The worker remains a separate review stage. `RuntimeAvailability` rejects admission while
-no production executor exists. The applied V8 migration stays in history; later physical
+Docker execution and activation remain a separate review stage; runtime availability
+is described in [0019](0019-local-docker-execution.md).
+The applied V8 migration stays in history; later physical
 schema changes use a new migration. Review stages are recorded in
 [the execution proposal](../../docs/submission-execution.md).

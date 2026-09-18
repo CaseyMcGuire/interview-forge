@@ -17,3 +17,7 @@ include("spa-route-definitions")
 
 // Entity definitions must compile before the root project's generated entity sources.
 include("ent-schema")
+
+// Standalone suite driver and JSON checker packaged into the Kotlin execution image.
+include("kotlin-runtime")
+project(":kotlin-runtime").projectDir = file("runtime/kotlin")

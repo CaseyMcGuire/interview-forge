@@ -28,7 +28,10 @@ class KotlinLanguageExecutionConfig : LanguageExecutionConfig {
       "submission.jar",
     ),
 
-    // Select the driver explicitly even if the submitted solution declares its own main.
-    runCommand = listOf("java", "-cp", "submission.jar", "TestDriverKt"),
+    // The suite runner invokes the driver repeatedly in the same JVM, even if the solution defines main.
+    runCommand = listOf(
+      "java", "-cp", "/opt/interview-forge/lib/*:submission.jar",
+      "com.application.execution.KotlinTestSuite", "TestDriverKt",
+    ),
   )
 }

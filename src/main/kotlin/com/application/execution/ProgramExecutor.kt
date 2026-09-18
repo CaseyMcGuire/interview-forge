@@ -2,7 +2,7 @@ package com.application.execution
 
 /** Prepares isolated programs and checks the availability of their configured runtime. */
 interface ProgramExecutor : RuntimeAvailability {
-  fun prepareProgram(runtime: String, program: PreparedProgram): ProgramExecution
+  fun prepareProgram(submissionId: Long, runtime: String, program: PreparedProgram): ProgramExecution
 
   /** Called before this single-instance worker starts accepting work after a restart. */
   fun cleanUpInterruptedExecutions()

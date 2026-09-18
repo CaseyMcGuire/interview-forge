@@ -11,6 +11,7 @@ import com.application.schema.SubmissionVerdict
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
 import com.application.security.ExecutionAccess
+import com.application.services.SubmissionService
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntPrivacyDeniedException
@@ -26,9 +27,12 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -41,17 +45,25 @@ import org.testcontainers.utility.DockerImageName
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
+import java.nio.file.Files
 import java.util.UUID
 import com.application.graphql.types.ProblemLanguage as GraphqlProblemLanguage
 
 @Testcontainers
-@SpringBootTest(properties = ["execution.runtimes.kotlin=test-runtime"])
-@Import(SubmissionWorkerIntegrationTest.WorkerTestConfiguration::class)
-class SubmissionWorkerIntegrationTest {
+@SpringBootTest(properties = ["execution.runtimes.kotlin=" + DockerExecutionServiceTest.IMAGE])
+@Import(SubmissionExecutionIntegrationTest.ExecutionTestConfiguration::class)
+class SubmissionExecutionIntegrationTest {
   @Autowired
   lateinit var entClient: EntClient
 
-  private lateinit var worker: SubmissionWorker
+  @Autowired
+  lateinit var dockerExecutor: DockerExecutionService
+
+  @Autowired
+  lateinit var submissionService: SubmissionService
+
+  private lateinit var scheduler: SubmissionScheduler
+  private lateinit var runner: SubmissionRunner
   private lateinit var executor: FakeProgramExecutor
 
   @Autowired
@@ -70,7 +82,7 @@ class SubmissionWorkerIntegrationTest {
   @Qualifier("springSecurityFilterChain")
   lateinit var securityFilter: Filter
 
-  private val fixtures = ViewerContext.privacyBypass_DANGEROUS("Seed and inspect isolated worker test fixtures")
+  private val fixtures = ViewerContext.privacyBypass_DANGEROUS("Seed and inspect isolated submission execution test fixtures")
   private lateinit var mvc: MockMvc
   private lateinit var session: MockHttpSession
   private var userId = 0L
@@ -81,12 +93,9 @@ class SubmissionWorkerIntegrationTest {
   @BeforeEach
   fun setUp() {
     executor = FakeProgramExecutor()
-    worker = SubmissionWorker(
-      entClient,
-      ExecutionProperties(runtimes = mapOf("kotlin" to "test-runtime")),
-      executor,
-      listOf(KotlinLanguageExecutionConfig()),
-    )
+    runner = SubmissionRunner(submissionService, executor)
+    scheduler = createScheduler(executor)
+    scheduler.onApplicationReady()
 
     entClient.withTransaction { tx ->
       tx.submissionTestResults.deleteMany(fixtures).getOrThrow()
@@ -98,8 +107,8 @@ class SubmissionWorkerIntegrationTest {
       .build()
     session = signIn()
     problemId = entClient.problems.create {
-      slug = "worker-${UUID.randomUUID()}"
-      title = "Worker fixture"
+      slug = "execution-${UUID.randomUUID()}"
+      title = "Execution fixture"
       statementMarkdown = "Return the input"
       difficulty = ProblemDifficulty.EASY
       createdByUserId = userId
@@ -108,7 +117,7 @@ class SubmissionWorkerIntegrationTest {
 
     val language = entClient.languages.indexes.key("kotlin").find(fixtures).getOrThrow()!!
     configurationId = entClient.problemLanguages.create {
-      problemId = this@SubmissionWorkerIntegrationTest.problemId
+      problemId = this@SubmissionExecutionIntegrationTest.problemId
       languageId = language.id
       starterCode = "fun solve(input: String) = input"
     }.saveAndLoad(fixtures).getOrThrow().id
@@ -121,7 +130,34 @@ class SubmissionWorkerIntegrationTest {
   }
 
   @Test
-  fun `the worker compiles once and passes the current ordered suite in one call`() {
+  fun `the runner executes the claimed submission and leaves final persistence to the service`() {
+    createCase(0, TestCaseVisibility.HIDDEN, 1)
+    val firstId = submit("first solution")
+    val secondId = submit("second solution")
+    val submission = submissionService.claimNextQueuedSubmission()!!
+    assertEquals("first solution", submission.sourceCode)
+    assertEquals(SubmissionStatus.RUNNING, submission.status)
+    assertNotNull(submission.startedAt)
+    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "2") }
+
+    val result = runner.runSubmission(submission)
+
+    assertEquals(SubmissionVerdict.WRONG_ANSWER, result.verdict)
+    assertEquals("RUNNING", poll(firstId)["status"].asString())
+    assertEquals("QUEUED", poll(secondId)["status"].asString())
+    assertTrue(storedResults().isEmpty())
+    assertEquals(listOf("prepare", "compile", "suite", "close"), executor.events)
+
+    submissionService.finishSubmission(submission.id, result)
+
+    assertEquals("FINISHED", poll(firstId)["status"].asString())
+    assertEquals("WRONG_ANSWER", poll(firstId)["verdict"].asString())
+    assertEquals("2", storedResults().single().stdout)
+    assertEquals("QUEUED", poll(secondId)["status"].asString())
+  }
+
+  @Test
+  fun `the runner compiles once and passes the current ordered suite in one call`() {
     createCase(7, TestCaseVisibility.HIDDEN, 7)
     createCase(1, TestCaseVisibility.EXAMPLE, 1)
     val id = submit("submitted source")
@@ -147,10 +183,11 @@ class SubmissionWorkerIntegrationTest {
       TestSuiteResult(TestSuiteStatus.PASSED, 3, runtimeMs = 42)
     }
 
-    assertTrue(worker.executeNextSubmission())
-    assertFalse(worker.executeNextSubmission())
+    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedSubmissions()
     assertEquals(listOf("cleanup", "prepare", "compile", "suite", "close"), executor.events)
-    assertEquals("test-runtime", executor.runtime)
+    assertEquals(entClient.submissions.query {}.all(fixtures).getOrThrow().single().id, executor.submissionId)
+    assertEquals(DockerExecutionServiceTest.IMAGE, executor.runtime)
     assertEquals("submitted source", executor.program.sourceFiles["Solution.kt"])
     assertEquals("updated driver", executor.program.sourceFiles["TestDriver.kt"])
 
@@ -183,7 +220,7 @@ class SubmissionWorkerIntegrationTest {
         stdout = "0", stderr = "private diagnostic", runtimeMs = 17,
       )
     }
-    worker.executeNextSubmission()
+    scheduler.processQueuedSubmissions()
 
     val result = poll(id)
     assertEquals("WRONG_ANSWER", result["verdict"].asString())
@@ -219,7 +256,7 @@ class SubmissionWorkerIntegrationTest {
     val id = submit("invalid solution")
     executor.compilation = ProgramResult(ProgramStatus.FAILED, stderr = "TestDriver private diagnostic")
 
-    worker.executeNextSubmission()
+    scheduler.processQueuedSubmissions()
 
     val result = poll(id)
     assertEquals("FINISHED", result["status"].asString())
@@ -246,7 +283,7 @@ class SubmissionWorkerIntegrationTest {
         TestSuiteResult(status, 0, 0, stdout = "\u0000" + "x".repeat(20_001), stderr = "private diagnostic")
       }
 
-      worker.executeNextSubmission()
+      scheduler.processQueuedSubmissions()
 
       val result = poll(id)
       assertEquals("FINISHED", result["status"].asString())
@@ -264,7 +301,7 @@ class SubmissionWorkerIntegrationTest {
     val id = submit("solution")
     executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.MEMORY_LIMIT_EXCEEDED, 0) }
 
-    worker.executeNextSubmission()
+    scheduler.processQueuedSubmissions()
 
     assertEquals("MEMORY_LIMIT_EXCEEDED", poll(id)["verdict"].asString())
     assertTrue(storedResults().isEmpty())
@@ -276,7 +313,7 @@ class SubmissionWorkerIntegrationTest {
     val id = submit("solution")
     executor.runSuite = { _, _, _ -> error("secret driver input") }
 
-    worker.executeNextSubmission()
+    scheduler.processQueuedSubmissions()
 
     val result = poll(id)
     assertEquals("FINISHED", result["status"].asString())
@@ -293,8 +330,8 @@ class SubmissionWorkerIntegrationTest {
     executor.runSuite = { _, _, _ -> throw InterruptedException("stopping") }
 
     try {
-      assertThrows(InterruptedException::class.java) { worker.executeNextSubmission() }
-      assertTrue(Thread.interrupted(), "The worker must restore the interruption flag")
+      assertThrows(InterruptedException::class.java) { scheduler.processQueuedSubmissions() }
+      assertTrue(Thread.interrupted(), "The scheduler must restore the interruption flag")
       assertEquals("INTERNAL_ERROR", poll(id)["verdict"].asString())
       assertEquals("close", executor.events.last())
       assertTrue(storedResults().isEmpty())
@@ -307,8 +344,8 @@ class SubmissionWorkerIntegrationTest {
   fun `interrupted attempts are finished before queued work executes`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val interrupted = entClient.submissions.create {
-      userId = this@SubmissionWorkerIntegrationTest.userId
-      problemId = this@SubmissionWorkerIntegrationTest.problemId
+      userId = this@SubmissionExecutionIntegrationTest.userId
+      problemId = this@SubmissionExecutionIntegrationTest.problemId
       problemLanguageId = configurationId
       sourceCode = "previous attempt"
       kind = SubmissionKind.SUBMIT
@@ -320,7 +357,7 @@ class SubmissionWorkerIntegrationTest {
     }.saveAndLoad(fixtures).getOrThrow()
     val queuedId = submit("solution")
 
-    worker.executeNextSubmission()
+    scheduler.processQueuedSubmissions()
 
     val recovered = entClient.submissions.findById(fixtures, interrupted.id).getOrThrow()!!
     assertEquals(SubmissionStatus.FINISHED, recovered.status)
@@ -331,12 +368,97 @@ class SubmissionWorkerIntegrationTest {
   }
 
   @Test
+  fun `failed container cleanup leaves interrupted submissions running until recovery succeeds`() {
+    createCase(0, TestCaseVisibility.HIDDEN, 1)
+    val id = submit("interrupted solution")
+    val submission = entClient.submissions.query {}.all(fixtures).getOrThrow().single()
+    entClient.submissions.update(submission.id) {
+      status = SubmissionStatus.RUNNING
+      startedAt = Instant.now()
+    }.save(fixtures).getOrThrow()
+    executor.cleanupFailure = IllegalStateException("Docker is unavailable")
+
+    scheduler.processQueuedSubmissions()
+    assertEquals("RUNNING", poll(id)["status"].asString())
+    assertEquals(listOf("cleanup"), executor.events)
+
+    executor.cleanupFailure = null
+    scheduler.processQueuedSubmissions()
+    assertEquals("INTERNAL_ERROR", poll(id)["verdict"].asString())
+    assertEquals(listOf("cleanup", "cleanup"), executor.events)
+  }
+
+  @Test
+  fun `scheduler executes a queued submission through Docker and publishes its summary`() {
+    createCase(4, TestCaseVisibility.HIDDEN, 4)
+    createCase(1, TestCaseVisibility.EXAMPLE, 1)
+    val id = submit("fun solve(input: String) = input")
+    val scheduler = createScheduler(dockerExecutor)
+
+    scheduler.processQueuedSubmissions()
+    assertEquals("QUEUED", poll(id)["status"].asString(), "Wait for application startup")
+
+    scheduler.onApplicationReady()
+    scheduler.processQueuedSubmissions()
+
+    val result = poll(id)
+    assertEquals("FINISHED", result["status"].asString())
+    assertEquals("ACCEPTED", result["verdict"].asString())
+    assertEquals(2, result["passedCases"].asInt())
+    assertTrue(result["runtimeMs"].asLong() > 0)
+    assertTrue(storedResults().isEmpty())
+    assertRuntimeWorkspaceEmpty()
+  }
+
+  @Test
+  fun `Docker suite preserves state and persists only its first failure`() {
+    createCase(1, TestCaseVisibility.EXAMPLE, 1)
+    createCase(5, TestCaseVisibility.HIDDEN, 1)
+    createCase(9, TestCaseVisibility.HIDDEN, 99)
+    val id = submit("""
+      var calls = 0
+      fun solve(input: String): String {
+        if (input == "99") while (true) {}
+        return (input.toInt() + calls++).toString()
+      }
+    """.trimIndent())
+
+    val scheduler = createScheduler(dockerExecutor)
+    scheduler.onApplicationReady()
+    scheduler.processQueuedSubmissions()
+
+    val result = poll(id)
+    assertEquals("WRONG_ANSWER", result["verdict"].asString())
+    assertEquals(1, result["passedCases"].asInt())
+    assertEquals(3, result["totalCases"].asInt())
+    val failed = storedResults().single()
+    assertEquals(5, failed.position)
+    assertEquals("HIDDEN", failed.source.name)
+    assertEquals("2", failed.stdout)
+    assertRuntimeWorkspaceEmpty()
+  }
+
+  @Test
+  fun `Docker compilation failures finish without a test result`() {
+    createCase(0, TestCaseVisibility.HIDDEN, 1)
+    val id = submit("fun solve(input: String) = invalid syntax")
+
+    val scheduler = createScheduler(dockerExecutor)
+    scheduler.onApplicationReady()
+    scheduler.processQueuedSubmissions()
+
+    assertEquals("COMPILE_ERROR", poll(id)["verdict"].asString())
+    assertTrue(storedResults().isEmpty())
+    assertRuntimeWorkspaceEmpty()
+  }
+
+  @Test
   fun `missing settings finish the submission before preparing a program`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val id = submit("solution")
     entClient.judgeConfigurations.deleteById(fixtures, judgeId).getOrThrow()
 
-    worker.executeNextSubmission()
+    scheduler.processQueuedSubmissions()
 
     assertEquals("INTERNAL_ERROR", poll(id)["verdict"].asString())
     assertEquals(listOf("cleanup"), executor.events)
@@ -346,15 +468,15 @@ class SubmissionWorkerIntegrationTest {
   @Test
   fun `legacy example runs are not claimed`() {
     val legacy = entClient.submissions.create {
-      userId = this@SubmissionWorkerIntegrationTest.userId
-      problemId = this@SubmissionWorkerIntegrationTest.problemId
+      userId = this@SubmissionExecutionIntegrationTest.userId
+      problemId = this@SubmissionExecutionIntegrationTest.problemId
       problemLanguageId = configurationId
       sourceCode = "legacy run"
       kind = SubmissionKind.RUN
       totalCases = 0
     }.saveAndLoad(fixtures).getOrThrow()
 
-    assertFalse(worker.executeNextSubmission())
+    scheduler.processQueuedSubmissions()
     assertEquals(
       SubmissionStatus.QUEUED,
       entClient.submissions.findById(fixtures, legacy.id).getOrThrow()!!.status,
@@ -364,7 +486,7 @@ class SubmissionWorkerIntegrationTest {
 
   private fun createCase(position: Int, visibility: TestCaseVisibility, value: Int): TestCase =
     entClient.testCases.create {
-      problemId = this@SubmissionWorkerIntegrationTest.problemId
+      problemId = this@SubmissionExecutionIntegrationTest.problemId
       this.position = position
       this.visibility = visibility
       inputJson = JsonPrimitive(value)
@@ -372,6 +494,17 @@ class SubmissionWorkerIntegrationTest {
     }.saveAndLoad(fixtures).getOrThrow()
 
   private fun storedResults() = entClient.submissionTestResults.query {}.all(fixtures).getOrThrow()
+
+  private fun createScheduler(executor: ProgramExecutor) = SubmissionScheduler(
+    submissionService,
+    SubmissionRunner(submissionService, executor),
+    executor,
+    ExecutionProperties(runtimes = mapOf("kotlin" to DockerExecutionServiceTest.IMAGE)),
+  )
+
+  private fun assertRuntimeWorkspaceEmpty() {
+    Files.list(runtimeWorkspace).use { assertEquals(0, it.count()) }
+  }
 
   private fun signIn(role: UserRole = UserRole.USER): MockHttpSession {
     val email = "${UUID.randomUUID()}@example.com"
@@ -435,11 +568,13 @@ class SubmissionWorkerIntegrationTest {
     return response["data"]
   }
 
-  /** Keeps the review focused on how the worker uses the execution contract. */
+  /** Keeps the review focused on how the runner uses the execution contract. */
   private class FakeProgramExecutor : ProgramExecutor {
     val events = mutableListOf<String>()
+    var submissionId = 0L
     lateinit var runtime: String
     lateinit var program: PreparedProgram
+    var cleanupFailure: RuntimeException? = null
     var compilation = ProgramResult(ProgramStatus.SUCCEEDED)
     var runSuite: (List<TestCaseInput>, Int, Int) -> TestSuiteResult = { cases, _, _ ->
       TestSuiteResult(TestSuiteStatus.PASSED, cases.size)
@@ -449,10 +584,12 @@ class SubmissionWorkerIntegrationTest {
 
     override fun cleanUpInterruptedExecutions() {
       events += "cleanup"
+      cleanupFailure?.let { throw it }
     }
 
-    override fun prepareProgram(runtime: String, program: PreparedProgram): ProgramExecution {
+    override fun prepareProgram(submissionId: Long, runtime: String, program: PreparedProgram): ProgramExecution {
       events += "prepare"
+      this.submissionId = submissionId
       this.runtime = runtime
       this.program = program
 
@@ -475,12 +612,21 @@ class SubmissionWorkerIntegrationTest {
   }
 
   @TestConfiguration(proxyBeanMethods = false)
-  class WorkerTestConfiguration {
+  class ExecutionTestConfiguration {
     @Bean
+    @Primary
     fun runtimeAvailability() = RuntimeAvailability { true }
   }
 
   companion object {
+    private val runtimeWorkspace = Files.createTempDirectory("submission-execution-runtime-")
+
+    @JvmStatic
+    @DynamicPropertySource
+    fun runtimeProperties(registry: DynamicPropertyRegistry) {
+      registry.add("execution.workspace-directory") { runtimeWorkspace.toString() }
+    }
+
     @Container
     @ServiceConnection
     @JvmStatic

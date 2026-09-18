@@ -86,3 +86,6 @@ Spring Security uses `CookieCsrfTokenRepository` (non-HttpOnly) with the plain r
 - [0016: Language runtimes in application configuration](0016-language-runtime.md)
 - [0017: Language-specific program preparation](0017-language-preparation.md)
 - [0018: Official submission admission and transient example Runs](0018-submission-admission.md)
+- [0019: Local Docker execution for official submissions](0019-local-docker-execution.md)
+- [0020: Docker API client for container execution](0020-docker-api-client.md)
+- [0021: One JVM for each submission's test suite](0021-single-jvm-test-suites.md)

@@ -4,6 +4,10 @@ Date: 2026-09-15
 
 Status: Accepted.
 
+The Kotlin launch command is extended by
+[0021: One JVM for each submission's test suite](0021-single-jvm-test-suites.md).
+The driver contract below remains unchanged.
+
 ## Decision
 
 Define `com.application.execution.LanguageExecutionConfig` with a language key and a `prepare` method

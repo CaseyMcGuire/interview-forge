@@ -8,6 +8,8 @@ data class ExecutionProperties(
   val runtimes: Map<String, String> = emptyMap(),
   val maxActiveSubmissions: Int = 100,
   val maxActiveSubmissionsPerUser: Int = 2,
+  val workerEnabled: Boolean = true,
+  val workspaceDirectory: String = "${System.getProperty("java.io.tmpdir")}/interview-forge-execution",
 ) {
   init {
     require(maxActiveSubmissions in 1..1000)

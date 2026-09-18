@@ -1,7 +1,6 @@
 package com.application.execution
 
 import kotlinx.serialization.json.JsonElement
-import org.springframework.stereotype.Component
 import tools.jackson.core.JacksonException
 import tools.jackson.core.StreamReadConstraints
 import tools.jackson.core.json.JsonFactory
@@ -9,7 +8,6 @@ import tools.jackson.databind.DeserializationFeature
 import tools.jackson.databind.json.JsonMapper
 
 /** Strict JSON equality that preserves numeric precision and distinguishes integers from decimals. */
-@Component
 class JsonOutputChecker {
   private val mapper = JsonMapper.builder(
     JsonFactory.builder()

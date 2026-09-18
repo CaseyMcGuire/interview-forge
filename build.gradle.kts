@@ -25,6 +25,7 @@ val kotlinxHtmlVersion = "0.12.0"
 // that BOM provides Testcontainers through a nested testcontainers-bom import, which the
 // io.spring.dependency-management plugin doesn't surface to the org.testcontainers:* coordinates.
 val testcontainersVersion = "2.0.5"
+val dockerJavaVersion = "3.7.1"
 
 val pathToApplicationFolder = "src/main/kotlin/com"
 val applicationFolder = File(rootProject.projectDir, pathToApplicationFolder)
@@ -98,6 +99,10 @@ dependencies {
 
   implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:$kotlinxHtmlVersion")
   implementation("tools.jackson.module:jackson-module-kotlin")
+  implementation(project(":kotlin-runtime"))
+
+  implementation("com.github.docker-java:docker-java-core:$dockerJavaVersion")
+  implementation("com.github.docker-java:docker-java-transport-httpclient5:$dockerJavaVersion")
 
   // spring-boot-starter-jdbc supplies the DataSource/HikariCP autoconfiguration (consumed by
   // DatabaseConfiguration and by Flyway). We deliberately avoid spring-boot-starter-data-jpa: this app
