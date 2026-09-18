@@ -223,7 +223,7 @@ export default function EditorPanel({
       </div>
       <div sx={styles.editorFooter}>
         <span>Ln {cursor.line}, Col {cursor.column}</span>
-        <span>Spaces: 4 <span aria-hidden="true">·</span> UTF-8</span>
+        <span>Spaces: 2 <span aria-hidden="true">·</span> UTF-8</span>
       </div>
       <div id="editor-keyboard-help" sx={styles.screenReader}>
         Tab indents code. Press Escape, then Tab to leave the editor. Use your platform’s undo shortcut to undo edits or a reset.

@@ -1,9 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
+import {useId} from "react";
 import Control from "./WorkspaceControl";
 import Icon from "./WorkspaceIcon";
 
-type SubmissionActionsProps = {
+type Props = {
   storageAvailable?: boolean;
+  onSubmit?: () => void;
+  disabled?: boolean;
+  isSubmitting?: boolean;
+  isPending?: boolean;
+  error?: string | null;
 };
 
 const styles = stylex.create({
@@ -40,8 +46,13 @@ const styles = stylex.create({
     fontFamily: "inherit",
     fontSize: 13,
     minHeight: 42,
-    cursor: "not-allowed",
-    userSelect: "none"
+    cursor: "pointer",
+    userSelect: "none",
+    outline: {
+      default: "none",
+      ":focus-visible": "2px solid #3574f0"
+    },
+    outlineOffset: 3
   },
   runButton: {
     borderWidth: 1,
@@ -53,9 +64,19 @@ const styles = stylex.create({
   submitButton: {
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: "#2e436e",
-    backgroundColor: "#2e436e",
-    color: "#b5ceff"
+    borderColor: "#3574f0",
+    backgroundColor: "#3574f0",
+    color: "#ffffff"
+  },
+  disabled: {
+    opacity: 0.6,
+    cursor: "not-allowed"
+  },
+  error: {
+    color: "#f2a6a6",
+    fontSize: 12,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere"
   },
   executionNote: {
     color: "#9da0a8",
@@ -75,20 +96,34 @@ const styles = stylex.create({
   }
 });
 
-export default function SubmissionActions({storageAvailable}: SubmissionActionsProps) {
+export default function SubmissionActions(props: Props) {
+  const {storageAvailable, onSubmit, disabled, isSubmitting, isPending, error} = props;
+  const noteId = useId();
+  const submitDisabled = disabled || !onSubmit || isSubmitting || isPending;
+  const submitLabel = isSubmitting ? "Submitting…" : isPending ? "In progress" : "Submit";
+
   return (
     <div sx={styles.controls} aria-label="Run and submit your solution">
       <div sx={styles.actionRow}>
-        <Control disabled appearance={[styles.action, styles.runButton]} description="execution-note">
+        <Control
+          disabled
+          appearance={[styles.action, styles.runButton, styles.disabled]}
+          description={noteId}
+        >
           <Icon name="play" size={15} /> Run Tests
         </Control>
-        <Control disabled appearance={[styles.action, styles.submitButton]} description="execution-note">
-          <Icon name="submit" size={15} /> Submit
+        <Control
+          disabled={submitDisabled}
+          appearance={[styles.action, styles.submitButton, submitDisabled && styles.disabled]}
+          onActivate={onSubmit}
+        >
+          <Icon name="submit" size={15} /> {submitLabel}
         </Control>
       </div>
-      <div id="execution-note" sx={styles.executionNote}>
-        Run Tests and Submit will be available when code execution is connected.
+      <div id={noteId} sx={styles.executionNote}>
+        Run Tests is not available yet.
       </div>
+      {error && <div role="alert" sx={styles.error}>{error}</div>}
       {storageAvailable !== undefined && (
         <div role="status" sx={[styles.saveStatus, !storageAvailable && styles.saveError]}>
           <Icon name={storageAvailable ? "check" : "document"} size={14} />
