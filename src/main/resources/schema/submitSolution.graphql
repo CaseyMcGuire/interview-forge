@@ -40,22 +40,22 @@ type SubmissionValidationFailure {
   fieldErrors: [FieldError!]!
 }
 
-"""A signed-in user is required for execution. No execution was admitted."""
+"""A signed-in user is required. No submission was created."""
 type AuthenticationRequired {
   message: String!
 }
 
 """
-Execution is unavailable for this problem-language configuration. No execution was admitted.
+Execution is unavailable for this problem-language configuration. No submission was created.
 Includes missing execution settings, unsupported languages or checkers, unavailable runtimes,
-or a stored test suite that cannot be run. Initially only Kotlin with exact JSON comparison is supported.
+or an empty official test suite. Initially only Kotlin with exact JSON comparison is supported.
 """
 type ExecutionUnavailable {
   """Safe explanation without private configuration or infrastructure diagnostics."""
   message: String!
 }
 
-"""Execution admission limits were reached. No execution was admitted; retry later."""
+"""Submission admission limits were reached. No submission was created; retry later."""
 type ExecutionBusy {
   message: String!
 }
