@@ -9,7 +9,6 @@ import com.application.ent.Submission
 import com.application.ent.SubmissionFailure
 import com.application.ent.TestCase
 import com.application.execution.LanguageExecutionConfig
-import com.application.execution.RuntimeAvailability
 import com.application.execution.SubmissionExecutionResult
 import com.application.execution.SubmissionExecutionSettings
 import com.application.execution.TestSuiteResult
@@ -33,7 +32,7 @@ class SubmissionService(
   private val currentUser: CurrentUser,
   private val properties: ExecutionProperties,
   languageExecutionConfigs: List<LanguageExecutionConfig>,
-  private val runtimeAvailability: RuntimeAvailability,
+  private val executionAvailabilityService: ExecutionAvailabilityService,
 ) {
   private val languageConfigurations = languageExecutionConfigs.associateBy { it.key }
   private val publicContext = ViewerContext(Viewer.Anonymous)
@@ -77,7 +76,8 @@ class SubmissionService(
       .getOrThrow()
       ?: return SubmitSolutionOutcome.NotFound
 
-    if (!isProblemLanguageExecutable(tx, problem, configuration.id, language.key)) {
+    val judge = executionAvailabilityService.findExecutableJudgeConfiguration(tx, problem, configuration.id, language.key)
+    if (judge == null) {
       return SubmitSolutionOutcome.Unavailable
     }
 
@@ -85,7 +85,7 @@ class SubmissionService(
       return SubmitSolutionOutcome.Unavailable
     }
 
-    if (!hasSubmissionCapacity(tx, userId)) {
+    if (!executionAvailabilityService.hasExecutionCapacity(tx, userId)) {
       return SubmitSolutionOutcome.Busy
     }
 
@@ -96,46 +96,10 @@ class SubmissionService(
     return SubmitSolutionOutcome.Success(submission)
   }
 
-  private fun isProblemLanguageExecutable(
-    tx: EntTransactionClient,
-    problem: Problem,
-    problemLanguageId: Long,
-    languageKey: String,
-  ): Boolean {
-    if (languageKey !in languageConfigurations || problem.checkerKind != ProblemCheckerKind.EXACT_JSON) {
-      return false
-    }
-
-    val judgeExists = tx.judgeConfigurations.indexes.problemLanguageId(problemLanguageId)
-      .find(ExecutionAccess.context)
-      .getOrThrow() != null
-
-    if (!judgeExists) {
-      return false
-    }
-
-    val configuredRuntime = properties.runtimes[languageKey]?.takeIf { it.isNotBlank() } ?: return false
-
-    return runtimeAvailability.isAvailable(configuredRuntime)
-  }
-
   private fun hasOfficialTestCases(tx: EntTransactionClient, problemId: Long): Boolean =
     tx.testCases.indexes.problemId(problemId).query {}
       .firstOrNull(ExecutionAccess.context)
       .getOrThrow() != null
-
-  /** Must run in the same serializable transaction that inserts the new submission. */
-  private fun hasSubmissionCapacity(tx: EntTransactionClient, userId: Long): Boolean {
-    val active = tx.submissions.query {
-      where(Submission.status `in` listOf(SubmissionStatus.QUEUED, SubmissionStatus.RUNNING))
-      limit(properties.maxActiveSubmissions)
-    }
-      .all(ExecutionAccess.context)
-      .getOrThrow()
-
-    return active.size < properties.maxActiveSubmissions &&
-      active.count { it.userId == userId } < properties.maxActiveSubmissionsPerUser
-  }
 
   private fun createQueuedSubmission(
     tx: EntTransactionClient,

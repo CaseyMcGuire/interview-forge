@@ -1,14 +1,14 @@
 package com.application.db.validation
 
+import com.application.ent.CustomTestSuiteRunCreateValidationRule
+import com.application.ent.CustomTestSuiteRunWriteCandidate
 import com.application.ent.ReadOnlyEntClient
-import com.application.ent.SubmissionCreateValidationRule
-import com.application.ent.SubmissionWriteCandidate
 import entkt.runtime.validation.ValidationDecision
 import entkt.runtime.validation.ValidationRuleContext
 
-object SubmissionContentValidationRule : SubmissionCreateValidationRule {
+class CustomTestSuiteRunContentValidationRule : CustomTestSuiteRunCreateValidationRule {
   override fun validate(
     context: ValidationRuleContext<ReadOnlyEntClient>,
-    item: SubmissionWriteCandidate,
+    item: CustomTestSuiteRunWriteCandidate,
   ): ValidationDecision = validateSourceCode(item.sourceCode)
 }

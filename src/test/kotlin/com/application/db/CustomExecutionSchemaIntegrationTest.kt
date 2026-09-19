@@ -39,7 +39,7 @@ import java.util.UUID
 @SpringBootTest
 class CustomExecutionSchemaIntegrationTest {
   private val fixtures = ViewerContext.privacyBypass_DANGEROUS(
-    "Seed and inspect isolated custom execution storage fixtures before service policies are implemented",
+    "Seed and inspect isolated custom execution storage fixtures",
   )
 
   @Autowired

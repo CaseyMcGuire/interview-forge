@@ -11,17 +11,47 @@ The failed-example API is reviewed and committed.
 `submitSolution` accepts a problem-language ID and source code. It creates a persisted
 official attempt and returns its ID and current summary. `submission(id)` polls an official
 submission owned by the authenticated user, including after refresh or problem archival.
-There is no example/custom Run mutation, custom-case input, or transient execution path.
+Custom requests use the separate persisted `enqueueCustomTestSuiteRun` and `customTestSuiteRun` API below.
 
 Official execution uses the problem's stored examples and hidden tests. Admission verifies
 that at least one official case exists but does not select or copy the suite, create pending
 case results, or impose the former custom-Run limit of twenty cases. `totalCases` is zero
 while queued; the service sets it when it selects the current suite at execution start.
 
-Custom runs are a separate follow-up: persist user-owned custom suites and test runs,
-generate expected outputs with reference code on the selected judge configuration,
-and retain all custom-case results until expiration. They will use polling independently
-of official submissions. This workflow is not implemented yet.
+Custom-run admission and owner polling are reviewed and committed. Execution,
+reference-output preparation, scheduling, expiration cleanup, and frontend integration
+remain later stages. Custom runs currently stay queued.
+
+## Custom test suite admission and polling
+
+`enqueueCustomTestSuiteRun` accepts a problem-language ID, source code, and ordered JSON inputs. Each
+accepted request creates a new owned `CustomTestSuite`, its `CustomTestCase` rows, and
+one `CustomTestSuiteRun` in a serializable transaction. Invalid requests roll back all
+three. Source and stored case content use EntKt validation; request validation handles
+the case count and decoding JSON. Expected outputs start absent and will be prepared
+by the runner using the private reference solution on `JudgeConfiguration`.
+
+Admission requires an available public problem and language, a configured runtime,
+an EXACT_JSON judge, and nonblank reference code. Custom runs do not require official
+test cases. `ExecutionAvailabilityService` applies the existing global and per-user limits
+to queued/running attempts across both official submissions and custom runs. Both
+admission paths read those counts in the transaction that creates the attempt.
+
+`execution.max-custom-test-cases` defaults to 20. `execution.custom-test-suite-lifetime`
+defaults to 5 minutes and sets the suite's expiration when it is created. Expiration is
+metadata until the cleanup stage is implemented; it does not make retained data unreadable.
+
+`customTestSuiteRun(id)` returns only the authenticated owner's attempt, including after
+problem archival. Suite ownership governs all three custom entities. Ordinary viewers,
+including administrators, cannot read someone else's inputs/results or mutate execution
+state. Execution may create suites/cases/runs, prepare expectations, and update runs;
+deletion remains disabled until the cleanup stage.
+
+Polling maps the retained result JSON to generated DGS types and returns each case in
+input order. SQL null expected output means unprepared; JSON null is returned as the
+string `"null"`. Reference code, compiler diagnostics, and official hidden cases are not
+part of this response. This stage uses persisted result fixtures to verify polling;
+the runner will supply those results in later stages.
 
 ## API contract
 
