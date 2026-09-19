@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import {useId} from "react";
+import {AppRoutes} from "routes/AppRoutes";
 import Control from "./WorkspaceControl";
 import Icon from "./WorkspaceIcon";
 
@@ -10,6 +11,7 @@ type Props = {
   isSubmitting?: boolean;
   isPending?: boolean;
   error?: string | null;
+  requiresSignIn?: boolean;
 };
 
 const styles = stylex.create({
@@ -78,6 +80,12 @@ const styles = stylex.create({
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere"
   },
+  signIn: {
+    color: "#b5ceff",
+    fontSize: 12,
+    display: "inline-block",
+    marginTop: 6
+  },
   executionNote: {
     color: "#9da0a8",
     fontSize: 12,
@@ -97,7 +105,7 @@ const styles = stylex.create({
 });
 
 export default function SubmissionActions(props: Props) {
-  const {storageAvailable, onSubmit, disabled, isSubmitting, isPending, error} = props;
+  const {storageAvailable, onSubmit, disabled, isSubmitting, isPending, error, requiresSignIn} = props;
   const noteId = useId();
   const submitDisabled = disabled || !onSubmit || isSubmitting || isPending;
   const submitLabel = isSubmitting ? "Submitting…" : isPending ? "In progress" : "Submit";
@@ -123,7 +131,12 @@ export default function SubmissionActions(props: Props) {
       <div id={noteId} sx={styles.executionNote}>
         Run Tests is not available yet.
       </div>
-      {error && <div role="alert" sx={styles.error}>{error}</div>}
+      {error && (
+        <div>
+          <div role="alert" sx={styles.error}>{error}</div>
+          {requiresSignIn && <a href={AppRoutes.Login()} sx={styles.signIn}>Sign in to submit</a>}
+        </div>
+      )}
       {storageAvailable !== undefined && (
         <div role="status" sx={[styles.saveStatus, !storageAvailable && styles.saveError]}>
           <Icon name={storageAvailable ? "check" : "document"} size={14} />

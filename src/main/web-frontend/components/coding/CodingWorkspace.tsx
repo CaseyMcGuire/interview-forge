@@ -1,5 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import {useState} from "react";
+import {useSearchParams} from "react-router";
+import useSubmitSolution from "hooks/useSubmitSolution";
+import useSubmissionStatus from "hooks/useSubmissionStatus";
 import EditorPanel from "./EditorPanel";
 import ProblemPanel from "./ProblemPanel";
 import SubmissionActions from "./SubmissionActions";
@@ -61,14 +64,41 @@ export default function CodingWorkspace(props: Props) {
     configuration && draftKey ? readDraft(draftKey, configuration.starterCode) : null
   ));
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const submissionId = searchParams.get("submission") || null;
+  const submissionStatus = useSubmissionStatus(submissionId);
+  const submissionRequest = useSubmitSolution(showSubmission);
+  const submitDisabled = !configuration || !draft || submissionStatus.isUnresolved;
+
+  function showSubmission(id: string) {
+    setSearchParams(previous => {
+      const updated = new URLSearchParams(previous);
+      updated.set("submission", id);
+      return updated;
+    }, {replace: true, preventScrollReset: true});
+  }
+
+  function submitSolution() {
+    if (submitDisabled || submissionStatus.isPending || submissionRequest.isSubmitting) {
+      return;
+    }
+
+    submissionRequest.submitSolution(configuration.id, draft.source);
+  }
+
   function updateSource(source: string) {
-    if (!draftKey) return;
+    if (!draftKey) {
+      return;
+    }
+
     let available = true;
+
     try {
       localStorage.setItem(draftKey, source);
     } catch {
       available = false;
     }
+
     setDraft({source, available});
   }
 
@@ -88,8 +118,21 @@ export default function CodingWorkspace(props: Props) {
           No starter code is available for this problem.
         </div>
       )}
-      <SubmissionActions storageAvailable={draft?.available} />
-      <SubmissionResultPanel submission={null} />
+      <SubmissionActions
+        storageAvailable={draft?.available}
+        onSubmit={submitSolution}
+        disabled={submitDisabled}
+        isSubmitting={submissionRequest.isSubmitting}
+        isPending={submissionStatus.isPending}
+        error={submissionRequest.error}
+        requiresSignIn={submissionRequest.requiresSignIn}
+      />
+      <SubmissionResultPanel
+        submission={submissionStatus.submission}
+        isLoading={submissionStatus.isLoading}
+        error={submissionStatus.error}
+        onRetry={submissionStatus.retrySubmissionStatus}
+      />
     </div>
   );
 }
