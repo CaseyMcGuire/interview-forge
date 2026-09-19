@@ -94,8 +94,8 @@ type ProblemLanguage {
 }
 
 """
-Private execution settings for one problem-language configuration. Created with every field
-present and edited in place afterward. Never visible to non-admin viewers.
+Private execution settings for one problem-language configuration, edited in place.
+Never visible to non-admin viewers.
 """
 type JudgeConfiguration {
   """Opaque, globally unique judge configuration identifier."""
@@ -103,6 +103,12 @@ type JudgeConfiguration {
 
   """Code that parses test input, calls the submitted solution, and serializes its output."""
   testDriverCode: String!
+
+  """
+  Private reference solution used to generate expected outputs for custom inputs.
+  Null until configured. Its source uses this problem language's driver and execution settings.
+  """
+  referenceSolutionCode: String
 
   """Validator for problems with multiple valid answers; null unless the problem uses a custom checker."""
   checkerSource: String

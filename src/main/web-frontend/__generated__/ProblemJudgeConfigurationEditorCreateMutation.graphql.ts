@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<6a9c772b6edfd131cdac50421aea5b4c>>
+ * @generated SignedSource<<7f0dfc135f6e4b308a22c2eda6acf4d1>>
  * @lightSyntaxTransform
  */
 
@@ -12,6 +12,7 @@ export type CreateJudgeConfigurationInput = {
   checkerSource?: string | null | undefined;
   memoryLimitMb: number;
   problemLanguageId: string;
+  referenceSolutionCode?: string | null | undefined;
   testDriverCode: string;
   timeLimitMs: number;
 };

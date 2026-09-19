@@ -1,0 +1,123 @@
+extend type Query {
+  """
+  Polls a test run belonging to the signed-in user, including after refresh or problem
+  archival. Returns null for unauthenticated viewers, malformed or wrong-type IDs,
+  missing runs, and other users' runs. Runs and their inputs are retained for a configurable
+  lifetime, defaulting to 24 hours after creation. Cleanup waits for execution to finish;
+  expired runs remain readable until deleted.
+  """
+  testRun(id: ID!): TestRun
+}
+
+"""A persisted attempt against user-supplied cases. Passing does not establish that the problem is solved."""
+type TestRun {
+  id: ID!
+  status: TestRunStatus!
+
+  """
+  Null until FINISHED. Preparation and compilation failures take precedence over case
+  outcomes. Fatal suite or infrastructure failures take precedence over completed cases;
+  otherwise this is the first non-passing case outcome in input order, or PASSED if all pass.
+  """
+  outcome: TestRunOutcome
+
+  """Number of selected custom cases, known at admission."""
+  totalCases: Int!
+
+  """Zero before completion; afterward, the number of cases with PASSED outcomes."""
+  passedCases: Int!
+
+  """
+  Null until FINISHED, then exactly one entry for every selected case in input order.
+  A wrong answer does not stop subsequent cases. Fatal termination can leave cases NOT_RUN.
+  Preparation or compilation failure leaves every user-code case NOT_RUN.
+  Results are saved together at completion and retained until cleanup.
+  """
+  caseResults: [TestRunCaseResult!]
+
+  """User suite runtime in milliseconds, including JVM startup but excluding compilation and reference execution; null if unavailable."""
+  runtimeMs: Int
+
+  """Safe failure explanation, at most 20,000 characters. Excludes private reference code, driver code, and infrastructure diagnostics."""
+  publicErrorMessage: String
+
+  """Acceptance time as an ISO 8601 UTC timestamp."""
+  createdAt: String!
+
+  """Execution start as an ISO 8601 UTC timestamp; null until a worker starts."""
+  startedAt: String
+
+  """Completion time as an ISO 8601 UTC timestamp; present exactly when status is FINISHED."""
+  finishedAt: String
+}
+
+"""A retained result for one user-supplied case."""
+type TestRunCaseResult {
+  """The custom case supplying the input and prepared expectation."""
+  testCase: CustomTestCase!
+
+  outcome: TestRunCaseOutcome!
+
+  """Captured user-code stdout, at most 20,000 characters. May be invalid JSON; empty for NOT_RUN. NUL is replaced with the replacement character."""
+  output: String!
+
+  """Safe case failure explanation, excluding private code and diagnostics; null when not applicable."""
+  publicErrorMessage: String
+}
+
+type CustomTestCase {
+  id: ID!
+
+  """Zero-based position in the submitted input list."""
+  position: Int!
+
+  """The retained input, serialized as JSON."""
+  inputJson: String!
+
+  """
+  Null until reference execution prepares the expected outputs. The string "null" is a
+  prepared JSON null expectation. All expectations are saved together after successful
+  preparation and stay fixed for this run, including after reference-code edits.
+  """
+  expectedOutputJson: String
+}
+
+enum TestRunStatus {
+  QUEUED
+
+  """Preparing expectations, compiling user code, or executing cases."""
+  RUNNING
+  FINISHED
+}
+
+enum TestRunOutcome {
+  """Every custom case passed. This is not an official acceptance verdict."""
+  PASSED
+  WRONG_ANSWER
+  INVALID_OUTPUT
+  COMPILE_ERROR
+  RUNTIME_ERROR
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  OUTPUT_LIMIT_EXCEEDED
+
+  """The reference solution could not prepare valid expected outputs; user code was not executed."""
+  REFERENCE_SOLUTION_FAILED
+  INTERNAL_ERROR
+}
+
+enum TestRunCaseOutcome {
+  PASSED
+  WRONG_ANSWER
+
+  """The case returned output that could not be parsed as JSON."""
+  INVALID_OUTPUT
+  RUNTIME_ERROR
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  OUTPUT_LIMIT_EXCEEDED
+  INTERNAL_ERROR
+
+  """User code was not executed for this case."""
+  NOT_RUN
+}

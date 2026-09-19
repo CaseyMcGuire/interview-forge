@@ -1,8 +1,8 @@
 extend type Mutation {
   """
   Creates the private judge configuration for an enabled language on a published problem. Admins only.
-  Every setting is required. A language that already has a judge configuration is a validation
-  failure on problemLanguageId; update it instead.
+  Driver code and execution limits are required; reference code is optional. A language that
+  already has a judge configuration is a validation failure on problemLanguageId; update it instead.
   """
   createJudgeConfiguration(input: CreateJudgeConfigurationInput!): CreateJudgeConfigurationResult!
 }
@@ -24,6 +24,12 @@ input CreateJudgeConfigurationInput {
 
   """Code that parses test input, calls the submitted solution, and serializes its output; not blank, at most 50,000 characters."""
   testDriverCode: String!
+
+  """
+  Optional private reference solution. When provided, must be nonblank and at most 50,000 characters.
+  Omit or provide null to leave custom-case preparation unavailable; official submissions are unaffected.
+  """
+  referenceSolutionCode: String
 
   """
   Validator for multiple valid answers, at most 50,000 characters. Required and not blank when the
