@@ -1,11 +1,7 @@
 extend type Mutation {
   """
-  Queues an authenticated user's official submission for an enabled language on a
-  published, unarchived problem. The worker selects the problem's stored test suite,
-  including hidden tests; clients cannot supply or replace its cases.
-  Each success creates a persisted submission that can be polled after refreshing.
-  Expected failures create no submission. Compilation and execution failures belong
-  to the accepted submission's outcome.
+  Queues the signed-in user's solution against the problem's official tests, including hidden cases.
+  Poll the returned submission for status and results.
   """
   submitSolution(input: SubmitSolutionInput!): SubmitSolutionResult!
 }
@@ -19,18 +15,15 @@ union SubmitSolutionResult =
   | ExecutionBusy
 
 type SubmitSolutionSuccess {
-  """Persisted submission, normally QUEUED; a worker may already have advanced it."""
+  """Submission to poll for status and results."""
   submission: Submission!
 }
 
 input SubmitSolutionInput {
-  """
-  Opaque ID returned by ProblemLanguage.id. Ownership and execution settings are server-derived.
-  Malformed, wrong-type, missing, or unavailable configuration IDs return ProblemNotFound.
-  """
+  """ID of the problem-language configuration to use."""
   problemLanguageId: ID!
 
-  """Nonblank solution source, at most 50,000 characters. Preserved without trimming."""
+  """Nonblank solution source, at most 50,000 characters."""
   sourceCode: String!
 }
 
@@ -40,23 +33,18 @@ type SubmissionValidationFailure {
   fieldErrors: [FieldError!]!
 }
 
-"""A signed-in user is required. No changes were applied."""
+"""Sign-in is required."""
 type AuthenticationRequired {
   message: String!
 }
 
-"""
-Execution is unavailable for the selected problem-language configuration. No attempt was queued.
-Includes an unavailable problem or language, missing execution settings, unsupported languages
-or checkers, unavailable runtimes, an empty official test suite, or missing reference code when
-custom expectations must be prepared. Initially only Kotlin with exact JSON comparison is supported.
-"""
+"""Execution is unavailable for the selected problem-language configuration."""
 type ExecutionUnavailable {
-  """Safe explanation without private configuration or infrastructure diagnostics."""
+  """User-facing explanation."""
   message: String!
 }
 
-"""Shared execution admission limits were reached. No attempt was queued; retry later."""
+"""Execution capacity is full; retry later."""
 type ExecutionBusy {
   message: String!
 }

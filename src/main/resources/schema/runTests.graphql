@@ -1,14 +1,5 @@
 extend type Mutation {
-  """
-  Queues the signed-in user's source against the supplied cases for an enabled language
-  on a published, unarchived problem. Returns a test run ID for polling after refreshing.
-  Official tests are never selected or copied.
-
-  Each call saves the inputs and queues a new run together. Admission shares the official
-  submission capacity limits and requires reference code. The worker prepares expected
-  outputs before executing the user's source. Expected admission failures save nothing;
-  preparation, compilation, and execution failures belong to the accepted run's outcome.
-  """
+  """Queues the signed-in user's solution against supplied test cases and returns a run ID for polling."""
   runTests(input: RunTestsInput!): RunTestsResult!
 }
 
@@ -21,36 +12,30 @@ union RunTestsResult =
   | ExecutionBusy
 
 type RunTestsSuccess {
-  """Opaque ID of the persisted attempt. Poll testRun(id) for its status and results."""
+  """ID to poll with testRun(id) for status and results."""
   testRunId: ID!
 }
 
 input RunTestsInput {
-  """
-  Opaque ID returned by ProblemLanguage.id. Ownership and execution settings are server-derived.
-  Malformed, wrong-type, missing, or unavailable configuration IDs return ProblemNotFound.
-  """
+  """ID of the problem-language configuration to use."""
   problemLanguageId: ID!
 
-  """Nonblank solution source, at most 50,000 characters. Preserved without trimming."""
+  """Nonblank solution source, at most 50,000 characters."""
   sourceCode: String!
 
-  """
-  Ordered inputs. At least one case is required; the configurable maximum defaults to 20.
-  To run public examples, supply their inputs. Inputs and ordering stay fixed for this run.
-  """
+  """Ordered test inputs. At least one is required; the configured maximum defaults to 20."""
   cases: [CustomTestCaseInput!]!
 }
 
 input CustomTestCaseInput {
   """
   Serialized JSON input, at most 20,000 characters when compactly serialized.
-  Users supply inputs only; the selected problem language's reference solution supplies expectations.
+  Expected outputs are computed automatically.
   """
   inputJson: String!
 }
 
-"""Invalid source or test cases. No inputs were saved and no test run was queued."""
+"""Invalid source or test cases. No run was queued."""
 type RunTestsValidationFailure {
   message: String!
 

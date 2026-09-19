@@ -1,8 +1,5 @@
 extend type Mutation {
-  """
-  Updates an existing configuration for an enabled language on a published problem. Admins only.
-  The assigned problem and language stay unchanged.
-  """
+  """Updates starter code for an enabled language on a published problem. Admins only."""
   updateProblemLanguage(input: UpdateProblemLanguageInput!): UpdateProblemLanguageResult!
 }
 
@@ -16,10 +13,7 @@ type UpdateProblemLanguageSuccess {
   problemLanguage: ProblemLanguage!
 }
 
-"""
-Partial configuration update. Omitted fields and explicit null leave the existing values unchanged.
-An input containing only id leaves the configuration unchanged.
-"""
+"""Fields omitted or set to null stay unchanged."""
 input UpdateProblemLanguageInput {
   """Opaque configuration ID returned by ProblemLanguage.id."""
   id: ID!

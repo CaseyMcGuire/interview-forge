@@ -14,12 +14,12 @@ type FieldError {
   message: String!
 }
 
-"""The target problem, language configuration, judge configuration, or public example does not exist or is unavailable for this action."""
+"""The requested resource does not exist or is unavailable."""
 type ProblemNotFound implements ProblemFailure {
   message: String!
 }
 
-"""The viewer is not authorized to perform this admin action."""
+"""Administrator access is required."""
 type ProblemForbidden implements ProblemFailure {
   message: String!
 }

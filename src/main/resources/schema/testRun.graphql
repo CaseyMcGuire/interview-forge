@@ -1,67 +1,55 @@
 extend type Query {
-  """
-  Polls a test run belonging to the signed-in user, including after refresh or problem
-  archival. Returns null for unauthenticated viewers, malformed or wrong-type IDs,
-  missing runs, and other users' runs. Runs and their inputs are retained for a configurable
-  lifetime, defaulting to 24 hours after creation. Cleanup waits for execution to finish;
-  expired runs remain readable until deleted.
-  """
+  """Returns the status and results of the signed-in user's custom test suite run, or null if unavailable."""
   testRun(id: ID!): TestRun
 }
 
-"""A persisted attempt against user-supplied cases. Passing does not establish that the problem is solved."""
+"""A run against user-supplied cases. Passing does not mark the problem as solved."""
 type TestRun {
   id: ID!
   status: TestRunStatus!
 
-  """
-  Null until FINISHED. Preparation and compilation failures take precedence over case
-  outcomes. Fatal suite or infrastructure failures take precedence over completed cases;
-  otherwise this is the first non-passing case outcome in input order, or PASSED if all pass.
-  """
+  """Overall result; null until FINISHED."""
   outcome: TestRunOutcome
 
-  """Number of selected custom cases, known at admission."""
+  """Number of supplied test cases."""
   totalCases: Int!
 
-  """Zero before completion; afterward, the number of cases with PASSED outcomes."""
+  """Number of passed cases; zero until the run finishes."""
   passedCases: Int!
 
   """
-  Null until FINISHED, then exactly one entry for every selected case in input order.
-  A wrong answer does not stop subsequent cases. Fatal termination can leave cases NOT_RUN.
-  Preparation or compilation failure leaves every user-code case NOT_RUN.
-  Results are saved together at completion and retained until cleanup.
+  One result per supplied case, in input order; null until FINISHED.
+  Includes NOT_RUN for cases that did not execute.
   """
   caseResults: [TestRunCaseResult!]
 
-  """User suite runtime in milliseconds, including JVM startup but excluding compilation and reference execution; null if unavailable."""
+  """Execution time in milliseconds, excluding compilation and reference execution; null if unavailable."""
   runtimeMs: Int
 
-  """Safe failure explanation, at most 20,000 characters. Excludes private reference code, driver code, and infrastructure diagnostics."""
+  """User-facing failure explanation, at most 20,000 characters; null when not applicable."""
   publicErrorMessage: String
 
-  """Acceptance time as an ISO 8601 UTC timestamp."""
+  """Creation time as an ISO 8601 UTC timestamp."""
   createdAt: String!
 
-  """Execution start as an ISO 8601 UTC timestamp; null until a worker starts."""
+  """Execution start as an ISO 8601 UTC timestamp; null before execution."""
   startedAt: String
 
-  """Completion time as an ISO 8601 UTC timestamp; present exactly when status is FINISHED."""
+  """Completion time as an ISO 8601 UTC timestamp; null until FINISHED."""
   finishedAt: String
 }
 
-"""A retained result for one user-supplied case."""
+"""Result for one supplied test case."""
 type TestRunCaseResult {
-  """The custom case supplying the input and prepared expectation."""
+  """Input and expected output for this case."""
   testCase: CustomTestCase!
 
   outcome: TestRunCaseOutcome!
 
-  """Captured user-code stdout, at most 20,000 characters. May be invalid JSON; empty for NOT_RUN. NUL is replaced with the replacement character."""
+  """Captured output, at most 20,000 characters. May be invalid JSON; empty for NOT_RUN."""
   output: String!
 
-  """Safe case failure explanation, excluding private code and diagnostics; null when not applicable."""
+  """User-facing failure explanation; null when not applicable."""
   publicErrorMessage: String
 }
 
@@ -71,13 +59,12 @@ type CustomTestCase {
   """Zero-based position in the submitted input list."""
   position: Int!
 
-  """The retained input, serialized as JSON."""
+  """The supplied input, serialized as JSON."""
   inputJson: String!
 
   """
-  Null until reference execution prepares the expected outputs. The string "null" is a
-  prepared JSON null expectation. All expectations are saved together after successful
-  preparation and stay fixed for this run, including after reference-code edits.
+  Expected output as JSON; null until available.
+  The string "null" represents a JSON null value.
   """
   expectedOutputJson: String
 }
@@ -85,13 +72,13 @@ type CustomTestCase {
 enum TestRunStatus {
   QUEUED
 
-  """Preparing expectations, compiling user code, or executing cases."""
+  """Execution is in progress."""
   RUNNING
   FINISHED
 }
 
 enum TestRunOutcome {
-  """Every custom case passed. This is not an official acceptance verdict."""
+  """All supplied cases passed."""
   PASSED
   WRONG_ANSWER
   INVALID_OUTPUT
@@ -101,7 +88,7 @@ enum TestRunOutcome {
   MEMORY_LIMIT_EXCEEDED
   OUTPUT_LIMIT_EXCEEDED
 
-  """The reference solution could not prepare valid expected outputs; user code was not executed."""
+  """Expected outputs could not be generated."""
   REFERENCE_SOLUTION_FAILED
   INTERNAL_ERROR
 }

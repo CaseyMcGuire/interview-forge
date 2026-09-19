@@ -86,17 +86,11 @@ type ProblemLanguage {
   """Code stencil used to initialize or reset the editor."""
   starterCode: String!
 
-  """
-  Private judge settings for this configuration. Admins only: null for other viewers,
-  and null until an admin creates the judge configuration.
-  """
+  """Private judge settings; null if unconfigured or the viewer is not an admin."""
   judgeConfiguration: JudgeConfiguration
 }
 
-"""
-Private execution settings for one problem-language configuration, edited in place.
-Never visible to non-admin viewers.
-"""
+"""Private execution settings for a problem language, visible only to admins."""
 type JudgeConfiguration {
   """Opaque, globally unique judge configuration identifier."""
   id: ID!
@@ -104,10 +98,7 @@ type JudgeConfiguration {
   """Code that parses test input, calls the submitted solution, and serializes its output."""
   testDriverCode: String!
 
-  """
-  Private reference solution used to generate expected outputs for custom inputs.
-  Null until configured. Its source uses this problem language's driver and execution settings.
-  """
+  """Reference solution used to compute expected outputs for custom inputs; null if unconfigured."""
   referenceSolutionCode: String
 
   """Validator for problems with multiple valid answers; null unless the problem uses a custom checker."""

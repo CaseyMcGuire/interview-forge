@@ -1,9 +1,5 @@
 extend type Mutation {
-  """
-  Updates an existing judge configuration for an enabled language on a published problem. Admins only.
-  The assigned language configuration stays unchanged. Each supplied field is validated with the
-  same rules as creation.
-  """
+  """Updates private judge settings for a problem language. Admins only."""
   updateJudgeConfiguration(input: UpdateJudgeConfigurationInput!): UpdateJudgeConfigurationResult!
 }
 
@@ -18,9 +14,8 @@ type UpdateJudgeConfigurationSuccess {
 }
 
 """
-Partial settings update. Omitted fields stay unchanged. Explicit null also leaves a field
-unchanged, except checkerSource and referenceSolutionCode, where null clears the stored code.
-An input containing only id leaves the configuration unchanged.
+Omitted fields stay unchanged. Null clears checkerSource and referenceSolutionCode;
+for other fields, null leaves the value unchanged.
 """
 input UpdateJudgeConfigurationInput {
   """Opaque judge configuration ID returned by JudgeConfiguration.id."""
@@ -29,15 +24,12 @@ input UpdateJudgeConfigurationInput {
   testDriverCode: String
 
   """
-  Omit to leave unchanged, provide nonblank code of at most 50,000 characters to replace it,
-  or provide null to clear it. Existing custom-suite expectations remain unchanged.
+  Nonblank reference code, at most 50,000 characters.
+  Omit to keep the current value; null clears it.
   """
   referenceSolutionCode: String
 
-  """
-  Omit to leave unchanged, provide code to replace it, or provide null to clear it.
-  Clearing is valid only for problems using exact JSON comparison.
-  """
+  """Custom answer checker; null clears it only when using exact JSON comparison."""
   checkerSource: String
 
   timeLimitMs: Int

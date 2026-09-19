@@ -1,8 +1,5 @@
 extend type Mutation {
-  """
-  Deletes one public example from a published problem. Admins only.
-  Other test cases, including hidden tests and their positions, stay unchanged.
-  """
+  """Deletes a public example from a published problem. Admins only."""
   deleteProblemExample(input: DeleteProblemExampleInput!): DeleteProblemExampleResult!
 }
 
@@ -13,7 +10,7 @@ union DeleteProblemExampleResult =
   | ProblemForbidden
 
 type DeleteProblemExampleSuccess {
-  """Opaque ID of the deleted example, for removing it from client state."""
+  """ID of the deleted example."""
   deletedExampleId: ID!
 
   """The owning problem, including its remaining public examples."""
@@ -21,6 +18,6 @@ type DeleteProblemExampleSuccess {
 }
 
 input DeleteProblemExampleInput {
-  """Opaque public-example ID returned by ProblemExample.id; hidden test cases cannot be deleted here."""
+  """ID of the public example to delete."""
   id: ID!
 }

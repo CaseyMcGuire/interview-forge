@@ -1,8 +1,5 @@
 extend type Mutation {
-  """
-  Updates a published problem's title, statement, or difficulty. Admins only.
-  The slug, language configurations, and test cases stay unchanged.
-  """
+  """Updates a published problem's title, statement, or difficulty. Admins only."""
   updateProblem(input: UpdateProblemInput!): UpdateProblemResult!
 }
 
@@ -16,12 +13,9 @@ type UpdateProblemSuccess {
   problem: Problem!
 }
 
-"""
-Partial content update. Omitted fields and explicit null leave the existing values unchanged.
-An input containing only id leaves the problem unchanged.
-"""
+"""Fields omitted or set to null stay unchanged."""
 input UpdateProblemInput {
-  """Opaque problem ID returned by Problem.id; identifies the problem to update."""
+  """ID of the problem to update."""
   id: ID!
 
   title: String

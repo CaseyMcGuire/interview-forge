@@ -1,8 +1,7 @@
 extend type Mutation {
   """
-  Creates the private judge configuration for an enabled language on a published problem. Admins only.
-  Driver code and execution limits are required; reference code is optional. A language that
-  already has a judge configuration is a validation failure on problemLanguageId; update it instead.
+  Creates private judge settings for a problem language. Admins only.
+  Use updateJudgeConfiguration if settings already exist.
   """
   createJudgeConfiguration(input: CreateJudgeConfigurationInput!): CreateJudgeConfigurationResult!
 }
@@ -14,26 +13,23 @@ union CreateJudgeConfigurationResult =
   | ProblemForbidden
 
 type CreateJudgeConfigurationSuccess {
-  """The owning language configuration, with its new judgeConfiguration populated."""
+  """The problem language with its new judge settings."""
   problemLanguage: ProblemLanguage!
 }
 
 input CreateJudgeConfigurationInput {
-  """Opaque configuration ID returned by ProblemLanguage.id; identifies the language receiving the judge."""
+  """ID of the problem-language configuration to use."""
   problemLanguageId: ID!
 
-  """Code that parses test input, calls the submitted solution, and serializes its output; not blank, at most 50,000 characters."""
+  """Code that parses input, calls the solution, and serializes output. Nonblank; at most 50,000 characters."""
   testDriverCode: String!
 
-  """
-  Optional private reference solution. When provided, must be nonblank and at most 50,000 characters.
-  Omit or provide null to leave custom-case preparation unavailable; official submissions are unaffected.
-  """
+  """Reference solution for custom inputs. Nonblank when provided; at most 50,000 characters."""
   referenceSolutionCode: String
 
   """
-  Validator for multiple valid answers, at most 50,000 characters. Required and not blank when the
-  problem uses a custom checker; must be omitted or null when it uses exact JSON comparison.
+  Custom answer checker; required for custom checking and unavailable for exact JSON comparison.
+  Nonblank when provided; at most 50,000 characters.
   """
   checkerSource: String
 

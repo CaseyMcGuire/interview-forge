@@ -19,7 +19,7 @@ input CreateProblemLanguageInput {
 }
 
 input CreateProblemExampleInput {
-  """Serialized JSON. The string \"null\" is a valid JSON value."""
+  """Serialized JSON. The string "null" is a valid JSON value."""
   inputJson: String!
   expectedOutputJson: String!
   explanationMarkdown: String
