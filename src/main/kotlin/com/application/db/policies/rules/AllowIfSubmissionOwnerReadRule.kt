@@ -2,7 +2,6 @@ package com.application.db.policies.rules
 
 import com.application.ent.ReadOnlyEntClient
 import com.application.ent.Submission
-import com.application.schema.SubmissionKind
 import com.application.security.CurrentUser
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRule
@@ -21,8 +20,7 @@ class AllowIfSubmissionOwnerReadRule(
     return if (
       user != null &&
       user.id == context.viewerContext.longIdOrNull() &&
-      user.id == item.userId &&
-      item.kind == SubmissionKind.SUBMIT
+      user.id == item.userId
     ) {
       PrivacyDecision.Allow
     } else {

@@ -29,9 +29,6 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
   /** Exact submitted source; retain it independently of later editor or starter-code changes. */
   val sourceCode by string("source_code").immutable().sensitive()
 
-  /** RUN uses examples/custom inputs; SUBMIT uses the official suite and can count as a solved problem. */
-  val kind by enum<SubmissionKind>("kind").immutable()
-
   /** Execution lifecycle, initially queued; only a trusted grading path should advance it. */
   val status by enum<SubmissionStatus>("status").default(SubmissionStatus.QUEUED)
 
@@ -59,8 +56,8 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
   /** Null until terminal completion, including compilation and infrastructure failures. */
   val finishedAt by instant("finished_at").nullable()
 
-  /** At most the first failed case is retained; its details remain private to execution. */
-  val testResults by hasMany<SubmissionTestResult>("test_results")
+  /** The first failed case, when known; hidden-case details remain private to execution. */
+  val failedTestResult by hasOne<SubmissionFailure>("failed_test_result")
 
   /** Time the user created this attempt, used to order submission history. */
   val createdAt by instant("created_at").defaultNow().immutable()

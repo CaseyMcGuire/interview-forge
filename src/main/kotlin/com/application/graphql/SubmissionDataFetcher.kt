@@ -73,7 +73,6 @@ class SubmissionDataFetcher(
     val failedCase = submissionService.findFailedExampleForCurrentUser(id) ?: return null
 
     return SubmissionFailedExample(
-      position = failedCase.position,
       inputJson = failedCase.inputJson.toString(),
       expectedOutputJson = checkNotNull(failedCase.expectedOutputJson).toString(),
       output = failedCase.stdout.orEmpty(),

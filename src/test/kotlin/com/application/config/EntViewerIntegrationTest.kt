@@ -85,7 +85,8 @@ class EntViewerIntegrationTest {
       .andExpect(status().isOk)
       .andReturn().response.contentAsString
     assertTrue(detail.contains("source_code"))
-    assertTrue(detail.contains("testResults"))
+    assertTrue(detail.contains("failedTestResult"))
+    assertTrue(detail.contains("/_ent/schema/submissionFailures"))
     assertTrue(detail.contains("/_ent/schema/problems"))
   }
 

@@ -3,12 +3,11 @@ package com.application.graphql
 import com.application.ent.EntClient
 import com.application.ent.Problem
 import com.application.ent.Submission
-import com.application.ent.SubmissionTestResult
+import com.application.ent.SubmissionFailure
 import com.application.ent.TestCase
 import com.application.execution.RuntimeAvailability
 import com.application.schema.ProblemDifficulty
 import com.application.schema.ProblemCheckerKind
-import com.application.schema.SubmissionKind
 import com.application.schema.SubmissionStatus
 import com.application.schema.SubmissionVerdict
 import com.application.security.ExecutionAccess
@@ -113,7 +112,7 @@ class SubmissionIntegrationTest {
   @BeforeEach
   fun setUp() {
     entClient.withTransaction { tx ->
-      tx.submissionTestResults.deleteMany(fixtureContext).getOrThrow()
+      tx.submissionFailures.deleteMany(fixtureContext).getOrThrow()
       tx.submissions.deleteMany(fixtureContext).getOrThrow()
     }.getOrThrow()
 
@@ -172,7 +171,6 @@ class SubmissionIntegrationTest {
 
     val stored = storedSubmissions().single()
     assertEquals(userId, stored.userId)
-    assertEquals(SubmissionKind.SUBMIT, stored.kind)
     assertEquals(configurationId, stored.problemLanguageId)
     assertEquals("  solution source\n", stored.sourceCode)
     assertTrue(storedCases().isEmpty())
@@ -270,10 +268,6 @@ class SubmissionIntegrationTest {
       archivedAt = Instant.now()
     }.save(fixtureContext).getOrThrow()
     assertEquals(submission, poll(id))
-
-    val legacyRun = createSubmissionDirectly("legacy source", SubmissionKind.RUN)
-    val legacyRunId = globalIdUtil.toGlobalId(GraphqlSubmission::class, legacyRun.id)
-    assertTrue(poll(legacyRunId).isNull)
   }
 
   @Test
@@ -447,7 +441,6 @@ class SubmissionIntegrationTest {
           problemId = problem.id
           problemLanguageId = configurationId
           sourceCode = "forged"
-          kind = SubmissionKind.SUBMIT
           totalCases = 0
         }.save(owner).getOrThrow()
       }
@@ -550,22 +543,18 @@ class SubmissionIntegrationTest {
 
   private fun createSubmissionDirectly(
     sourceCode: String,
-    kind: SubmissionKind = SubmissionKind.SUBMIT,
   ): Submission =
     entClient.submissions.create {
       userId = this@SubmissionIntegrationTest.userId
       problemId = problem.id
       problemLanguageId = configurationId
       this.sourceCode = sourceCode
-      this.kind = kind
       totalCases = 1
     }
       .saveAndLoad(ExecutionAccess.context)
       .getOrThrow()
 
-  private fun storedCases(): List<SubmissionTestResult> = entClient.submissionTestResults.query {
-    orderBy(SubmissionTestResult.position.asc())
-  }
+  private fun storedCases(): List<SubmissionFailure> = entClient.submissionFailures.query {}
     .all(fixtureContext)
     .getOrThrow()
 

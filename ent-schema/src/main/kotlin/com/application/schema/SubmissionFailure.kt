@@ -6,23 +6,21 @@ import entkt.schema.OnDelete
 import kotlinx.serialization.json.JsonElement
 
 /** The first failed official case; successful cases are not retained by the submission worker. */
-class SubmissionTestResult : EntSchema("submission_test_results", clientName = "submissionTestResults") {
-  /** Database-generated identity for one case within one attempt. */
+class SubmissionFailure : EntSchema("submission_failures", clientName = "submissionFailures") {
+  /** Database-generated identity for the retained failure. */
   override fun id() = EntId.long()
 
-  /** Attempt that owns the snapshot and outcome; cases cannot move between submissions. */
+  /** Each submission retains at most one failure; its snapshot cannot move between submissions. */
   val submission by belongsTo<Submission>("submission")
     .immutable()
-    .inverse(Submission::testResults)
+    .unique()
+    .inverse(Submission::failedTestResult)
     .onDelete(OnDelete.RESTRICT)
 
   /** Optional official-test provenance; deletion clears this reference while preserving the snapshot. */
   val testCase by belongsTo<TestCase>("test_case")
     .nullable()
     .onDelete(OnDelete.SET_NULL)
-
-  /** Nonnegative case order within the attempt, fixed when the execution inputs are selected. */
-  val position by int("position").immutable()
 
   /** Original example/hidden/custom classification; later edits must not expose a formerly hidden case. */
   val source by enum<SubmissionTestSource>("source").immutable()
@@ -60,10 +58,6 @@ class SubmissionTestResult : EntSchema("submission_test_results", clientName = "
   /** Time the outcome, captured output, or execution measurements were last updated. */
   val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 
-  /** Prevents multiple case rows from occupying the same position in one submission. */
-  val bySubmissionAndPosition =
-    index("uq_submission_test_results_submission_position", submission.fk, position).unique()
-
   /** Supports provenance lookup and clearing references when an official test is deleted. */
-  val byTestCase = index("idx_submission_test_results_test_case", testCase.fk)
+  val byTestCase = index("idx_submission_failures_test_case", testCase.fk)
 }

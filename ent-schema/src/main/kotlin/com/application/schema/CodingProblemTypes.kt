@@ -19,12 +19,6 @@ enum class TestCaseVisibility {
   HIDDEN,
 }
 
-/** Only SUBMIT attempts can count toward solving a problem. */
-enum class SubmissionKind {
-  RUN,
-  SUBMIT,
-}
-
 /** Execution lifecycle, separate from whether the submitted code was correct. */
 enum class SubmissionStatus {
   QUEUED,

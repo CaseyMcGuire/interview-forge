@@ -9,7 +9,7 @@ The failed-example API is reviewed and committed.
 ## Current scope
 
 `submitSolution` accepts a problem-language ID and source code. It creates a persisted
-SUBMIT attempt and returns its ID and current summary. `submission(id)` polls an official
+official attempt and returns its ID and current summary. `submission(id)` polls an official
 submission owned by the authenticated user, including after refresh or problem archival.
 There is no example/custom Run mutation, custom-case input, or transient execution path.
 
@@ -18,9 +18,10 @@ that at least one official case exists but does not select or copy the suite, cr
 case results, or impose the former custom-Run limit of twenty cases. `totalCases` is zero
 while queued; the service sets it when it selects the current suite at execution start.
 
-Example/custom Runs are a separate follow-up: execute and return results directly, with
-page state lost on refresh. Saving user-authored sample inputs would be another optional
-feature. Neither flow belongs in the current submission API/backend.
+Custom runs are a separate follow-up: persist user-owned custom suites and test runs,
+generate expected outputs with reference code on the selected judge configuration,
+and retain all custom-case results until expiration. They will use polling independently
+of official submissions. This workflow is not implemented yet.
 
 ## API contract
 
@@ -35,13 +36,13 @@ and [submission.graphql](../src/main/resources/schema/submission.graphql).
   already have advanced its state before the response is read.
 - Polling exposes ID, lifecycle, overall verdict, total/passed counts, measurements,
   timestamps, and a safe error message. It returns null for malformed, wrong-type,
-  missing, unauthenticated, other-owner, or non-SUBMIT IDs.
+  missing, unauthenticated, or other-owner IDs.
 - Official verdicts include ACCEPTED and WRONG_ANSWER. Example-only EXECUTED verdicts and
   per-case Run response types have been removed from GraphQL.
 - Hidden input/output and private judge details are not part of the summary response.
   Expected request failures use the mutation union; unexpected database/application
   failures remain GraphQL errors.
-- `failedExample` exposes the retained position, JSON input, JSON expectation, and captured
+- `failedExample` exposes the retained JSON input, JSON expectation, and captured
   stdout when the first failure was a public example. It is null before completion, when
   no case failed, or when the first failure was hidden. Output may be empty or invalid JSON;
   stored NUL characters are replaced with the Unicode replacement character. No stderr,
@@ -53,7 +54,7 @@ and [submission.graphql](../src/main/resources/schema/submission.graphql).
 2. Load the public problem-language configuration, problem, and enabled language through
    EntKt. Verify supported Kotlin/EXACT_JSON execution, a judge configuration, a configured
    runtime, an available execution adapter, and a nonempty official suite.
-3. In the same serializable transaction, check global/per-user queued/running SUBMIT limits
+3. In the same serializable transaction, check global/per-user queued/running submission limits
    and create the official submission with its owner, problem-language reference, and source.
    EntKt validates source with `SubmissionContentValidationRule` when saving; the resolver maps
    violations to field errors. Availability and capacity checks precede source validation.
@@ -88,8 +89,13 @@ Inputs stay in memory while executing; database transactions remain outside comp
 and suite execution. No runtime, driver, checker, limit, or full-suite snapshots are persisted.
 
 The summary and at most the first failed case are saved together in one transaction.
+`Submission.failedTestResult` is an optional one-to-one edge to `SubmissionFailure`.
+The `submission_failures.submission_id` unique constraint prevents retaining more than
+one failure for an attempt. `Submission` represents
+official attempts only and has no run/submit discriminator.
 The returned zero-based failure index selects the original case, including its input,
-expectation, position, and visibility. Later test edits cannot change that retained data.
+expectation, and visibility. Later test edits cannot change that retained data.
+Case positions remain on `TestCase` and are not copied into retained failures.
 Passing outputs are not retained. Compilation failures and JVM failures before any case
 starts have no failed-case row. Suite timing belongs to the summary; individual case
 timing stays null because the executor does not measure it.
@@ -209,11 +215,13 @@ The failed-example API has been reapplied against the current service and suite 
 model. The backups remain intact; their old worker drafts must not replace the current
 scheduler, service, or runner.
 
-Each stage is reviewed before committing. Example/custom execution and frontend integration
-remain follow-ups, along with skipping locked queue rows and recovering submissions stuck
-in RUNNING beyond their allowed execution window. V8 has already been applied locally;
-later physical schema changes require a new Flyway migration. The mutable `totalCases`
-metadata change does not alter its physical database column.
+Each stage is reviewed before committing. Custom execution remains a follow-up, along
+with skipping locked queue rows and recovering submissions stuck in RUNNING beyond
+their allowed execution window. V9 renames the failure table in place, enforces one
+failure per submission, and removes `submissions.kind`. It rejects databases with
+non-official attempts rather than silently reclassifying them; existing duplicate
+result rows must also be resolved before the unique constraint can be added.
+V10 removes the copied case position from retained failures.
 
 The ADR cleanup follow-up is reviewed and committed: submission execution ADRs
 0018–0021 have been removed, earlier ADRs remain as history, and new ADRs are created only

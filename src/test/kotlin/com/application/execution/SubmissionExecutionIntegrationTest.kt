@@ -2,10 +2,10 @@ package com.application.execution
 
 import com.application.config.ExecutionProperties
 import com.application.ent.EntClient
+import com.application.ent.Submission
 import com.application.ent.TestCase
 import com.application.graphql.GlobalIdUtil
 import com.application.schema.ProblemDifficulty
-import com.application.schema.SubmissionKind
 import com.application.schema.SubmissionStatus
 import com.application.schema.SubmissionTestOutcome
 import com.application.schema.SubmissionVerdict
@@ -15,6 +15,7 @@ import com.application.security.ExecutionAccess
 import com.application.services.SubmissionService
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
+import entkt.runtime.query.requireLoaded
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntPrivacyDeniedException
 import jakarta.servlet.Filter
@@ -52,6 +53,7 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 import java.nio.file.Files
+import java.sql.SQLException
 import java.util.UUID
 import com.application.graphql.types.ProblemLanguage as GraphqlProblemLanguage
 
@@ -104,7 +106,7 @@ class SubmissionExecutionIntegrationTest {
     scheduler.onApplicationReady()
 
     entClient.withTransaction { tx ->
-      tx.submissionTestResults.deleteMany(fixtures).getOrThrow()
+      tx.submissionFailures.deleteMany(fixtures).getOrThrow()
       tx.submissions.deleteMany(fixtures).getOrThrow()
     }.getOrThrow()
 
@@ -144,6 +146,13 @@ class SubmissionExecutionIntegrationTest {
     assertEquals("first solution", submission.sourceCode)
     assertEquals(SubmissionStatus.RUNNING, submission.status)
     assertNotNull(submission.startedAt)
+
+    val withoutFailure = entClient.submissions.query {
+      where(Submission.id eq submission.id)
+      loadFailedTestResult()
+    }.firstOrNull(ExecutionAccess.context).getOrThrow()!!
+    assertNull(withoutFailure.edges.failedTestResult.requireLoaded())
+
     executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "2") }
 
     val result = runner.runSubmission(submission)
@@ -160,6 +169,12 @@ class SubmissionExecutionIntegrationTest {
     assertEquals("WRONG_ANSWER", poll(firstId)["verdict"].asString())
     assertEquals("2", storedResults().single().stdout)
     assertEquals("QUEUED", poll(secondId)["status"].asString())
+
+    val withFailure = entClient.submissions.query {
+      where(Submission.id eq submission.id)
+      loadFailedTestResult()
+    }.firstOrNull(ExecutionAccess.context).getOrThrow()!!
+    assertEquals(storedResults().single().id, withFailure.edges.failedTestResult.requireLoaded()!!.id)
   }
 
   @Test
@@ -238,7 +253,6 @@ class SubmissionExecutionIntegrationTest {
     assertFalse(result.toString().contains("private diagnostic"))
 
     val retained = storedResults().single()
-    assertEquals(5, retained.position)
     assertEquals("HIDDEN", retained.source.name)
     assertEquals(JsonPrimitive(2), retained.inputJson)
     assertEquals(JsonPrimitive(2), retained.expectedOutputJson)
@@ -246,7 +260,7 @@ class SubmissionExecutionIntegrationTest {
     assertNull(retained.runtimeMs, "Suite duration cannot be attributed to the failed case")
     assertEquals(
       retained.id,
-      entClient.submissionTestResults.findById(ExecutionAccess.context, retained.id).getOrThrow()!!.id,
+      entClient.submissionFailures.findById(ExecutionAccess.context, retained.id).getOrThrow()!!.id,
     )
 
     val ownerId = userId
@@ -254,7 +268,7 @@ class SubmissionExecutionIntegrationTest {
     assertTrue(poll(id, admin).isNull)
     for (viewer in listOf(Viewer.Anonymous, Viewer.User(ownerId), Viewer.User(userId))) {
       assertThrows(EntPrivacyDeniedException::class.java) {
-        entClient.submissionTestResults.findById(ViewerContext(viewer), retained.id).getOrThrow()
+        entClient.submissionFailures.findById(ViewerContext(viewer), retained.id).getOrThrow()
       }
     }
   }
@@ -279,7 +293,6 @@ class SubmissionExecutionIntegrationTest {
 
     val submission = poll(id)
     val failed = submission["failedExample"]
-    assertEquals(4, failed["position"].asInt())
     assertEquals("4", failed["inputJson"].asString())
     assertEquals("4", failed["expectedOutputJson"].asString())
     assertEquals("0", failed["output"].asString())
@@ -328,24 +341,23 @@ class SubmissionExecutionIntegrationTest {
 
     try {
       authenticate(session)
-      assertEquals(result.id, entClient.submissionTestResults.findById(owner, result.id).getOrThrow()!!.id)
+      assertEquals(result.id, entClient.submissionFailures.findById(owner, result.id).getOrThrow()!!.id)
 
       for (viewer in listOf(Viewer.Anonymous, Viewer.User(strangerId), Viewer.User(adminId))) {
         assertThrows(EntPrivacyDeniedException::class.java) {
-          entClient.submissionTestResults.findById(ViewerContext(viewer), result.id).getOrThrow()
+          entClient.submissionFailures.findById(ViewerContext(viewer), result.id).getOrThrow()
         }
       }
 
       assertThrows(EntMutationPrivacyDeniedException::class.java) {
-        entClient.submissionTestResults.update(result.id) { stdout = "forged" }.save(owner).getOrThrow()
+        entClient.submissionFailures.update(result.id) { stdout = "forged" }.save(owner).getOrThrow()
       }
       assertThrows(EntMutationPrivacyDeniedException::class.java) {
-        entClient.submissionTestResults.deleteById(owner, result.id).getOrThrow()
+        entClient.submissionFailures.deleteById(owner, result.id).getOrThrow()
       }
       assertThrows(EntMutationPrivacyDeniedException::class.java) {
-        entClient.submissionTestResults.create {
+        entClient.submissionFailures.create {
           submissionId = result.submissionId
-          position = result.position + 1
           source = result.source
           inputJson = result.inputJson
           expectedOutputJson = result.expectedOutputJson
@@ -356,16 +368,16 @@ class SubmissionExecutionIntegrationTest {
       for ((login, viewerId) in listOf(stranger to strangerId, admin to adminId)) {
         authenticate(login)
         assertThrows(EntPrivacyDeniedException::class.java) {
-          entClient.submissionTestResults.findById(ViewerContext(Viewer.User(viewerId)), result.id).getOrThrow()
+          entClient.submissionFailures.findById(ViewerContext(Viewer.User(viewerId)), result.id).getOrThrow()
         }
         assertThrows(EntPrivacyDeniedException::class.java) {
-          entClient.submissionTestResults.findById(owner, result.id).getOrThrow()
+          entClient.submissionFailures.findById(owner, result.id).getOrThrow()
         }
       }
 
       SecurityContextHolder.clearContext()
       assertThrows(EntPrivacyDeniedException::class.java) {
-        entClient.submissionTestResults.findById(owner, result.id).getOrThrow()
+        entClient.submissionFailures.findById(owner, result.id).getOrThrow()
       }
     } finally {
       SecurityContextHolder.clearContext()
@@ -395,7 +407,7 @@ class SubmissionExecutionIntegrationTest {
       SubmissionTestOutcome.EXECUTED,
       SubmissionTestOutcome.SKIPPED,
     )) {
-      entClient.submissionTestResults.update(result.id) { this.outcome = outcome }.save(fixtures).getOrThrow()
+      entClient.submissionFailures.update(result.id) { this.outcome = outcome }.save(fixtures).getOrThrow()
       assertTrue(poll(id)["failedExample"].isNull)
     }
   }
@@ -428,7 +440,7 @@ class SubmissionExecutionIntegrationTest {
       TestSuiteStatus.TIME_LIMIT_EXCEEDED to "TIME_LIMIT_EXCEEDED",
       TestSuiteStatus.MEMORY_LIMIT_EXCEEDED to "MEMORY_LIMIT_EXCEEDED",
     )) {
-      entClient.submissionTestResults.deleteMany(fixtures).getOrThrow()
+      entClient.submissionFailures.deleteMany(fixtures).getOrThrow()
       val id = submit("solution")
       executor.runSuite = { _, _, _ ->
         TestSuiteResult(status, 0, 0, stdout = "\u0000" + "x".repeat(20_001), stderr = "private diagnostic")
@@ -499,7 +511,6 @@ class SubmissionExecutionIntegrationTest {
       problemId = this@SubmissionExecutionIntegrationTest.problemId
       problemLanguageId = configurationId
       sourceCode = "previous attempt"
-      kind = SubmissionKind.SUBMIT
       status = SubmissionStatus.RUNNING
       totalCases = 2
       passedCases = 1
@@ -583,7 +594,6 @@ class SubmissionExecutionIntegrationTest {
     assertEquals(1, result["passedCases"].asInt())
     assertEquals(3, result["totalCases"].asInt())
     val failed = storedResults().single()
-    assertEquals(5, failed.position)
     assertEquals("HIDDEN", failed.source.name)
     assertEquals("2", failed.stdout)
     assertRuntimeWorkspaceEmpty()
@@ -617,22 +627,34 @@ class SubmissionExecutionIntegrationTest {
   }
 
   @Test
-  fun `legacy example runs are not claimed`() {
-    val legacy = entClient.submissions.create {
-      userId = this@SubmissionExecutionIntegrationTest.userId
-      problemId = this@SubmissionExecutionIntegrationTest.problemId
-      problemLanguageId = configurationId
-      sourceCode = "legacy run"
-      kind = SubmissionKind.RUN
-      totalCases = 0
-    }.saveAndLoad(fixtures).getOrThrow()
+  fun `a submission cannot retain a second failure`() {
+    createCase(0, TestCaseVisibility.EXAMPLE, 1)
+    submit("first solution")
+    submit("second solution")
+    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "0") }
+    scheduler.processQueuedSubmissions()
+    val retained = storedResults().single()
+
+    val exception = assertThrows(Exception::class.java) {
+      entClient.submissionFailures.create {
+        submissionId = retained.submissionId
+        source = retained.source
+        inputJson = JsonPrimitive("another input")
+        expectedOutputJson = retained.expectedOutputJson
+        outcome = retained.outcome
+      }.save(ExecutionAccess.context).getOrThrow()
+    }
+    assertTrue(
+      generateSequence<Throwable>(exception) { it.cause }.any { it is SQLException && it.sqlState == "23505" },
+      exception.toString(),
+    )
+    assertEquals(retained.id, storedResults().single().id)
 
     scheduler.processQueuedSubmissions()
-    assertEquals(
-      SubmissionStatus.QUEUED,
-      entClient.submissions.findById(fixtures, legacy.id).getOrThrow()!!.status,
-    )
-    assertEquals(listOf("cleanup"), executor.events)
+
+    val failures = storedResults()
+    assertEquals(2, failures.size)
+    assertEquals(2, failures.map { it.submissionId }.distinct().size)
   }
 
   private fun createCase(position: Int, visibility: TestCaseVisibility, value: Int): TestCase =
@@ -644,7 +666,7 @@ class SubmissionExecutionIntegrationTest {
       expectedOutputJson = JsonPrimitive(value)
     }.saveAndLoad(fixtures).getOrThrow()
 
-  private fun storedResults() = entClient.submissionTestResults.query {}.all(fixtures).getOrThrow()
+  private fun storedResults() = entClient.submissionFailures.query {}.all(fixtures).getOrThrow()
 
   private fun createScheduler(executor: ProgramExecutor) = SubmissionScheduler(
     submissionService,
@@ -694,7 +716,7 @@ class SubmissionExecutionIntegrationTest {
   private fun poll(id: String, viewer: MockHttpSession? = session): JsonNode = graphql(
     """query(${'$'}id: ID!) { submission(id: ${'$'}id) {
       status verdict totalCases passedCases runtimeMs startedAt finishedAt publicErrorMessage
-      failedExample { position inputJson expectedOutputJson output }
+      failedExample { inputJson expectedOutputJson output }
     } }""".trimIndent(),
     mapOf("id" to id),
     viewer,

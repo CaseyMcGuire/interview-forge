@@ -2,7 +2,7 @@ extend type Query {
   """
   Polls a persisted official submission belonging to the signed-in user, including after
   its problem is edited or archived. Returns null for unauthenticated viewers, malformed
-  or wrong-type IDs, missing submissions, other users' submissions, and non-official attempts.
+  or wrong-type IDs, missing submissions, and other users' submissions.
   """
   submission(id: ID!): Submission
 }
@@ -51,9 +51,6 @@ type Submission {
 
 """A failed public example, visible only to the owner of its official submission."""
 type SubmissionFailedExample {
-  """The test case's stored position at execution time."""
-  position: Int!
-
   """The example input serialized as JSON."""
   inputJson: String!
 

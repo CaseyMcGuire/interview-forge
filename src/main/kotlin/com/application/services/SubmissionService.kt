@@ -6,7 +6,7 @@ import com.application.ent.EntTransactionClient
 import com.application.ent.Problem
 import com.application.ent.ProblemLanguage
 import com.application.ent.Submission
-import com.application.ent.SubmissionTestResult
+import com.application.ent.SubmissionFailure
 import com.application.ent.TestCase
 import com.application.execution.LanguageExecutionConfig
 import com.application.execution.RuntimeAvailability
@@ -14,7 +14,6 @@ import com.application.execution.SubmissionExecutionResult
 import com.application.execution.SubmissionExecutionSettings
 import com.application.execution.TestSuiteResult
 import com.application.schema.ProblemCheckerKind
-import com.application.schema.SubmissionKind
 import com.application.schema.SubmissionStatus
 import com.application.schema.SubmissionTestOutcome
 import com.application.schema.SubmissionTestSource
@@ -128,7 +127,6 @@ class SubmissionService(
   /** Must run in the same serializable transaction that inserts the new submission. */
   private fun hasSubmissionCapacity(tx: EntTransactionClient, userId: Long): Boolean {
     val active = tx.submissions.query {
-      where(Submission.kind eq SubmissionKind.SUBMIT)
       where(Submission.status `in` listOf(SubmissionStatus.QUEUED, SubmissionStatus.RUNNING))
       limit(properties.maxActiveSubmissions)
     }
@@ -150,7 +148,6 @@ class SubmissionService(
       problemId = configuration.problemId
       problemLanguageId = configuration.id
       this.sourceCode = sourceCode
-      kind = SubmissionKind.SUBMIT
       // Set the count when the current official suite is selected at execution start.
       totalCases = 0
     }
@@ -168,14 +165,14 @@ class SubmissionService(
     }.getOrThrow()
   }
 
-  fun findFailedExampleForCurrentUser(submissionId: Long): SubmissionTestResult? {
+  fun findFailedExampleForCurrentUser(submissionId: Long): SubmissionFailure? {
     val user = currentUser.get() ?: return null
 
     return entClient.withTransaction { tx ->
       loadOwnedSubmission(tx, submissionId, user.id) ?: return@withTransaction null
 
-      tx.submissionTestResults.indexes.submissionId(submissionId).query {}
-        .firstOrNull(ViewerContext(Viewer.User(user.id)))
+      tx.submissionFailures.indexes.submissionId(submissionId)
+        .find(ViewerContext(Viewer.User(user.id)))
         .visibleOrNull()
         .getOrThrow()
     }.getOrThrow()
@@ -183,7 +180,6 @@ class SubmissionService(
 
   fun claimNextQueuedSubmission(): Submission? = entClient.withTransaction { tx ->
     val submission = tx.submissions.indexes.status(SubmissionStatus.QUEUED).query {
-      where(Submission.kind eq SubmissionKind.SUBMIT)
       orderBy(Submission.createdAt.asc())
       orderBy(Submission.id.asc())
     }
@@ -274,11 +270,10 @@ class SubmissionService(
     result: TestSuiteResult,
     verdict: SubmissionVerdict,
   ) {
-    tx.submissionTestResults.create {
+    tx.submissionFailures.create {
       this.submissionId = submissionId
 
       // Retain the selected input and visibility even if the original test changed during execution.
-      position = testCase.position
       source = SubmissionTestSource.valueOf(testCase.visibility.name)
       inputJson = testCase.inputJson
       expectedOutputJson = testCase.expectedOutputJson
@@ -294,9 +289,9 @@ class SubmissionService(
   /** Called between attempts after runtime cleanup; only one scheduler may manage this database. */
   fun finishInterruptedSubmissions() {
     // RUNNING means a restart or a failed final write in this single-worker app.
-    val interrupted = entClient.submissions.indexes.status(SubmissionStatus.RUNNING).query {
-      where(Submission.kind eq SubmissionKind.SUBMIT)
-    }.all(ExecutionAccess.context).getOrThrow()
+    val interrupted = entClient.submissions.indexes.status(SubmissionStatus.RUNNING).query {}
+      .all(ExecutionAccess.context)
+      .getOrThrow()
 
     for (submission in interrupted) {
       finishSubmission(submission.id, SubmissionExecutionResult(SubmissionVerdict.INTERNAL_ERROR))
@@ -320,7 +315,6 @@ class SubmissionService(
     tx.submissions.query {
       where(Submission.id eq id)
       where(Submission.userId eq userId)
-      where(Submission.kind eq SubmissionKind.SUBMIT)
     }
       .firstOrNull(ViewerContext(Viewer.User(userId)))
       .visibleOrNull()
