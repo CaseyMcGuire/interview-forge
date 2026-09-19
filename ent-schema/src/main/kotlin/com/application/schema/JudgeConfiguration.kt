@@ -4,10 +4,7 @@ import entkt.schema.EntId
 import entkt.schema.EntSchema
 import entkt.schema.OnDelete
 
-/**
- * Private execution settings, created whole with every field present.
- * Sensitive fields are redacted from strings, not access-controlled yet.
- */
+/** Private execution settings; optional reference code prepares expected outputs for custom inputs. */
 class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judgeConfigurations") {
   /** Database-generated identity for this private configuration. */
   override fun id() = EntId.long()
@@ -22,6 +19,9 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   /** Private code that parses test input, calls the submitted solution, and serializes its output. */
   val testDriverCode by string("test_driver_code").sensitive()
 
+  /** Private solution compiled with this language's driver; null until configured. */
+  val referenceSolutionCode by string("reference_solution_code").nullable().sensitive()
+
   /** Private validator for multiple valid answers; absent for EXACT_JSON and required for CUSTOM. */
   val checkerSource by string("checker_source").nullable().sensitive()
 
@@ -34,6 +34,6 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   /** Time the judge configuration was created. */
   val createdAt by instant("created_at").defaultNow().immutable()
 
-  /** Time the test driver, checker, or resource limits were last changed. */
+  /** Time the driver, reference solution, checker, or resource limits were last changed. */
   val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
 }

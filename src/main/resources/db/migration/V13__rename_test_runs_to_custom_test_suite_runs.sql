@@ -1,0 +1,9 @@
+ALTER TABLE test_runs RENAME TO custom_test_suite_runs;
+ALTER SEQUENCE test_runs_id_seq RENAME TO custom_test_suite_runs_id_seq;
+
+ALTER TABLE custom_test_suite_runs RENAME CONSTRAINT test_runs_pkey TO custom_test_suite_runs_pkey;
+ALTER TABLE custom_test_suite_runs
+  RENAME CONSTRAINT fk_test_runs_custom_test_suite_id TO fk_custom_test_suite_runs_custom_test_suite_id;
+
+ALTER INDEX idx_test_runs_custom_test_suite_id_unique RENAME TO idx_custom_test_suite_runs_custom_test_suite_id_unique;
+ALTER INDEX idx_test_runs_status_created_at RENAME TO idx_custom_test_suite_runs_status_created_at;

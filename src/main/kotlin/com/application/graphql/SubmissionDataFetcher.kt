@@ -82,7 +82,7 @@ class SubmissionDataFetcher(
   private fun toGraphqlSubmission(submission: SubmissionEntity): Submission = Submission(
     id = globalIdUtil.toGlobalId(Submission::class, submission.id),
     status = SubmissionStatus.valueOf(submission.status.name),
-    verdict = submission.verdict?.let { SubmissionVerdict.valueOf(it.name) },
+    verdict = SubmissionVerdict.valueOf(submission.verdict.name),
     totalCases = submission.totalCases,
     passedCases = submission.passedCases,
     runtimeMs = submission.runtimeMs?.let(Math::toIntExact),

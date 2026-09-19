@@ -1,15 +1,15 @@
 extend type Query {
   """Returns the status and results of the signed-in user's custom test suite run, or null if unavailable."""
-  testRun(id: ID!): TestRun
+  customTestSuiteRun(id: ID!): CustomTestSuiteRun
 }
 
 """A run against user-supplied cases. Passing does not mark the problem as solved."""
-type TestRun {
+type CustomTestSuiteRun {
   id: ID!
-  status: TestRunStatus!
+  status: CustomTestSuiteRunStatus!
 
   """Overall result; null until FINISHED."""
-  outcome: TestRunOutcome
+  outcome: CustomTestSuiteRunOutcome
 
   """Number of supplied test cases."""
   totalCases: Int!
@@ -21,7 +21,7 @@ type TestRun {
   One result per supplied case, in input order; null until FINISHED.
   Includes NOT_RUN for cases that did not execute.
   """
-  caseResults: [TestRunCaseResult!]
+  caseResults: [CustomTestSuiteRunCaseResult!]
 
   """Execution time in milliseconds, excluding compilation and reference execution; null if unavailable."""
   runtimeMs: Int
@@ -40,11 +40,11 @@ type TestRun {
 }
 
 """Result for one supplied test case."""
-type TestRunCaseResult {
+type CustomTestSuiteRunCaseResult {
   """Input and expected output for this case."""
   testCase: CustomTestCase!
 
-  outcome: TestRunCaseOutcome!
+  outcome: CustomTestSuiteRunCaseOutcome!
 
   """Captured output, at most 20,000 characters. May be invalid JSON; empty for NOT_RUN."""
   output: String!
@@ -69,7 +69,7 @@ type CustomTestCase {
   expectedOutputJson: String
 }
 
-enum TestRunStatus {
+enum CustomTestSuiteRunStatus {
   QUEUED
 
   """Execution is in progress."""
@@ -77,7 +77,7 @@ enum TestRunStatus {
   FINISHED
 }
 
-enum TestRunOutcome {
+enum CustomTestSuiteRunOutcome {
   """All supplied cases passed."""
   PASSED
   WRONG_ANSWER
@@ -93,7 +93,7 @@ enum TestRunOutcome {
   INTERNAL_ERROR
 }
 
-enum TestRunCaseOutcome {
+enum CustomTestSuiteRunCaseOutcome {
   PASSED
   WRONG_ANSWER
 

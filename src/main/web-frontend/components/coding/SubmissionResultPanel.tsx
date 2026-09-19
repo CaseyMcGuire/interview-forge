@@ -177,7 +177,7 @@ function describeSubmission(
   }
 
   if (submission.status === "FINISHED") {
-    const summary = submission.verdict ? verdictSummaries[submission.verdict] : null;
+    const summary = verdictSummaries[submission.verdict];
 
     return {
       label: summary?.label ?? "Finished",
@@ -220,7 +220,7 @@ export default function SubmissionResultPanel(props: Props) {
           styles.badge,
           isPending && styles.pending,
           isFinished && isAccepted && styles.accepted,
-          isFinished && !isAccepted && submission.verdict != null && styles.failed
+          isFinished && !isAccepted && styles.failed
         ]}>
           {summary.label}
         </span>

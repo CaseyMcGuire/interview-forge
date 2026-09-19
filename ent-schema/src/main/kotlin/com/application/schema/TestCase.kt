@@ -31,11 +31,7 @@ class TestCase : EntSchema("test_cases", clientName = "testCases") {
   /** Optional explanation of the case; hidden-case explanations need the same access restrictions. */
   val explanationMarkdown by string("explanation_markdown").nullable().sensitive()
 
-  /** Time this official test was created. */
-  val createdAt by instant("created_at").defaultNow().immutable()
-
-  /** Time its input, expectation, visibility, explanation, or position was last edited. */
-  val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
+  val timestamps = include(::Timestamps)
 
   /** Provides deterministic test ordering without duplicate positions inside one problem. */
   val byProblemAndPosition = index("uq_test_cases_problem_position", problem.fk, position).unique()

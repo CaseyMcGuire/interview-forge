@@ -28,6 +28,7 @@ enum class SubmissionStatus {
 
 /** Overall result; a finished execution can still have a failing verdict. */
 enum class SubmissionVerdict {
+  PENDING,
   ACCEPTED,
   WRONG_ANSWER,
   COMPILE_ERROR,

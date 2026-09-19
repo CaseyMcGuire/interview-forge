@@ -80,6 +80,9 @@ class EntViewerIntegrationTest {
       .andReturn().response.contentAsString
     assertTrue(index.contains("/_ent/schema/submissions"))
     assertTrue(index.contains("/_ent/schema/testCases"))
+    assertTrue(index.contains("/_ent/schema/customTestSuites"))
+    assertTrue(index.contains("/_ent/schema/customTestCases"))
+    assertTrue(index.contains("/_ent/schema/customTestSuiteRuns"))
 
     val detail = mvc.perform(get("/_ent/schema/submissions").session(session))
       .andExpect(status().isOk)
@@ -88,6 +91,12 @@ class EntViewerIntegrationTest {
     assertTrue(detail.contains("failedTestResult"))
     assertTrue(detail.contains("/_ent/schema/submissionFailures"))
     assertTrue(detail.contains("/_ent/schema/problems"))
+
+    val customRun = mvc.perform(get("/_ent/schema/customTestSuiteRuns").session(session))
+      .andExpect(status().isOk)
+      .andReturn().response.contentAsString
+    assertTrue(customRun.contains("case_results"))
+    assertTrue(customRun.contains("/_ent/schema/customTestSuites"))
   }
 
   @Test

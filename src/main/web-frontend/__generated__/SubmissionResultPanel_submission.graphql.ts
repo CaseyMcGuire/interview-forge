@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<2b8a262fa19af4a10e3c297b84e9e491>>
+ * @generated SignedSource<<e2cc2ee70be195ba0c8dc0b7c148b210>>
  * @lightSyntaxTransform
  */
 
@@ -9,7 +9,7 @@
 
 import { ReaderFragment } from 'relay-runtime';
 export type SubmissionStatus = "FINISHED" | "QUEUED" | "RUNNING" | "%future added value";
-export type SubmissionVerdict = "ACCEPTED" | "COMPILE_ERROR" | "INTERNAL_ERROR" | "MEMORY_LIMIT_EXCEEDED" | "RUNTIME_ERROR" | "TIME_LIMIT_EXCEEDED" | "WRONG_ANSWER" | "%future added value";
+export type SubmissionVerdict = "ACCEPTED" | "COMPILE_ERROR" | "INTERNAL_ERROR" | "MEMORY_LIMIT_EXCEEDED" | "PENDING" | "RUNTIME_ERROR" | "TIME_LIMIT_EXCEEDED" | "WRONG_ANSWER" | "%future added value";
 import { FragmentRefs } from "relay-runtime";
 export type SubmissionResultPanel_submission$data = {
   readonly failedExample: {
@@ -20,7 +20,7 @@ export type SubmissionResultPanel_submission$data = {
   readonly runtimeMs: number | null | undefined;
   readonly status: SubmissionStatus;
   readonly totalCases: number;
-  readonly verdict: SubmissionVerdict | null | undefined;
+  readonly verdict: SubmissionVerdict;
   readonly " $fragmentType": "SubmissionResultPanel_submission";
 };
 export type SubmissionResultPanel_submission$key = {

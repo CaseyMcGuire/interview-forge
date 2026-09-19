@@ -30,6 +30,9 @@ class ProblemLanguage : EntSchema("problem_languages", clientName = "problemLang
   /** All attempts using this configuration; each attempt retains its own submitted source. */
   val submissions by hasMany<Submission>("submissions")
 
+  /** User-supplied input sets for custom runs, retained until expiration cleanup. */
+  val customTestSuites by hasMany<CustomTestSuite>("custom_test_suites")
+
   /** Time this language was added to the problem. */
   val createdAt by instant("created_at").defaultNow().immutable()
 

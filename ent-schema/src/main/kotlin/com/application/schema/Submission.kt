@@ -26,51 +26,28 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
     .inverse(ProblemLanguage::submissions)
     .onDelete(OnDelete.RESTRICT)
 
-  /** Exact submitted source; retain it independently of later editor or starter-code changes. */
-  val sourceCode by string("source_code").immutable().sensitive()
+  val execution = include(::ExecutionAttemptFields)
 
   /** Execution lifecycle, initially queued; only a trusted grading path should advance it. */
   val status by enum<SubmissionStatus>("status").default(SubmissionStatus.QUEUED)
 
-  /** Null until execution finishes; ACCEPTED is reserved for successful official submissions. */
-  val verdict by enum<SubmissionVerdict>("verdict").nullable()
-
-  /** Zero while queued; the worker sets the count when it selects the official suite. */
-  val totalCases by int("total_cases")
-
-  /** Number of cases with a PASSED outcome; grading must keep it between zero and totalCases. */
-  val passedCases by int("passed_cases").default(0)
-
-  /** Measured suite execution time in milliseconds; null before timing is available. */
-  val runtimeMs by long("runtime_ms").nullable()
+  /** PENDING until execution finishes; ACCEPTED means all official tests passed. */
+  val verdict by enum<SubmissionVerdict>("verdict").default(SubmissionVerdict.PENDING)
 
   /** Highest measured memory use among executed cases, in megabytes; null if unavailable. */
   val peakMemoryMb by int("peak_memory_mb").nullable()
 
-  /** Safe user-facing failure explanation; exclude hidden inputs and private harness/checker diagnostics. */
-  val publicErrorMessage by string("public_error_message").nullable().sensitive()
-
-  /** Null while queued; set when execution begins. */
-  val startedAt by instant("started_at").nullable()
-
-  /** Null until terminal completion, including compilation and infrastructure failures. */
-  val finishedAt by instant("finished_at").nullable()
-
   /** The first failed case, when known; hidden-case details remain private to execution. */
   val failedTestResult by hasOne<SubmissionFailure>("failed_test_result")
 
-  /** Time the user created this attempt, used to order submission history. */
-  val createdAt by instant("created_at").defaultNow().immutable()
-
-  /** Time the lifecycle, verdict, or execution summary was last updated. */
-  val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
+  val timestamps = include(::Timestamps)
 
   /** Supports a user's complete submission history. */
-  val byUserAndCreatedAt = index("idx_submissions_user_created_at", user.fk, createdAt)
+  val byUserAndCreatedAt = index("idx_submissions_user_created_at", user.fk, timestamps.createdAt)
 
   /** Supports a user's attempts and solved-state queries for one problem. */
   val byUserProblemAndCreatedAt =
-    index("idx_submissions_user_problem_created_at", user.fk, problem.fk, createdAt)
+    index("idx_submissions_user_problem_created_at", user.fk, problem.fk, timestamps.createdAt)
 
   /** Supports problem-level history and the problem foreign key. */
   val byProblem = index("idx_submissions_problem", problem.fk)
@@ -79,5 +56,5 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
   val byProblemLanguage = index("idx_submissions_problem_language", problemLanguage.fk)
 
   /** Supports admission checks and oldest-first worker claims. */
-  val byStatusAndCreatedAt = index("idx_submissions_status_created_at", status, createdAt)
+  val byStatusAndCreatedAt = index("idx_submissions_status_created_at", status, timestamps.createdAt)
 }

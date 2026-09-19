@@ -160,7 +160,7 @@ class SubmissionIntegrationTest {
 
     val submission = result["submission"]
     assertEquals("QUEUED", submission["status"].asString())
-    assertTrue(submission["verdict"].isNull)
+    assertEquals("PENDING", submission["verdict"].asString())
     assertTrue(submission["startedAt"].isNull)
     assertTrue(submission["finishedAt"].isNull)
     assertEquals(0, submission["totalCases"].asInt())
@@ -173,6 +173,7 @@ class SubmissionIntegrationTest {
     assertEquals(userId, stored.userId)
     assertEquals(configurationId, stored.problemLanguageId)
     assertEquals("  solution source\n", stored.sourceCode)
+    assertEquals(SubmissionVerdict.PENDING, stored.verdict)
     assertTrue(storedCases().isEmpty())
     assertEquals(submission, poll(submission["id"].asString()))
   }
@@ -288,7 +289,7 @@ class SubmissionIntegrationTest {
     assertEquals("RUNNING", running["status"].asString())
     assertEquals(3, running["totalCases"].asInt())
     assertEquals(1, running["passedCases"].asInt())
-    assertTrue(running["verdict"].isNull)
+    assertEquals("PENDING", running["verdict"].asString())
 
     entClient.submissions.update(stored.id) {
       status = SubmissionStatus.FINISHED

@@ -10,8 +10,8 @@ type Submission {
 
   status: SubmissionStatus!
 
-  """Overall result; null until FINISHED."""
-  verdict: SubmissionVerdict
+  """Overall result; PENDING until execution finishes."""
+  verdict: SubmissionVerdict!
 
   """Number of official test cases; zero while queued."""
   totalCases: Int!
@@ -68,6 +68,9 @@ enum SubmissionStatus {
 }
 
 enum SubmissionVerdict {
+  """Execution has not finished yet."""
+  PENDING
+
   """The solution passed all official tests."""
   ACCEPTED
   WRONG_ANSWER
