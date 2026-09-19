@@ -94,6 +94,7 @@ dependencies {
   entktCodegen("io.entkt:postgres:$entktVersion")
   implementation("io.entkt:runtime:$entktVersion")
   implementation("io.entkt:postgres:$entktVersion")
+  implementation("io.entkt:ent-viewer-spring:$entktVersion")
 
   implementation("org.postgresql:postgresql:${postgresVersion}")
 
@@ -158,6 +159,7 @@ tasks.withType<Test>().configureEach {
 
 entkt {
   packageName.set("com.${applicationFolderName}.ent")
+  viewer.set(true)
 }
 
 // Generate SPA routes from the single source of truth in :spa-route-definitions:

@@ -32,6 +32,8 @@ class SecurityConfiguration {
     val requestHandler = CsrfTokenRequestAttributeHandler()
     http {
       authorizeHttpRequests {
+        authorize("/_ent", authenticated)
+        authorize("/_ent/**", authenticated)
         authorize("/**", permitAll)
       }
       formLogin {
