@@ -1,6 +1,7 @@
 package com.application.execution
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -9,35 +10,38 @@ import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.Timer
 import java.util.TimerTask
+import java.util.concurrent.TimeUnit
 
 /** Invokes the same test driver in one JVM, preserving solution state across the ordered suite. */
 object KotlinTestSuite {
   @JvmStatic
   fun main(arguments: Array<String>) {
     val input = Json.parseToJsonElement(System.`in`.bufferedReader().readText()).jsonObject
-    val cases = TestSuiteProtocol.decodeCases(input)
+    val inputs = TestSuiteProtocol.decodeInputs(input)
     val timeLimitMs = input.getValue("timeLimitMs").jsonPrimitive.int
-    require(cases.isNotEmpty() && timeLimitMs in 1..60_000)
+    require(inputs.isNotEmpty() && timeLimitMs in 1..60_000)
 
     val report = System.out
-    val checker = JsonOutputChecker()
     val timer = Timer("test-case-deadline", true)
     val driver by lazy { loadTestDriver(arguments.single()) }
 
     try {
-      for ((index, case) in cases.withIndex()) {
+      for ((index, caseInput) in inputs.withIndex()) {
         // A checkpoint identifies the failing case even if the JVM exits or runs out of memory.
         report.println(TestSuiteProtocol.encodeCaseStarted(index))
         report.flush()
 
-        val failure = runTestCase(index, case, timeLimitMs, timer, report, checker) { driver }
-        if (failure != null) {
-          reportResult(report, failure)
+        val result = runTestCase(index, caseInput, timeLimitMs, timer, report) { driver }
+        report.println(TestSuiteProtocol.encodeCaseFinished(index, result))
+        report.flush()
+
+        if (result.status == ProgramStatus.MEMORY_LIMIT_EXCEEDED) {
+          reportSuiteFinished(report, result.status)
           Runtime.getRuntime().halt(0)
         }
       }
 
-      reportResult(report, TestSuiteResult(TestSuiteStatus.PASSED, cases.size))
+      reportSuiteFinished(report, ProgramStatus.SUCCEEDED)
     } finally {
       timer.cancel()
     }
@@ -49,19 +53,19 @@ object KotlinTestSuite {
    */
   private fun runTestCase(
     index: Int,
-    case: TestCaseInput,
+    input: JsonElement,
     timeLimitMs: Int,
     timer: Timer,
     report: PrintStream,
-    checker: JsonOutputChecker,
     driver: () -> Method,
-  ): TestSuiteResult? {
+  ): ProgramResult {
     val stdout = CaseOutput()
     val stderr = CaseOutput()
     val originalInput = System.`in`
     val originalOutput = System.out
     val originalError = System.err
     val deadlineLock = Any()
+    val startedAt = System.nanoTime()
     var running = true
 
     val deadline = object : TimerTask() {
@@ -69,12 +73,15 @@ object KotlinTestSuite {
         synchronized(deadlineLock) {
           if (running) {
             val status = if (stdout.limitExceeded || stderr.limitExceeded) {
-              TestSuiteStatus.OUTPUT_LIMIT_EXCEEDED
+              ProgramStatus.OUTPUT_LIMIT_EXCEEDED
             } else {
-              TestSuiteStatus.TIME_LIMIT_EXCEEDED
+              ProgramStatus.TIME_LIMIT_EXCEEDED
             }
 
-            reportResult(report, TestSuiteResult(status, index, index, stdout.text(), stderr.text()))
+            val runtimeMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+            val output = ProgramResult(status, stdout.text(), stderr.text(), runtimeMs)
+            report.println(TestSuiteProtocol.encodeCaseFinished(index, output))
+            reportSuiteFinished(report, status)
             // A looping solution cannot be stopped safely by interrupting a Java thread.
             Runtime.getRuntime().halt(0)
           }
@@ -84,7 +91,7 @@ object KotlinTestSuite {
 
     var failure: Throwable? = null
     try {
-      System.setIn(case.input.toString().byteInputStream(Charsets.UTF_8))
+      System.setIn(input.toString().byteInputStream(Charsets.UTF_8))
       System.setOut(PrintStream(stdout, true, Charsets.UTF_8))
       System.setErr(PrintStream(stderr, true, Charsets.UTF_8))
       timer.schedule(deadline, timeLimitMs.toLong())
@@ -101,22 +108,19 @@ object KotlinTestSuite {
     }
 
     val status = when {
-      stdout.limitExceeded || stderr.limitExceeded -> TestSuiteStatus.OUTPUT_LIMIT_EXCEEDED
-      failure is OutOfMemoryError -> TestSuiteStatus.MEMORY_LIMIT_EXCEEDED
-      failure != null -> TestSuiteStatus.RUNTIME_ERROR
-      else -> when (checker.checkOutput(case.expectedOutput, stdout.text())) {
-        JsonOutputCheckResult.MATCH -> return null
-        JsonOutputCheckResult.MISMATCH -> TestSuiteStatus.WRONG_ANSWER
-        JsonOutputCheckResult.INVALID_OUTPUT -> TestSuiteStatus.INVALID_OUTPUT
-      }
+      stdout.limitExceeded || stderr.limitExceeded -> ProgramStatus.OUTPUT_LIMIT_EXCEEDED
+      failure is OutOfMemoryError -> ProgramStatus.MEMORY_LIMIT_EXCEEDED
+      failure != null -> ProgramStatus.FAILED
+      else -> ProgramStatus.SUCCEEDED
     }
 
     val diagnostic = if (failure != null) {
-      (stderr.text() + "\n" + failure.javaClass.simpleName).take(TestSuiteProtocol.MAX_CASE_OUTPUT_BYTES)
+      boundedCaseOutput(stderr.text() + "\n" + failure.javaClass.simpleName)
     } else {
       stderr.text()
     }
-    return TestSuiteResult(status, index, index, stdout.text(), diagnostic)
+    val runtimeMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+    return ProgramResult(status, stdout.text(), diagnostic, runtimeMs)
   }
 
   private fun loadTestDriver(className: String): Method {
@@ -136,8 +140,8 @@ object KotlinTestSuite {
     }
   }
 
-  private fun reportResult(output: PrintStream, result: TestSuiteResult) {
-    output.println(TestSuiteProtocol.encodeResult(result))
+  private fun reportSuiteFinished(output: PrintStream, status: ProgramStatus) {
+    output.println(TestSuiteProtocol.encodeSuiteFinished(status))
     output.flush()
   }
 }

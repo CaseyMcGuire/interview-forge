@@ -11,10 +11,10 @@ import com.application.ent.TestCase
 import com.application.execution.LanguageExecutionConfig
 import com.application.execution.SubmissionExecutionResult
 import com.application.execution.SubmissionExecutionSettings
-import com.application.execution.TestSuiteResult
+import com.application.execution.TestCaseGradingResult
+import com.application.execution.toSubmissionTestOutcome
 import com.application.schema.ProblemCheckerKind
 import com.application.schema.SubmissionStatus
-import com.application.schema.SubmissionTestOutcome
 import com.application.schema.SubmissionTestSource
 import com.application.schema.SubmissionVerdict
 import com.application.security.CurrentUser
@@ -211,9 +211,9 @@ class SubmissionService(
       check(submission.status == SubmissionStatus.RUNNING) { "Submission already finished" }
 
       val failedCase = result.failedCase
-      val output = result.suiteResult
+      val output = result.failedCaseResult
       if (failedCase != null && output != null) {
-        saveFailedCase(tx, submissionId, failedCase, output, result.verdict)
+        saveFailedCase(tx, submissionId, failedCase, output)
       }
 
       tx.submissions.update(submissionId) {
@@ -231,9 +231,10 @@ class SubmissionService(
     tx: EntTransactionClient,
     submissionId: Long,
     testCase: TestCase,
-    result: TestSuiteResult,
-    verdict: SubmissionVerdict,
+    result: TestCaseGradingResult,
   ) {
+    val execution = checkNotNull(result.execution) { "A failed case must have an execution result" }
+
     tx.submissionFailures.create {
       this.submissionId = submissionId
 
@@ -241,12 +242,12 @@ class SubmissionService(
       source = SubmissionTestSource.valueOf(testCase.visibility.name)
       inputJson = testCase.inputJson
       expectedOutputJson = testCase.expectedOutputJson
-      outcome = SubmissionTestOutcome.valueOf(verdict.name)
+      outcome = result.outcome.toSubmissionTestOutcome()
 
       // PostgreSQL text cannot contain NUL. Keep hidden diagnostics bounded and execution-only.
-      stdout = result.stdout.replace('\u0000', '\uFFFD').take(20_000)
-      stderr = result.stderr.replace('\u0000', '\uFFFD').take(20_000)
-      // The executor measures the entire suite, so individual case timing remains unknown.
+      stdout = execution.stdout.replace('\u0000', '\uFFFD').take(20_000)
+      stderr = execution.stderr.replace('\u0000', '\uFFFD').take(20_000)
+      runtimeMs = execution.runtimeMs
     }.save(ExecutionAccess.context).getOrThrow()
   }
 

@@ -11,14 +11,23 @@ import org.springframework.stereotype.Component
 @Component
 class SubmissionRunner(
   private val submissionService: SubmissionService,
-  private val executor: ProgramExecutor,
+  private val codeGrader: CodeGrader,
 ) {
   private val logger = LoggerFactory.getLogger(javaClass)
 
   fun runSubmission(submission: Submission): SubmissionExecutionResult {
     try {
       val settings = submissionService.loadExecutionSettings(submission)
-      return compileAndRunProgram(submission.id, settings)
+      val result = codeGrader.gradeCode(
+        executionId = "submission-${submission.id}",
+        runtime = settings.runtime,
+        program = settings.program,
+        cases = settings.cases.map { TestCaseInput(it.inputJson, it.expectedOutputJson) },
+        timeLimitMs = settings.timeLimitMs,
+        memoryLimitMb = settings.memoryLimitMb,
+      )
+
+      return mapGradingResult(settings.cases, result)
     } catch (interruption: InterruptedException) {
       throw interruption
     } catch (exception: Exception) {
@@ -28,47 +37,17 @@ class SubmissionRunner(
     }
   }
 
-  private fun compileAndRunProgram(
-    submissionId: Long,
-    settings: SubmissionExecutionSettings,
-  ): SubmissionExecutionResult {
-    val program = executor.prepareProgram(submissionId, settings.runtime, settings.program)
-
-    try {
-      val compilation = program.compileProgram()
-      if (compilation.status != ProgramStatus.SUCCEEDED) {
-        return SubmissionExecutionResult(SubmissionVerdict.COMPILE_ERROR)
-      }
-
-      val result = program.runTestSuite(
-        cases = settings.cases.map { TestCaseInput(it.inputJson, it.expectedOutputJson) },
-        timeLimitMs = settings.timeLimitMs,
-        memoryLimitMb = settings.memoryLimitMb,
-      )
-
-      return mapSuiteResult(settings.cases, result)
-    } finally {
-      program.close()
-    }
-  }
-
-  private fun mapSuiteResult(cases: List<TestCase>, result: TestSuiteResult): SubmissionExecutionResult {
-    val verdict = when (result.status) {
-      TestSuiteStatus.PASSED -> SubmissionVerdict.ACCEPTED
-      TestSuiteStatus.WRONG_ANSWER -> SubmissionVerdict.WRONG_ANSWER
-      TestSuiteStatus.TIME_LIMIT_EXCEEDED -> SubmissionVerdict.TIME_LIMIT_EXCEEDED
-      TestSuiteStatus.MEMORY_LIMIT_EXCEEDED -> SubmissionVerdict.MEMORY_LIMIT_EXCEEDED
-      TestSuiteStatus.INVALID_OUTPUT,
-      TestSuiteStatus.RUNTIME_ERROR,
-      TestSuiteStatus.OUTPUT_LIMIT_EXCEEDED -> SubmissionVerdict.RUNTIME_ERROR
+  private fun mapGradingResult(cases: List<TestCase>, result: GradingResult): SubmissionExecutionResult {
+    val failedCaseIndex = result.caseResults.indexOfFirst {
+      it.outcome != TestCaseOutcome.PASSED && it.outcome != TestCaseOutcome.NOT_RUN
     }
 
     return SubmissionExecutionResult(
-      verdict = verdict,
+      verdict = result.outcome.toSubmissionVerdict(),
       passedCases = result.passedCases,
       runtimeMs = result.runtimeMs,
-      failedCase = result.failedCaseIndex?.let { cases[it] },
-      suiteResult = result,
+      failedCase = cases.getOrNull(failedCaseIndex),
+      failedCaseResult = result.caseResults.getOrNull(failedCaseIndex),
     )
   }
 }

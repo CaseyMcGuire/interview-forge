@@ -1,8 +1,10 @@
 package com.application.execution
 
 import kotlinx.serialization.json.JsonElement
+import org.springframework.stereotype.Component
 
 /** Executes code and grades every output; callers decide which results to store or expose. */
+@Component
 class CodeGrader(private val codeExecutionService: CodeExecutionService) {
   private val outputChecker = JsonOutputChecker()
 

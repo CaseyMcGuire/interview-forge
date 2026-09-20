@@ -8,23 +8,27 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicReference
 import java.util.UUID
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonNull
 
 @Timeout(30)
 class DockerExecutionServiceTest {
   @TempDir
-  lateinit var workspace: Path
+  lateinit var executionRoot: Path
 
   private val docker = DockerConfiguration().dockerClient()
 
   private fun executionService() = DockerExecutionService(
-    ExecutionProperties(workspaceDirectory = workspace.toString()),
+    ExecutionProperties(workspaceDirectory = executionRoot.toString()),
     docker,
   )
 
@@ -39,8 +43,11 @@ class DockerExecutionServiceTest {
     val missingImage = "interview-forge-missing:${UUID.randomUUID()}"
     assertFalse(executionService.isAvailable(missingImage))
 
-    executionService.prepareProgram(123, missingImage, PreparedProgram(emptyMap(), null, listOf("true"))).use {
-      assertThrows(NotFoundException::class.java) { it.runTestSuite(listOf(case("null", "null")), 2_000, 128) }
+    assertThrows(NotFoundException::class.java) {
+      executionService.executeCode(
+        "test-123", missingImage, PreparedProgram(emptyMap(), null, listOf("true")),
+        listOf(JsonNull), 2_000, 128,
+      )
     }
 
     assertExecutionCleanedUp()
@@ -58,35 +65,48 @@ class DockerExecutionServiceTest {
       fun main(args: Array<String>) { error("The solution main must not run") }
     """.trimIndent()
 
-    preparedSubmission(source).use {
-      val result = it.runTestSuite(listOf(case("1", "1"), case("1", "2"), case("1", "3")), 1_000, 128)
-      assertEquals(TestSuiteStatus.PASSED, result.status, result.stderr)
-      assertEquals(3, result.passedCases)
-      assertNull(result.failedCaseIndex)
-      assertEquals("", result.stdout)
-      assertEquals("", result.stderr)
-    }
+    val program = KotlinLanguageExecutionConfig().prepare(
+      source,
+      "fun main() = println(solve(System.`in`.bufferedReader().readText().toInt()))",
+    )
+    val result = executionService().executeCode("test-123", IMAGE, program, List(3) { JsonPrimitive(1) }, 1_000, 128)
+    val completed = assertInstanceOf(CodeExecutionResult.Completed::class.java, result)
+
+    assertEquals(ProgramStatus.SUCCEEDED, completed.status)
+    assertEquals(listOf(1, 2, 3).map(::JsonPrimitive), completed.caseResults.map { it.outputJson })
+    assertEquals(List(3) { JsonPrimitive(1) }, completed.caseResults.map { it.inputJson })
+    assertEquals(listOf("1\n", "2\n", "3\n"), completed.caseResults.map { it.stdout })
+    assertTrue(completed.caseResults.all { it.status == ProgramStatus.SUCCEEDED && it.runtimeMs != null })
+    assertTrue(completed.caseResults.all { it.runtimeMs!! >= 0 })
 
     assertExecutionCleanedUp()
   }
 
   @Test
-  fun `global state leaking between cases reports the first failure and stops the suite`() {
+  fun `wrong answers do not stop later cases in the same JVM`() {
     val source = """
       var calls = 0
       fun solve(input: Int): Int {
-        if (input == 99) while (true) {}
+        if (input == 99) return input
         return input + calls++
       }
     """.trimIndent()
 
-    preparedSubmission(source).use {
-      val result = it.runTestSuite(listOf(case("1", "1"), case("1", "1"), case("99", "99")), 1_000, 128)
-      assertEquals(TestSuiteStatus.WRONG_ANSWER, result.status, result.stderr)
-      assertEquals(1, result.passedCases)
-      assertEquals(1, result.failedCaseIndex)
-      assertEquals("2\n", result.stdout)
-    }
+    val program = KotlinLanguageExecutionConfig().prepare(
+      source,
+      "fun main() = println(solve(System.`in`.bufferedReader().readText().toInt()))",
+    )
+    val result = CodeGrader(executionService()).gradeCode(
+      "test-123", IMAGE, program,
+      listOf(case("1", "1"), case("1", "1"), case("99", "99")), 1_000, 128,
+    )
+
+    assertEquals(GradingOutcome.WRONG_ANSWER, result.outcome)
+    assertEquals(2, result.passedCases)
+    assertEquals(
+      listOf(TestCaseOutcome.PASSED, TestCaseOutcome.WRONG_ANSWER, TestCaseOutcome.PASSED),
+      result.caseResults.map { it.outcome },
+    )
 
     assertExecutionCleanedUp()
   }
@@ -101,14 +121,13 @@ class DockerExecutionServiceTest {
       }
     """.trimIndent()
 
-    preparedSubmission(source, "fun main() = solve()").use {
-      val result = it.runTestSuite(listOf(case("null", "null")), 1_000, 128)
-      assertEquals(TestSuiteStatus.RUNTIME_ERROR, result.status)
-      assertEquals(0, result.failedCaseIndex)
-      assertEquals("123", result.stdout)
-      assertTrue(result.stderr.startsWith("diagnostic"))
-      assertTrue(result.stderr.contains("IllegalStateException"))
-    }
+    val result = runKotlinTests(source, listOf(JsonNull), driver = "fun main() = solve()")
+
+    assertEquals(ProgramStatus.SUCCEEDED, result.status)
+    assertEquals(ProgramStatus.FAILED, result.caseResults.single().status)
+    assertEquals("123", result.caseResults.single().stdout)
+    assertTrue(result.caseResults.single().stderr.startsWith("diagnostic"))
+    assertTrue(result.caseResults.single().stderr.contains("IllegalStateException"))
 
     assertExecutionCleanedUp()
   }
@@ -119,17 +138,16 @@ class DockerExecutionServiceTest {
     val driver = "fun main(args: Array<String>) = print(solve(System.`in`.bufferedReader().readText()))"
     val input = JsonPrimitive("héllo 世界")
 
-    preparedSubmission(source, driver).use {
-      val result = it.runTestSuite(listOf(TestCaseInput(input, input), case("[1,2]", "[1,2]")), 1_000, 128)
-      assertEquals(TestSuiteStatus.PASSED, result.status, result.stderr)
-      assertEquals(2, result.passedCases)
-    }
+    val result = runKotlinTests(source, listOf(input, Json.parseToJsonElement("[1,2]")), driver = driver)
+
+    assertEquals(ProgramStatus.SUCCEEDED, result.status)
+    assertEquals(listOf(input, Json.parseToJsonElement("[1,2]")), result.caseResults.map { it.outputJson })
 
     assertExecutionCleanedUp()
   }
 
   @Test
-  fun `exact per-stream byte allowances are retained in the failed-case report`() {
+  fun `exact per-stream byte allowances are retained in each case report`() {
     val source = """
       fun solve() {
         print('"' + "0".repeat(19_998) + '"')
@@ -137,31 +155,42 @@ class DockerExecutionServiceTest {
       }
     """.trimIndent()
 
-    preparedSubmission(source, "fun main() = solve()").use {
-      val result = it.runTestSuite(listOf(case("null", "null")), 1_000, 128)
-      assertEquals(TestSuiteStatus.WRONG_ANSWER, result.status)
-      assertEquals("\"" + "0".repeat(19_998) + "\"", result.stdout)
-      assertEquals("0".repeat(20_000), result.stderr)
-    }
+    val result = runKotlinTests(source, listOf(JsonNull), driver = "fun main() = solve()")
+
+    assertEquals(ProgramStatus.SUCCEEDED, result.caseResults.single().status)
+    assertEquals("\"" + "0".repeat(19_998) + "\"", result.caseResults.single().stdout)
+    assertEquals("0".repeat(20_000), result.caseResults.single().stderr)
 
     assertExecutionCleanedUp()
   }
 
   @Test
-  fun `suite comparisons retain numeric types and reject malformed JSON`() {
-    preparedSubmission("fun solve(input: Int): String = if (input == 0) \"1.0\" else \"1 2\"").use {
-      val mismatch = it.runTestSuite(listOf(case("0", "1")), 1_000, 128)
-      assertEquals(TestSuiteStatus.WRONG_ANSWER, mismatch.status)
+  fun `ordinary exceptions and invalid answers retain later outputs and numeric types`() {
+    val source = """
+      fun solve(input: Int): String = when (input) {
+        0 -> error("failed invocation")
+        1 -> "1 2"
+        else -> "1.0"
+      }
+    """.trimIndent()
 
-      val malformed = it.runTestSuite(listOf(case("1", "1")), 1_000, 128)
-      assertEquals(TestSuiteStatus.INVALID_OUTPUT, malformed.status)
-    }
+    val result = runKotlinTests(source, listOf(0, 1, 2).map(::JsonPrimitive))
+
+    assertEquals(ProgramStatus.SUCCEEDED, result.status)
+    assertEquals(
+      listOf(ProgramStatus.FAILED, ProgramStatus.SUCCEEDED, ProgramStatus.SUCCEEDED),
+      result.caseResults.map { it.status },
+    )
+    assertNull(result.caseResults[0].outputJson)
+    assertNull(result.caseResults[1].outputJson)
+    assertEquals("1 2\n", result.caseResults[1].stdout)
+    assertEquals(Json.parseToJsonElement("1.0"), result.caseResults[2].outputJson)
 
     assertExecutionCleanedUp()
   }
 
   @Test
-  fun `escaped failure output fits the report without changing the case output caps`() {
+  fun `escaped outputs from every case fit the report without changing the case output caps`() {
     val source = """
       fun solve() {
         print(0.toChar().toString().repeat(20_000))
@@ -169,13 +198,71 @@ class DockerExecutionServiceTest {
       }
     """.trimIndent()
 
-    preparedSubmission(source, "fun main() = solve()").use {
-      val result = it.runTestSuite(listOf(case("null", "null")), 1_000, 128)
-      assertEquals(TestSuiteStatus.INVALID_OUTPUT, result.status)
-      assertEquals("\u0000".repeat(20_000), result.stdout)
-      assertEquals("\u0000".repeat(20_000), result.stderr)
+    val result = runKotlinTests(source, List(3) { JsonNull }, driver = "fun main() = solve()")
+
+    assertEquals(ProgramStatus.SUCCEEDED, result.status)
+    assertEquals(3, result.caseResults.size)
+    for (caseResult in result.caseResults) {
+      assertNull(caseResult.outputJson)
+      assertEquals("\u0000".repeat(20_000), caseResult.stdout)
+      assertEquals("\u0000".repeat(20_000), caseResult.stderr)
     }
 
+    assertExecutionCleanedUp()
+  }
+
+  @Test
+  fun `compilation failure returns without running and removes its workspace`() {
+    val program = PreparedProgram(
+      sourceFiles = emptyMap(),
+      compileCommand = listOf("sh", "-c", "echo compile-error >&2; exit 1"),
+      runCommand = listOf("sleep", "30"),
+    )
+
+    val result = executionService().executeCode("compile-failure", IMAGE, program, listOf(JsonNull), 1_000, 128)
+
+    assertEquals(CodeExecutionResult.CompilationFailed, result)
+    assertExecutionCleanedUp()
+  }
+
+  @Test
+  fun `invalid test inputs are rejected before creating an execution workspace`() {
+    val program = PreparedProgram(
+      sourceFiles = mapOf("source.txt" to "program"),
+      compileCommand = listOf("sleep", "30"),
+      runCommand = listOf("sleep", "30"),
+    )
+
+    assertThrows(IllegalArgumentException::class.java) {
+      executionService().executeCode("invalid-inputs", IMAGE, program, emptyList(), 1_000, 128)
+    }
+
+    assertExecutionCleanedUp()
+  }
+
+  @Test
+  fun `configuring a sandbox does not allocate execution resources`() {
+    val program = PreparedProgram(mapOf("input.kt" to "source"), null, listOf("true"))
+
+    executionService().createSandbox("test-123", IMAGE, program)
+
+    assertExecutionCleanedUp()
+  }
+
+  @Test
+  fun `staging failure removes the partially written workspace`() {
+    val program = PreparedProgram(
+      sourceFiles = mapOf("Solution.kt" to "source", "../escaped.kt" to "must not be written"),
+      compileCommand = listOf("false"),
+      runCommand = listOf("true"),
+    )
+
+    val failure = assertThrows(IllegalArgumentException::class.java) {
+      executionService().executeCode("staging-failure", IMAGE, program, listOf(JsonNull), 1_000, 128)
+    }
+
+    assertEquals("Program sources must use plain file names", failure.message)
+    assertFalse(Files.exists(executionRoot.resolve("escaped.kt")))
     assertExecutionCleanedUp()
   }
 
@@ -188,10 +275,9 @@ class DockerExecutionServiceTest {
       }
     """.trimIndent()
 
-    preparedSubmission(source).use {
-      val result = it.runTestSuite(listOf(case("0", "0"), case("1", "1")), 1_000, 128)
-      assertEquals(TestSuiteStatus.TIME_LIMIT_EXCEEDED, result.status)
-    }
+    val result = runKotlinTests(source, listOf(0, 1).map(::JsonPrimitive))
+
+    assertEquals(ProgramStatus.TIME_LIMIT_EXCEEDED, result.status)
 
     assertExecutionCleanedUp()
   }
@@ -219,21 +305,30 @@ class DockerExecutionServiceTest {
         if touch /etc/unwanted 2>/dev/null; then echo 'Writable root'; exit 6; fi
         if echo altered > /run/submission-input 2>/dev/null; then echo 'Writable input'; exit 7; fi
         printf '%s\n' '${TestSuiteProtocol.encodeCaseStarted(0)}'
-        printf '%s\n' '${TestSuiteProtocol.encodeResult(TestSuiteResult(TestSuiteStatus.PASSED, 1))}'
+        printf '%s\n' '${TestSuiteProtocol.encodeCaseFinished(0, ProgramResult(ProgramStatus.SUCCEEDED, "null"))}'
+        printf '%s\n' '${TestSuiteProtocol.encodeSuiteFinished(ProgramStatus.SUCCEEDED)}'
       """.trimIndent()),
     )
 
-    executionService.prepareProgram(123, IMAGE, program).use {
-      val result = it.runTestSuite(listOf(case("null", "null")), 2_000, 128)
-      assertEquals(TestSuiteStatus.PASSED, result.status, result.stdout + result.stderr)
-      assertNotNull(result.runtimeMs)
-    }
+    val execution = executionService.executeCode("test-123", IMAGE, program, listOf(JsonNull), 2_000, 128)
+    val result = assertInstanceOf(CodeExecutionResult.Completed::class.java, execution)
+
+    assertEquals(ProgramStatus.SUCCEEDED, result.status, result.caseResults.single().stdout + result.caseResults.single().stderr)
+    assertNotNull(result.runtimeMs)
 
     assertExecutionCleanedUp()
   }
 
-  @Test
-  fun `timeouts output floods crashes and heap exhaustion identify the active case`() {
+  @ParameterizedTest(name = "mode {0}: {1}")
+  @CsvSource(
+    "1, TIME_LIMIT_EXCEEDED",
+    "2, OUTPUT_LIMIT_EXCEEDED",
+    "3, OUTPUT_LIMIT_EXCEEDED",
+    "4, MEMORY_LIMIT_EXCEEDED",
+    "5, FAILED",
+    "6, FAILED",
+  )
+  fun `timeouts output floods crashes and heap exhaustion identify the active case`(mode: Int, expected: ProgramStatus) {
     val source = """
       fun solve(mode: Int): Int {
         when (mode) {
@@ -251,24 +346,33 @@ class DockerExecutionServiceTest {
       }
     """.trimIndent()
 
-    preparedSubmission(source).use { submission ->
-      for ((mode, expected) in listOf(
-        1 to TestSuiteStatus.TIME_LIMIT_EXCEEDED,
-        2 to TestSuiteStatus.OUTPUT_LIMIT_EXCEEDED,
-        3 to TestSuiteStatus.OUTPUT_LIMIT_EXCEEDED,
-        4 to TestSuiteStatus.MEMORY_LIMIT_EXCEEDED,
-        5 to TestSuiteStatus.RUNTIME_ERROR,
-        6 to TestSuiteStatus.RUNTIME_ERROR,
-      )) {
-        val result = submission.runTestSuite(listOf(case("0", "0"), case(mode.toString(), "0")), 1_000, 128)
-        assertEquals(expected, result.status, "Mode $mode: ${result.stderr}")
-        assertEquals(1, result.passedCases)
-        assertEquals(1, result.failedCaseIndex)
-        assertTrue(result.stdout.length <= 20_000)
-        assertTrue(result.stderr.length <= 20_000)
-        assertTrue(containersFor(workspaceLabel()).isEmpty())
+    val result = runKotlinTests(source, listOf(0, mode).map(::JsonPrimitive))
+
+    assertEquals(2, result.caseResults.size)
+    assertEquals(JsonPrimitive(0), result.caseResults.first().outputJson)
+    val failed = result.caseResults.last()
+    assertEquals(expected, failed.status, "Mode $mode: ${failed.stderr}")
+    assertTrue(failed.stdout.toByteArray(Charsets.UTF_8).size <= 20_000)
+    assertTrue(failed.stderr.toByteArray(Charsets.UTF_8).size <= 20_000)
+
+    assertExecutionCleanedUp()
+  }
+
+  @Test
+  fun `multibyte output overflow stays within the byte cap and does not stop later cases`() {
+    val source = """
+      fun solve(input: Int): Int {
+        if (input == 0) print("世".repeat(7_000))
+        return input
       }
-    }
+    """.trimIndent()
+
+    val result = runKotlinTests(source, listOf(0, 1).map(::JsonPrimitive))
+
+    assertEquals(ProgramStatus.SUCCEEDED, result.status)
+    assertEquals(ProgramStatus.OUTPUT_LIMIT_EXCEEDED, result.caseResults.first().status)
+    assertTrue(result.caseResults.first().stdout.toByteArray(Charsets.UTF_8).size <= 20_000)
+    assertEquals(JsonPrimitive(1), result.caseResults.last().outputJson)
 
     assertExecutionCleanedUp()
   }
@@ -276,11 +380,12 @@ class DockerExecutionServiceTest {
   @Test
   fun `restart cleanup removes only execution workspaces`() {
     val executionService = executionService()
-    executionService.prepareProgram(123, IMAGE, PreparedProgram(mapOf("input.kt" to "source"), null, listOf("true")))
-    val unrelated = Files.writeString(workspace.resolve("keep.txt"), "unrelated")
-    Files.writeString(workspace.resolve("submission-input-leftover.txt"), "input")
+    val abandonedWorkspace = Files.createTempDirectory(executionRoot, "submission-")
+    Files.writeString(abandonedWorkspace.resolve("input.kt"), "source")
+    val unrelated = Files.writeString(executionRoot.resolve("keep.txt"), "unrelated")
+    Files.writeString(executionRoot.resolve("submission-input-leftover.txt"), "input")
     val ownedContainer = docker.createContainerCmd(IMAGE)
-      .withLabels(mapOf("interview-forge.execution" to workspaceLabel().substringAfter('=')))
+      .withLabels(mapOf("interview-forge.execution" to ownershipLabel().substringAfter('=')))
       .exec().id
     val unrelatedContainer = docker.createContainerCmd(IMAGE)
       .withLabels(mapOf("interview-forge.execution" to "another-workspace"))
@@ -292,7 +397,7 @@ class DockerExecutionServiceTest {
       assertThrows(NotFoundException::class.java) { docker.inspectContainerCmd(ownedContainer).exec() }
       assertEquals(unrelatedContainer, docker.inspectContainerCmd(unrelatedContainer).exec().id)
       assertEquals("unrelated", Files.readString(unrelated))
-      Files.list(workspace).use { assertEquals(listOf(unrelated), it.toList()) }
+      Files.list(executionRoot).use { assertEquals(listOf(unrelated), it.toList()) }
     } finally {
       for (id in listOf(ownedContainer, unrelatedContainer)) {
         try {
@@ -306,15 +411,12 @@ class DockerExecutionServiceTest {
 
   @Test
   fun `interrupting execution removes the running container and workspace`() {
-    val label = workspaceLabel()
-    val program = executionService().prepareProgram(
-      123, IMAGE,
-      PreparedProgram(emptyMap(), null, listOf("sleep", "30")),
-    )
+    val label = ownershipLabel()
+    val program = PreparedProgram(emptyMap(), null, listOf("sleep", "30"))
     val failure = AtomicReference<Throwable>()
     val thread = Thread.ofVirtual().start {
       try {
-        program.use { it.runTestSuite(listOf(case("null", "null")), 30_000, 128) }
+        executionService().executeCode("test-123", IMAGE, program, listOf(JsonNull), 30_000, 128)
       } catch (exception: Throwable) {
         failure.set(exception)
       }
@@ -328,7 +430,7 @@ class DockerExecutionServiceTest {
       assertFalse(containersFor(label, runningOnly = true).isEmpty(), "The test container did not start")
 
       val running = containersFor(label, runningOnly = true).single()
-      assertEquals("123", running.labels["interview-forge.submission"])
+      assertEquals("test-123", running.labels["interview-forge.execution-id"])
 
       thread.interrupt()
       thread.join(5_000)
@@ -343,21 +445,15 @@ class DockerExecutionServiceTest {
     }
   }
 
-  private fun preparedSubmission(
+  private fun runKotlinTests(
     source: String,
+    inputs: List<JsonElement>,
     driver: String = "fun main() = println(solve(System.`in`.bufferedReader().readText().toInt()))",
-  ): ProgramExecution {
+  ): CodeExecutionResult.Completed {
     val program = KotlinLanguageExecutionConfig().prepare(source, driver)
-    val submission = executionService().prepareProgram(123, IMAGE, program)
+    val result = executionService().executeCode("test-123", IMAGE, program, inputs, 1_000, 128)
 
-    try {
-      val compiled = submission.compileProgram()
-      assertEquals(ProgramStatus.SUCCEEDED, compiled.status, compiled.stderr)
-      return submission
-    } catch (failure: Throwable) {
-      submission.close()
-      throw failure
-    }
+    return assertInstanceOf(CodeExecutionResult.Completed::class.java, result)
   }
 
   private fun case(input: String, expected: String) = TestCaseInput(
@@ -370,13 +466,13 @@ class DockerExecutionServiceTest {
     .withLabelFilter(listOf(label))
     .exec()
 
-  private fun workspaceLabel() = "interview-forge.execution=" + MessageDigest.getInstance("SHA-256")
-    .digest(workspace.toAbsolutePath().normalize().toString().toByteArray())
+  private fun ownershipLabel() = "interview-forge.execution=" + MessageDigest.getInstance("SHA-256")
+    .digest(executionRoot.toAbsolutePath().normalize().toString().toByteArray())
     .joinToString("") { "%02x".format(it) }
 
   private fun assertExecutionCleanedUp() {
-    Files.list(workspace).use { assertEquals(0, it.count()) }
-    assertTrue(containersFor(workspaceLabel()).isEmpty(), "Execution left a container behind")
+    Files.list(executionRoot).use { assertEquals(0, it.count()) }
+    assertTrue(containersFor(ownershipLabel()).isEmpty(), "Execution left a container behind")
   }
 
   companion object {

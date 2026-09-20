@@ -20,6 +20,7 @@ import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntPrivacyDeniedException
 import jakarta.servlet.Filter
 import jakarta.servlet.http.Cookie
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.*
@@ -72,7 +73,7 @@ class SubmissionExecutionIntegrationTest {
 
   private lateinit var scheduler: SubmissionScheduler
   private lateinit var runner: SubmissionRunner
-  private lateinit var executor: FakeProgramExecutor
+  private lateinit var executor: FakeCodeExecutionService
 
   @Autowired
   lateinit var context: WebApplicationContext
@@ -100,8 +101,8 @@ class SubmissionExecutionIntegrationTest {
 
   @BeforeEach
   fun setUp() {
-    executor = FakeProgramExecutor()
-    runner = SubmissionRunner(submissionService, executor)
+    executor = FakeCodeExecutionService()
+    runner = SubmissionRunner(submissionService, CodeGrader(executor))
     scheduler = createScheduler(executor)
     scheduler.onApplicationReady()
 
@@ -153,7 +154,7 @@ class SubmissionExecutionIntegrationTest {
     }.firstOrNull(ExecutionAccess.context).getOrThrow()!!
     assertNull(withoutFailure.edges.failedTestResult.requireLoaded())
 
-    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "2") }
+    executor.runInputs = { inputs, _, _ -> outputs(inputs, "2") }
 
     val result = runner.runSubmission(submission)
 
@@ -161,7 +162,7 @@ class SubmissionExecutionIntegrationTest {
     assertEquals("RUNNING", poll(firstId)["status"].asString())
     assertEquals("QUEUED", poll(secondId)["status"].asString())
     assertTrue(storedResults().isEmpty())
-    assertEquals(listOf("prepare", "compile", "suite", "close"), executor.events)
+    assertEquals(listOf("execute"), executor.events)
 
     submissionService.finishSubmission(submission.id, result)
 
@@ -178,7 +179,7 @@ class SubmissionExecutionIntegrationTest {
   }
 
   @Test
-  fun `the runner compiles once and passes the current ordered suite in one call`() {
+  fun `the runner passes the current ordered inputs to the grader in one call`() {
     createCase(7, TestCaseVisibility.HIDDEN, 7)
     createCase(1, TestCaseVisibility.EXAMPLE, 1)
     val id = submit("submitted source")
@@ -190,9 +191,8 @@ class SubmissionExecutionIntegrationTest {
       memoryLimitMb = 192
     }.save(fixtures).getOrThrow()
 
-    executor.runSuite = { cases, timeLimitMs, memoryLimitMb ->
-      assertEquals(listOf(1, 4, 7).map(::JsonPrimitive), cases.map { it.input })
-      assertEquals(cases.map { it.input }, cases.map { it.expectedOutput })
+    executor.runInputs = { cases, timeLimitMs, memoryLimitMb ->
+      assertEquals(listOf(1, 4, 7).map(::JsonPrimitive), cases)
       assertEquals(1_234, timeLimitMs)
       assertEquals(192, memoryLimitMb)
 
@@ -202,13 +202,14 @@ class SubmissionExecutionIntegrationTest {
       assertEquals(0, running["passedCases"].asInt())
       assertTrue(running["failedExample"].isNull)
       assertTrue(storedResults().isEmpty())
-      TestSuiteResult(TestSuiteStatus.PASSED, 3, runtimeMs = 42)
+      outputs(cases, "1", "4", "7", runtimeMs = 42)
     }
 
     scheduler.processQueuedSubmissions()
     scheduler.processQueuedSubmissions()
-    assertEquals(listOf("cleanup", "prepare", "compile", "suite", "close"), executor.events)
-    assertEquals(entClient.submissions.query {}.all(fixtures).getOrThrow().single().id, executor.submissionId)
+    assertEquals(listOf("cleanup", "execute"), executor.events)
+    val submissionId = entClient.submissions.query {}.all(fixtures).getOrThrow().single().id
+    assertEquals("submission-$submissionId", executor.executionId)
     assertEquals(DockerExecutionServiceTest.IMAGE, executor.runtime)
     assertEquals("submitted source", executor.program.sourceFiles["Solution.kt"])
     assertEquals("updated driver", executor.program.sourceFiles["TestDriver.kt"])
@@ -231,23 +232,29 @@ class SubmissionExecutionIntegrationTest {
     createCase(9, TestCaseVisibility.EXAMPLE, 3)
     val id = submit("solution")
 
-    executor.runSuite = { _, _, _ ->
+    executor.runInputs = { inputs, _, _ ->
       entClient.testCases.update(hidden.id) {
         visibility = TestCaseVisibility.EXAMPLE
         inputJson = JsonPrimitive(99)
         expectedOutputJson = JsonPrimitive(99)
       }.save(fixtures).getOrThrow()
 
-      TestSuiteResult(
-        TestSuiteStatus.WRONG_ANSWER, passedCases = 1, failedCaseIndex = 1,
-        stdout = "0", stderr = "private diagnostic", runtimeMs = 17,
+      completedExecution(
+        inputs,
+        ProgramStatus.SUCCEEDED,
+        listOf(
+          ProgramResult(ProgramStatus.SUCCEEDED, "1"),
+          ProgramResult(ProgramStatus.SUCCEEDED, "0", "private diagnostic", runtimeMs = 5),
+          ProgramResult(ProgramStatus.SUCCEEDED, "3"),
+        ),
+        runtimeMs = 17,
       )
     }
     scheduler.processQueuedSubmissions()
 
     val result = poll(id)
     assertEquals("WRONG_ANSWER", result["verdict"].asString())
-    assertEquals(1, result["passedCases"].asInt())
+    assertEquals(2, result["passedCases"].asInt())
     assertEquals(3, result["totalCases"].asInt())
     assertTrue(result["failedExample"].isNull)
     assertFalse(result.toString().contains("private diagnostic"))
@@ -257,7 +264,7 @@ class SubmissionExecutionIntegrationTest {
     assertEquals(JsonPrimitive(2), retained.inputJson)
     assertEquals(JsonPrimitive(2), retained.expectedOutputJson)
     assertEquals("0", retained.stdout)
-    assertNull(retained.runtimeMs, "Suite duration cannot be attributed to the failed case")
+    assertEquals(5L, retained.runtimeMs, "Retain the case duration rather than the whole suite duration")
     assertEquals(
       retained.id,
       entClient.submissionFailures.findById(ExecutionAccess.context, retained.id).getOrThrow()!!.id,
@@ -278,8 +285,12 @@ class SubmissionExecutionIntegrationTest {
     val example = createCase(4, TestCaseVisibility.EXAMPLE, 4)
     val id = submit("solution")
     assertTrue(poll(id)["failedExample"].isNull)
-    executor.runSuite = { _, _, _ ->
-      TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "0", stderr = "private driver diagnostic")
+    executor.runInputs = { inputs, _, _ ->
+      completedExecution(
+        inputs,
+        ProgramStatus.SUCCEEDED,
+        listOf(ProgramResult(ProgramStatus.SUCCEEDED, "0", "private driver diagnostic")),
+      )
     }
 
     scheduler.processQueuedSubmissions()
@@ -312,7 +323,7 @@ class SubmissionExecutionIntegrationTest {
       expectedOutputJson = JsonNull
     }.save(fixtures).getOrThrow()
     val id = submit("solution")
-    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.INVALID_OUTPUT, 0, 0, stdout = "not JSON") }
+    executor.runInputs = { inputs, _, _ -> outputs(inputs, "not JSON") }
 
     scheduler.processQueuedSubmissions()
 
@@ -328,7 +339,7 @@ class SubmissionExecutionIntegrationTest {
   fun `failed-example privacy requires the authenticated owner and denies result mutations`() {
     createCase(0, TestCaseVisibility.EXAMPLE, 1)
     submit("solution")
-    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "0") }
+    executor.runInputs = { inputs, _, _ -> outputs(inputs, "0") }
     scheduler.processQueuedSubmissions()
 
     val result = storedResults().single()
@@ -388,7 +399,7 @@ class SubmissionExecutionIntegrationTest {
   fun `unfinished attempts and non-failing case records have no failed example`() {
     createCase(0, TestCaseVisibility.EXAMPLE, 1)
     val id = submit("solution")
-    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "0") }
+    executor.runInputs = { inputs, _, _ -> outputs(inputs, "0") }
     scheduler.processQueuedSubmissions()
     val result = storedResults().single()
 
@@ -413,7 +424,7 @@ class SubmissionExecutionIntegrationTest {
   }
 
   @Test
-  fun `compilation failures close the program without running or retaining cases`() {
+  fun `compilation failures do not retain case results`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val id = submit("invalid solution")
     executor.compilation = ProgramResult(ProgramStatus.FAILED, stderr = "TestDriver private diagnostic")
@@ -425,7 +436,7 @@ class SubmissionExecutionIntegrationTest {
     assertEquals("COMPILE_ERROR", result["verdict"].asString())
     assertTrue(result["failedExample"].isNull)
     assertFalse(result.toString().contains("TestDriver"))
-    assertEquals(listOf("cleanup", "prepare", "compile", "close"), executor.events)
+    assertEquals(listOf("cleanup", "execute"), executor.events)
     assertTrue(storedResults().isEmpty())
   }
 
@@ -434,16 +445,19 @@ class SubmissionExecutionIntegrationTest {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
 
     for ((status, verdict) in listOf(
-      TestSuiteStatus.INVALID_OUTPUT to "RUNTIME_ERROR",
-      TestSuiteStatus.RUNTIME_ERROR to "RUNTIME_ERROR",
-      TestSuiteStatus.OUTPUT_LIMIT_EXCEEDED to "RUNTIME_ERROR",
-      TestSuiteStatus.TIME_LIMIT_EXCEEDED to "TIME_LIMIT_EXCEEDED",
-      TestSuiteStatus.MEMORY_LIMIT_EXCEEDED to "MEMORY_LIMIT_EXCEEDED",
+      ProgramStatus.FAILED to "RUNTIME_ERROR",
+      ProgramStatus.OUTPUT_LIMIT_EXCEEDED to "RUNTIME_ERROR",
+      ProgramStatus.TIME_LIMIT_EXCEEDED to "TIME_LIMIT_EXCEEDED",
+      ProgramStatus.MEMORY_LIMIT_EXCEEDED to "MEMORY_LIMIT_EXCEEDED",
     )) {
       entClient.submissionFailures.deleteMany(fixtures).getOrThrow()
       val id = submit("solution")
-      executor.runSuite = { _, _, _ ->
-        TestSuiteResult(status, 0, 0, stdout = "\u0000" + "x".repeat(20_001), stderr = "private diagnostic")
+      executor.runInputs = { inputs, _, _ ->
+        completedExecution(
+          inputs,
+          status,
+          listOf(ProgramResult(status, "\u0000" + "x".repeat(20_001), "private diagnostic")),
+        )
       }
 
       scheduler.processQueuedSubmissions()
@@ -459,10 +473,35 @@ class SubmissionExecutionIntegrationTest {
   }
 
   @Test
+  fun `a later process failure does not overwrite the retained first case outcome`() {
+    createCase(0, TestCaseVisibility.EXAMPLE, 1)
+    createCase(1, TestCaseVisibility.HIDDEN, 2)
+    createCase(2, TestCaseVisibility.HIDDEN, 3)
+    val id = submit("solution")
+    executor.runInputs = { inputs, _, _ ->
+      completedExecution(
+        inputs,
+        ProgramStatus.TIME_LIMIT_EXCEEDED,
+        listOf(
+          ProgramResult(ProgramStatus.SUCCEEDED, "0"),
+          ProgramResult(ProgramStatus.TIME_LIMIT_EXCEEDED),
+        ),
+      )
+    }
+
+    scheduler.processQueuedSubmissions()
+
+    assertEquals("TIME_LIMIT_EXCEEDED", poll(id)["verdict"].asString())
+    assertEquals("WRONG_ANSWER", storedResults().single().outcome.name)
+    assertEquals("0", poll(id)["failedExample"]["output"].asString())
+    assertEquals(0, poll(id)["passedCases"].asInt())
+  }
+
+  @Test
   fun `a JVM failure before the first case has no failed-case record`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val id = submit("solution")
-    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.MEMORY_LIMIT_EXCEEDED, 0) }
+    executor.runInputs = { inputs, _, _ -> completedExecution(inputs, ProgramStatus.MEMORY_LIMIT_EXCEEDED, emptyList()) }
 
     scheduler.processQueuedSubmissions()
 
@@ -471,10 +510,10 @@ class SubmissionExecutionIntegrationTest {
   }
 
   @Test
-  fun `executor exceptions close the program and finish with a safe infrastructure error`() {
+  fun `execution exceptions finish with a safe infrastructure error`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val id = submit("solution")
-    executor.runSuite = { _, _, _ -> error("secret driver input") }
+    executor.runInputs = { _, _, _ -> error("secret driver input") }
 
     scheduler.processQueuedSubmissions()
 
@@ -482,21 +521,21 @@ class SubmissionExecutionIntegrationTest {
     assertEquals("FINISHED", result["status"].asString())
     assertEquals("INTERNAL_ERROR", result["verdict"].asString())
     assertFalse(result.toString().contains("secret"))
-    assertEquals("close", executor.events.last())
+    assertEquals("execute", executor.events.last())
     assertTrue(storedResults().isEmpty())
   }
 
   @Test
-  fun `interruption finishes the attempt closes the program and propagates to the caller`() {
+  fun `interruption finishes the attempt and propagates to the caller`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val id = submit("solution")
-    executor.runSuite = { _, _, _ -> throw InterruptedException("stopping") }
+    executor.runInputs = { _, _, _ -> throw InterruptedException("stopping") }
 
     try {
       assertThrows(InterruptedException::class.java) { scheduler.processQueuedSubmissions() }
       assertTrue(Thread.interrupted(), "The scheduler must restore the interruption flag")
       assertEquals("INTERNAL_ERROR", poll(id)["verdict"].asString())
-      assertEquals("close", executor.events.last())
+      assertEquals("execute", executor.events.last())
       assertTrue(storedResults().isEmpty())
     } finally {
       Thread.interrupted()
@@ -580,7 +619,7 @@ class SubmissionExecutionIntegrationTest {
     val id = submit("""
       var calls = 0
       fun solve(input: String): String {
-        if (input == "99") while (true) {}
+        if (input == "99") return input
         return (input.toInt() + calls++).toString()
       }
     """.trimIndent())
@@ -591,7 +630,7 @@ class SubmissionExecutionIntegrationTest {
 
     val result = poll(id)
     assertEquals("WRONG_ANSWER", result["verdict"].asString())
-    assertEquals(1, result["passedCases"].asInt())
+    assertEquals(2, result["passedCases"].asInt())
     assertEquals(3, result["totalCases"].asInt())
     val failed = storedResults().single()
     assertEquals("HIDDEN", failed.source.name)
@@ -631,7 +670,7 @@ class SubmissionExecutionIntegrationTest {
     createCase(0, TestCaseVisibility.EXAMPLE, 1)
     submit("first solution")
     submit("second solution")
-    executor.runSuite = { _, _, _ -> TestSuiteResult(TestSuiteStatus.WRONG_ANSWER, 0, 0, stdout = "0") }
+    executor.runInputs = { inputs, _, _ -> outputs(inputs, "0") }
     scheduler.processQueuedSubmissions()
     val retained = storedResults().single()
 
@@ -666,11 +705,42 @@ class SubmissionExecutionIntegrationTest {
       expectedOutputJson = JsonPrimitive(value)
     }.saveAndLoad(fixtures).getOrThrow()
 
+  private fun outputs(
+    inputs: List<JsonElement>,
+    vararg values: String,
+    runtimeMs: Long? = null,
+  ): CodeExecutionResult.Completed = completedExecution(
+    inputs,
+    ProgramStatus.SUCCEEDED,
+    values.map { ProgramResult(ProgramStatus.SUCCEEDED, it) },
+    runtimeMs,
+  )
+
+  private fun completedExecution(
+    inputs: List<JsonElement>,
+    status: ProgramStatus,
+    outputs: List<ProgramResult>,
+    runtimeMs: Long? = null,
+  ) = CodeExecutionResult.Completed(
+    status,
+    outputs.mapIndexed { index, output ->
+      TestCaseExecutionResult(
+        inputJson = inputs[index],
+        status = output.status,
+        outputJson = JsonOutputChecker().parseOutput(output.stdout),
+        stdout = output.stdout,
+        stderr = output.stderr,
+        runtimeMs = output.runtimeMs,
+      )
+    },
+    runtimeMs,
+  )
+
   private fun storedResults() = entClient.submissionFailures.query {}.all(fixtures).getOrThrow()
 
-  private fun createScheduler(executor: ProgramExecutor) = SubmissionScheduler(
+  private fun createScheduler(executor: CodeExecutionService) = SubmissionScheduler(
     submissionService,
-    SubmissionRunner(submissionService, executor),
+    SubmissionRunner(submissionService, CodeGrader(executor)),
     executor,
     ExecutionProperties(runtimes = mapOf("kotlin" to DockerExecutionServiceTest.IMAGE)),
   )
@@ -751,16 +821,18 @@ class SubmissionExecutionIntegrationTest {
     SecurityContextHolder.setContext(securityContext)
   }
 
-  /** Keeps the review focused on how the runner uses the execution contract. */
-  private class FakeProgramExecutor : ProgramExecutor {
+  private class FakeCodeExecutionService : CodeExecutionService {
     val events = mutableListOf<String>()
-    var submissionId = 0L
+    var executionId = ""
     lateinit var runtime: String
     lateinit var program: PreparedProgram
     var cleanupFailure: RuntimeException? = null
     var compilation = ProgramResult(ProgramStatus.SUCCEEDED)
-    var runSuite: (List<TestCaseInput>, Int, Int) -> TestSuiteResult = { cases, _, _ ->
-      TestSuiteResult(TestSuiteStatus.PASSED, cases.size)
+    var runInputs: (List<JsonElement>, Int, Int) -> CodeExecutionResult.Completed = { inputs, _, _ ->
+      CodeExecutionResult.Completed(
+        ProgramStatus.SUCCEEDED,
+        inputs.map { TestCaseExecutionResult(it, ProgramStatus.SUCCEEDED, outputJson = it, stdout = it.toString()) },
+      )
     }
 
     override fun isAvailable(runtime: String) = true
@@ -770,27 +842,24 @@ class SubmissionExecutionIntegrationTest {
       cleanupFailure?.let { throw it }
     }
 
-    override fun prepareProgram(submissionId: Long, runtime: String, program: PreparedProgram): ProgramExecution {
-      events += "prepare"
-      this.submissionId = submissionId
+    override fun executeCode(
+      executionId: String,
+      runtime: String,
+      program: PreparedProgram,
+      inputs: List<JsonElement>,
+      timeLimitMs: Int,
+      memoryLimitMb: Int,
+    ): CodeExecutionResult {
+      events += "execute"
+      this.executionId = executionId
       this.runtime = runtime
       this.program = program
 
-      return object : ProgramExecution {
-        override fun compileProgram(): ProgramResult {
-          events += "compile"
-          return compilation
-        }
-
-        override fun runTestSuite(cases: List<TestCaseInput>, timeLimitMs: Int, memoryLimitMb: Int): TestSuiteResult {
-          events += "suite"
-          return runSuite(cases, timeLimitMs, memoryLimitMb)
-        }
-
-        override fun close() {
-          events += "close"
-        }
+      if (compilation.status != ProgramStatus.SUCCEEDED) {
+        return CodeExecutionResult.CompilationFailed
       }
+
+      return runInputs(inputs, timeLimitMs, memoryLimitMb)
     }
   }
 

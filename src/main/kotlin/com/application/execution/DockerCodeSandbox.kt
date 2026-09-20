@@ -9,6 +9,7 @@ import com.github.dockerjava.api.model.LogConfig
 import com.github.dockerjava.api.model.Mount
 import com.github.dockerjava.api.model.MountType
 import com.github.dockerjava.api.model.Ulimit
+import kotlinx.serialization.json.JsonElement
 import java.math.BigDecimal
 import java.nio.file.Files
 import java.nio.file.Path
@@ -18,18 +19,78 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-/** Compiles one submission and runs its test cases, then releases its disposable workspace. */
-internal class DockerSubmissionRunner(
+/**
+ * Runs a program in disposable containers using [runtime], the name of a prebuilt Docker image.
+ *
+ * 1. Create a workspace: a temporary host directory for one execution's source files and compiled
+ *    artifacts. [runTests] owns it; [executionRoot] is the shared parent managed by [DockerExecutionService].
+ *
+ * 2. Stage the source files and compile them in a container that mounts the workspace at /workspace
+ *    with write access. After compilation, remove the source files and retain the compiled artifacts.
+ *
+ * 3. Write the test inputs as JSON to a separate host file. Mount it read-only in the execution
+ *    container and redirect it to stdin.
+ *
+ * 4. Run the compiled program in a separate container that mounts the workspace read-only.
+ *    The Kotlin runtime runs all inputs in one JVM.
+ *
+ * 5. Capture each case's output in the runtime and emit JSON reports on the container's stdout.
+ *    Docker's API streams those reports back for parsing; the grader compares the answers.
+ *
+ * 6. Remove containers and input files after each step, then delete the workspace in [runTests]'s
+ *    finally block, including after staging or compilation failures. The shared parent stays.
+ *    After a crash, [containerLabels] let the service find abandoned containers and remove them
+ *    before deleting their files.
+ */
+internal class DockerCodeSandbox(
   private val docker: DockerClient,
   private val runtime: String,
   private val program: PreparedProgram,
-  private val workspace: Path,
+  private val executionRoot: Path,
   private val containerLabels: Map<String, String>,
-) : ProgramExecution {
-  override fun compileProgram(): ProgramResult {
+) {
+  /** Stages and compiles the program, runs the inputs, and releases execution resources on every exit path. */
+  fun runTests(
+    inputs: List<JsonElement>,
+    timeLimitMs: Int,
+    memoryLimitMb: Int,
+  ): CodeExecutionResult {
+    require(inputs.isNotEmpty())
+    require(timeLimitMs in 1..60_000)
+
+    val workspace = Files.createTempDirectory(executionRoot, "submission-")
+
+    try {
+      stageSourceFiles(workspace)
+
+      val compilation = compileProgram(workspace)
+      if (compilation.status != ProgramStatus.SUCCEEDED) {
+        return CodeExecutionResult.CompilationFailed
+      }
+
+      return runTestInputs(workspace, inputs, timeLimitMs, memoryLimitMb)
+    } finally {
+      deleteExecutionWorkspace(workspace)
+    }
+  }
+
+  private fun stageSourceFiles(workspace: Path) {
+    // The compiler writes artifacts into this directory; execution later mounts it read-only.
+    Files.setPosixFilePermissions(workspace, PosixFilePermissions.fromString("rwxrwxrwx"))
+
+    for ((name, contents) in program.sourceFiles) {
+      val destination = workspace.resolve(name).normalize()
+      require(destination.parent == workspace) { "Program sources must use plain file names" }
+
+      Files.writeString(destination, contents)
+      Files.setPosixFilePermissions(destination, PosixFilePermissions.fromString("r--r--r--"))
+    }
+  }
+
+  private fun compileProgram(workspace: Path): ProgramResult {
     val command = program.compileCommand ?: return ProgramResult(ProgramStatus.SUCCEEDED)
 
-    val result = runContainer(command, "", 60_000, 1_024, writable = true)
+    val result = runContainer(workspace, command, "", 60_000, 1_024, writable = true)
 
     if (result.status == ProgramStatus.SUCCEEDED) {
       program.sourceFiles.keys.forEach { Files.deleteIfExists(workspace.resolve(it)) }
@@ -38,29 +99,28 @@ internal class DockerSubmissionRunner(
     return result
   }
 
-  override fun runTestSuite(cases: List<TestCaseInput>, timeLimitMs: Int, memoryLimitMb: Int): TestSuiteResult {
-    require(cases.isNotEmpty())
-    require(timeLimitMs in 1..60_000)
-
+  private fun runTestInputs(
+    workspace: Path,
+    inputs: List<JsonElement>,
+    timeLimitMs: Int,
+    memoryLimitMb: Int,
+  ): CodeExecutionResult.Completed {
     // Per-case deadlines run inside the JVM. This outer budget also bounds startup and leaked threads.
-    val suiteLimitMs = (cases.size.toLong() * timeLimitMs + 2_000).coerceAtMost(600_000).toInt()
-    val input = TestSuiteProtocol.encodeInput(cases, timeLimitMs)
-    // The terminal report can escape two 20 KB streams, plus a short checkpoint for each case.
-    val reportLimit = Math.addExact(TestSuiteProtocol.MAX_RESULT_BYTES, Math.multiplyExact(cases.size, 64))
+    val suiteLimitMs = (inputs.size.toLong() * timeLimitMs + 2_000).coerceAtMost(600_000).toInt()
+    val input = TestSuiteProtocol.encodeInput(inputs, timeLimitMs)
+    // Each case can escape two 20 KB streams, alongside its checkpoint and timing metadata.
+    val reportLimit = Math.addExact(1_024, Math.multiplyExact(inputs.size, TestSuiteProtocol.MAX_CASE_RESULT_BYTES))
     val result = runContainer(
-      program.runCommand, input, suiteLimitMs, memoryLimitMb,
+      workspace, program.runCommand, input, suiteLimitMs, memoryLimitMb,
       writable = false,
       output = ContainerOutput(reportLimit),
     )
 
-    return readTestSuiteResult(result, cases.size)
-  }
-
-  override fun close() {
-    deleteExecutionWorkspace(workspace)
+    return readTestSuiteOutput(result, inputs)
   }
 
   private fun runContainer(
+    workspace: Path,
     command: List<String>,
     input: String,
     timeLimitMs: Int,
@@ -75,7 +135,7 @@ internal class DockerSubmissionRunner(
       Files.writeString(inputFile, input)
       Files.setPosixFilePermissions(inputFile, PosixFilePermissions.fromString("r--r--r--"))
 
-      createExecutionContainer(name, inputFile, command, timeLimitMs, memoryLimitMb, writable)
+      createExecutionContainer(name, workspace, inputFile, command, timeLimitMs, memoryLimitMb, writable)
       attachOutputAndStartContainer(name, output)
 
       return awaitExecutionResult(name, output, timeLimitMs)
@@ -139,13 +199,14 @@ internal class DockerSubmissionRunner(
 
   private fun createExecutionContainer(
     name: String,
+    workspace: Path,
     inputFile: Path,
     command: List<String>,
     timeLimitMs: Int,
     memoryLimitMb: Int,
     writable: Boolean,
   ) {
-    val host = createContainerHostConfig(inputFile, memoryLimitMb, writable)
+    val host = createContainerHostConfig(workspace, inputFile, memoryLimitMb, writable)
     val duration = BigDecimal.valueOf(timeLimitMs.toLong(), 3).toPlainString() + "s"
 
     // A file supplies EOF reliably; docker-java's attached stdin does not half-close the socket.
@@ -169,6 +230,7 @@ internal class DockerSubmissionRunner(
   }
 
   private fun createContainerHostConfig(
+    workspace: Path,
     inputFile: Path,
     memoryLimitMb: Int,
     writable: Boolean,

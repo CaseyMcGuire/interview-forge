@@ -10,7 +10,7 @@ import org.mockito.Mockito.*
 class SubmissionSchedulerTest {
   private val submissionService = mock(SubmissionService::class.java)
   private val submissionRunner = mock(SubmissionRunner::class.java)
-  private val executor = mock(ProgramExecutor::class.java)
+  private val executor = mock(CodeExecutionService::class.java)
   private val properties = ExecutionProperties(runtimes = mapOf("kotlin" to "runtime"))
 
   @Test

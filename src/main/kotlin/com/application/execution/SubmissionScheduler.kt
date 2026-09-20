@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
 class SubmissionScheduler(
   private val submissionService: SubmissionService,
   private val submissionRunner: SubmissionRunner,
-  private val executor: ProgramExecutor,
+  private val executionService: CodeExecutionService,
   private val properties: ExecutionProperties,
 ) {
   private val logger = LoggerFactory.getLogger(javaClass)
@@ -37,7 +37,7 @@ class SubmissionScheduler(
     }
 
     try {
-      if (properties.runtimes.values.none(executor::isAvailable)) {
+      if (properties.runtimes.values.none(executionService::isAvailable)) {
         return
       }
 
@@ -59,7 +59,7 @@ class SubmissionScheduler(
 
   private fun recoverInterruptedSubmissions() {
     if (!initialized) {
-      executor.cleanUpInterruptedExecutions()
+      executionService.cleanUpInterruptedExecutions()
       initialized = true
     }
 

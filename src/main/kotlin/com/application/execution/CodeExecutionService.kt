@@ -3,7 +3,10 @@ package com.application.execution
 import kotlinx.serialization.json.JsonElement
 
 /** Executes prepared code without comparing its outputs or accessing stored attempts. */
-interface CodeExecutionService {
+interface CodeExecutionService : RuntimeAvailability {
+  /** Removes this application's leftover execution resources before work resumes after a restart. */
+  fun cleanUpInterruptedExecutions()
+
   /**
    * Compiles once and runs the ordered inputs in one process, preserving state between cases.
    * Reports each reachable case's input, parsed JSON answer, streams, and measured runtime.

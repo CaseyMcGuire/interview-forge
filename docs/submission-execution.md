@@ -66,7 +66,7 @@ and the two queue producers into separate reviews:
 - [x] **7. Shared grading:** Common grading input/result types, `CodeGrader`, and its
   `CodeExecutionService` contract. Test comparison and execution outcomes with a fake
   execution service, independently of Docker and database access.
-- [ ] **8. Docker execution:** Implement the shared execution contract, collect every
+- [x] **8. Docker execution:** Implement the shared execution contract, collect every
   reachable case's output in one JVM, and update the protocol reader and current official
   caller together. Include lifecycle, output-limit, and Docker tests; rebuild the image.
 - [ ] **9. Official grading-job flow:** Create jobs during official admission, process
@@ -136,14 +136,48 @@ case outputs. Strict JSON comparison preserves numeric types and precision; outp
 count UTF-8 bytes for JSON answers and both streams.
 
 This replaces the stashed `ProgramRunner` and `TestSuiteGrader` design. Do not reapply
-those classes or their old result wrappers when adapting the Docker stage. The new
-execution contract has only a test fake at this point; Spring wiring and its Docker
-implementation belong to stage 8. The existing official worker continues to use its
-current execution path until that integration is reviewed.
+those classes or their old result wrappers.
 
-Validation: `./gradlew test --tests '*CodeGraderTest' --tests '*JsonOutputCheckerTest'`
-passed all 17 unit tests without Docker or database access. Docker lifecycle and
-production wiring are not exercised in this stage. No generated artifacts changed.
+Stage 8 implements `CodeExecutionService` in `DockerExecutionService` and connects the
+existing official runner to `CodeGrader`. It is reviewed and committed. Docker
+compiles once, then invokes all reachable inputs in one JVM without expected answers.
+The driver reports each case's status, streams, and elapsed time. The application parses
+strict JSON answers and grades them. Official persistence still retains only the first
+failed case, including its own duration and outcome even when a later process failure
+changes the overall verdict. Queue producers, job processing, and reference preparation
+remain later stages. No schema or generated-artifact changes are required.
+
+Stage 7 validation: `./gradlew test --tests '*CodeGraderTest' --tests '*JsonOutputCheckerTest'`
+passed all 17 then-current unit tests using a fake execution service. Stage 8 adds
+real Docker and database coverage; no generated artifacts changed.
+
+Initial stage 8 validation passed all 62 then-current tests with this focused command:
+
+```sh
+./gradlew test \
+  --tests com.application.execution.CodeGraderTest \
+  --tests com.application.execution.JsonOutputCheckerTest \
+  --tests com.application.execution.TestSuiteOutputReaderTest \
+  --tests com.application.execution.SubmissionSchedulerTest \
+  --tests com.application.execution.DockerExecutionServiceTest \
+  --tests com.application.execution.SubmissionExecutionIntegrationTest
+```
+
+`./gradlew :kotlin-runtime:installDist`,
+`docker build -t interview-forge-kotlin:2.4.20 runtime/kotlin`, and `git diff --check`
+also passed. No browser or full-project test run was performed for this backend stage.
+
+The sandbox API review replaces separate compilation/run/close calls with
+`DockerCodeSandbox.runTests`. The service uses the concrete sandbox directly. Docker
+failure scenarios each exercise a fresh sandbox; lifecycle checks cover invalid inputs,
+creation without execution resources, and cleanup after partially staging source files.
+All 43 Docker and submission integration tests passed after these changes:
+
+```sh
+./gradlew test \
+  --tests com.application.execution.DockerExecutionServiceTest \
+  --tests com.application.execution.SubmissionExecutionIntegrationTest
+```
 
 ## Custom test suite admission and polling
 
@@ -235,9 +269,11 @@ admission without starting executions. The default Kotlin image is configured in
 `SubmissionService.claimNextQueuedSubmission()` atomically claims the oldest queued
 official submission and returns it with RUNNING status. The service also loads current
 judge settings, runtime configuration, and ordered cases, and saves final outcomes.
-`SubmissionRunner.runSubmission()` loads those settings through the service, prepares
-and compiles the program, calls `runTestSuite` once, and returns a result after closing
-the program. The scheduler passes that result to `SubmissionService.finishSubmission()`.
+`SubmissionRunner.runSubmission()` loads those settings through the service and calls
+`CodeGrader.gradeCode`. The grader uses `CodeExecutionService` to compile and execute,
+then compares the returned answers. Execution resources are released before the result
+returns. The scheduler passes the summary and first failure to
+`SubmissionService.finishSubmission()`.
 Inputs stay in memory while executing; database transactions remain outside compilation
 and suite execution. No runtime, driver, checker, limit, or full-suite snapshots are persisted.
 
@@ -246,12 +282,15 @@ The summary and at most the first failed case are saved together in one transact
 The `submission_failures.submission_id` unique constraint prevents retaining more than
 one failure for an attempt. `Submission` represents
 official attempts only and has no run/submit discriminator.
-The returned zero-based failure index selects the original case, including its input,
+The runner selects the first failing graded case and retains its original input,
 expectation, and visibility. Later test edits cannot change that retained data.
+All reachable cases run, so the passed count also includes successes after a failure.
+A later process failure can determine the summary verdict while the retained case keeps
+its own outcome.
 Case positions remain on `TestCase` and are not copied into retained failures.
 Passing outputs are not retained. Compilation failures and JVM failures before any case
-starts have no failed-case row. Suite timing belongs to the summary; individual case
-timing stays null because the executor does not measure it.
+starts have no failed-case row. Suite timing belongs to the summary; a failed case stores
+its measured invocation duration. Abrupt process exits can leave that duration unknown.
 
 Only the execution identity can create failed-case records. The authenticated submission
 owner may read a failed example from a finished official submission; hidden and custom
@@ -276,8 +315,8 @@ that setting and invoke the runner or scheduler directly. Fake-executor tests co
 failure handling, while real Docker tests exercise compilation and suite results through
 the submission/polling API.
 
-`prepareProgram` receives the submission ID. Docker attaches both a workspace ownership
-label and a submission label when creating compilation and suite containers. Recovery
+`executeCode` receives an execution ID such as `submission-123`. Docker attaches both a
+workspace ownership label and an execution label when creating compilation and suite containers. Recovery
 can find leftovers even if the app crashes immediately after creation; container IDs
 are not stored in submission rows. Startup cleanup removes owned containers and temporary
 workspaces before interrupted database rows are finished. If cleanup fails, those rows
@@ -291,17 +330,24 @@ isolated compilation, process lifecycle, stdin/stdout/stderr, limits, and cleanu
 with Kotlin and exact JSON comparison. Select `execution.runtimes[language.key]` and current
 judge settings when the runner starts each attempt.
 
-`ProgramExecutor.prepareProgram` returns a `ProgramExecution` that the runner closes
-after compilation and execution. `runTestSuite` accepts all ordered inputs and expected
-outputs together, plus the case time limit and shared memory limit. `TestSuiteResult`
-reports all passed or the first failure, its index, passed count, bounded failure output,
-and optional suite duration. The runner maps that result to submission verdicts without
-parsing process output or performing comparisons.
+`CodeExecutionService.executeCode` accepts a prepared program, ordered JSON inputs,
+case time limit, and shared memory limit. `DockerExecutionService` manages the shared
+`executionRoot` and its permissions, creates a `DockerCodeSandbox`, and calls `runTests`.
+`DockerCodeSandbox` creates its temporary directory in `runTests`, then stages the
+source files, compiles, and executes inside one `try/finally` that removes the directory.
+Staging failures use that same cleanup path. Constructing a sandbox does not allocate
+execution resources. Staging, compilation, and individual container operations are
+private helpers; callers never need to compile separately or close the sandbox.
+The result is `CodeExecutionResult`, distinguishing compilation failure from the suite's
+process status and individual case results. `CodeGrader` owns comparison; expected
+answers stay outside the container.
 
 The Docker implementation runs one JVM for the whole suite, preserving state between
-cases. It enforces limits, performs strict JSON comparison, and reports the first failure.
-Its containers run without application credentials or network access. Expected outputs
-are available inside the submission JVM; this is not a tamper-proof grading boundary.
+cases. Ordinary exceptions, invalid answers, and output overflows do not prevent later
+invocations. Timeouts, heap exhaustion, or an abrupt JVM exit can stop the suite; completed
+results remain available and the grader marks unreached cases `NOT_RUN`.
+Containers run without application credentials or network access. The suite driver and
+solution share a JVM, so the report protocol is not a tamper-proof grading boundary.
 
 Only record available measurements. Preserve JSON numeric values during comparison;
 object key order and whitespace do not matter, array order and JSON types do. Compilation,
@@ -310,8 +356,11 @@ outcomes, with safe diagnostics excluding hidden inputs.
 
 `KotlinTestSuite` invokes the existing driver's top-level `main()` or `main(args)` for each
 case in the same JVM and class loader. Only stdin/stdout/stderr are rebound between calls.
+The driver continues to print its JSON answer to stdout. The application retains that
+raw stream and parses it into `outputJson`; extra logging on stdout makes the answer invalid.
 Driver invocations retain the configured per-case deadline and independent 20,000-byte
-stdout/stderr limits. A watchdog halts a looping case; the container's outer deadline is
+stdout/stderr limits. Measured case durations include driver loading and invocation but
+exclude JVM startup. A watchdog halts a looping case; the container's outer deadline is
 `min(caseCount * timeLimitMs + 2,000, 600,000)` milliseconds. An all-pass report also requires
 a successful JVM exit, so leftover non-daemon threads can cause a timeout.
 
@@ -321,9 +370,12 @@ limit. Compilation has a separate 60-second/1 GiB budget. Source files are remov
 compilation, and the suite's program mount is read-only. A temporary read-only suite input
 file supplies stdin and EOF. Container-side deadlines continue if the application stops.
 
-The suite emits a case-start checkpoint before each invocation and one terminal report.
-The host reserves 256,000 bytes for the escaped failure report plus 64 bytes per checkpoint.
-Checkpoints identify the active case after an abrupt JVM exit. All containers, temporary
+The suite emits a case-start checkpoint and case-finished result for each invocation,
+followed by one terminal status. The host reserves 256,000 bytes per case plus 1,024 bytes
+for the terminal report, allowing both streams to expand when JSON-escaped. The reader
+validates event order, completeness, byte limits, and nonnegative case durations. It
+rejects malformed reports and preserves completed results before an abrupt JVM exit.
+Checkpoints identify an invocation that started but could not report its result. All containers, temporary
 inputs, and program workspaces are removed on normal completion, failure, or interruption;
 startup recovery handles leftovers. Docker availability is required for removal.
 
@@ -363,7 +415,8 @@ to the local Docker daemon. Reserve it for this application.
 
 Stash `9d4a201` preserves the runtime before the worker review; earlier backups remain
 intact. The active implementation has been reconciled with the reviewed worker API.
-`TestSuiteResult` and `JsonOutputChecker` now live in the shared `kotlin-runtime` module.
+`ProgramResult`, `TestSuiteProtocol`, and `JsonOutputChecker` live in the shared
+`kotlin-runtime` module; execution and grading result models live in the application.
 The failed-example API has been reapplied against the current service and suite execution
 model. The backups remain intact; their old worker drafts must not replace the current
 scheduler, service, or runner.

@@ -326,6 +326,10 @@ class CodeGraderTest {
   )
 
   private class FakeCodeExecutionService : CodeExecutionService {
+    override fun isAvailable(runtime: String) = true
+
+    override fun cleanUpInterruptedExecutions() {}
+
     var result: CodeExecutionResult = CodeExecutionResult.Completed(ProgramStatus.SUCCEEDED, emptyList())
     var failure: Exception? = null
     var calls = 0

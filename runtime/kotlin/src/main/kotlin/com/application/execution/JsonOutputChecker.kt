@@ -1,10 +1,12 @@
 package com.application.execution
 
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import tools.jackson.core.JacksonException
 import tools.jackson.core.StreamReadConstraints
 import tools.jackson.core.json.JsonFactory
 import tools.jackson.databind.DeserializationFeature
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 
 /** Strict JSON equality that preserves numeric precision and distinguishes integers from decimals. */
@@ -23,19 +25,30 @@ class JsonOutputChecker {
     .build()
 
   fun checkOutput(expected: JsonElement, output: String): JsonOutputCheckResult {
-    val actual = try {
-      mapper.readTree(output)
-    } catch (_: JacksonException) {
-      return JsonOutputCheckResult.INVALID_OUTPUT
-    }
-
-    if (actual == null || actual.isMissingNode) {
-      return JsonOutputCheckResult.INVALID_OUTPUT
-    }
-
+    val actual = readOutput(output) ?: return JsonOutputCheckResult.INVALID_OUTPUT
     val expectedValue = mapper.readTree(expected.toString())
 
     return if (expectedValue == actual) JsonOutputCheckResult.MATCH else JsonOutputCheckResult.MISMATCH
+  }
+
+  /** Parses one strict JSON answer while retaining the original numeric representation. */
+  fun parseOutput(output: String): JsonElement? {
+    readOutput(output) ?: return null
+    return Json.parseToJsonElement(output)
+  }
+
+  private fun readOutput(output: String): JsonNode? {
+    val actual = try {
+      mapper.readTree(output)
+    } catch (_: JacksonException) {
+      return null
+    }
+
+    if (actual == null || actual.isMissingNode) {
+      return null
+    }
+
+    return actual
   }
 }
 
