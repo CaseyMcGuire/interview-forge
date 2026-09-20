@@ -18,23 +18,23 @@ inputs, expected answers, IDs, and visibility in a grading job alongside the sub
 `totalCases` is known while queued. No per-case result rows are created, and the former
 custom-Run limit of twenty cases does not apply to official submissions.
 
-Custom-run admission and owner polling are reviewed and committed. Execution,
-reference-output preparation, scheduling, expiration cleanup, and frontend integration
-remain later stages. Custom runs currently stay queued.
+Custom-run admission, owner polling, and result storage are reviewed and committed.
+Stage 10 adds asynchronous reference preparation and shared grading and is reviewed and committed.
+Expiration cleanup and frontend integration remain later stages.
 
 ## Grading-job design and review plan
 
 Official admission creates the submission and a ready grading job in one transaction,
-using the problem's stored inputs and expected answers. Custom admission will save only
-the queued run and its cases. A background worker will execute the reference solution, then
-save the generated expectations and create the grading job together. Both paths will use
+using the problem's stored inputs and expected answers. Custom admission saves only
+the queued run and its cases. The background worker executes the reference solution, then
+saves the generated expectations and creates the grading job together. Both paths use
 the same `CodeGrader`; all compilation and execution stay outside API requests and database
 transactions. No separate expected-output job table is needed.
 
 A grading job holds the submitted source, ordered input/expected-output snapshots, the
 problem-language reference, and exactly one originating attempt. Case metadata supports
 retaining the first official failure or all custom results. Runtime selection stays in
-application configuration. Saving the final result and deleting the job will be atomic.
+application configuration. Saving the final result and deleting the job are atomic.
 
 The `cases` field is a typed `List<GradingCase>` serialized into the existing JSONB column.
 Each entry requires a case ID, JSON input, and JSON expected output; JSON null remains a
@@ -72,7 +72,7 @@ and the two queue producers into separate reviews:
 - [x] **9. Official grading-job flow:** Create jobs during official admission, process
   them through the shared grader, and atomically retain the summary/first failure and
   delete the job. Replace the old official runner/scheduler path and test recovery.
-- [ ] **10. Custom reference preparation:** Claim queued custom runs, generate expected
+- [x] **10. Custom reference preparation:** Claim queued custom runs, generate expected
   outputs asynchronously, and atomically enqueue their grading jobs. Route their grading
   results to custom storage and test preparation failures, recovery, and polling.
 - [ ] **11. Expiration cleanup:** Delete expired custom runs and their cases after execution finishes.
@@ -206,8 +206,8 @@ writes; they verify that the transaction preserves both records' previous states
 accepted request creates a new owned `CustomTestSuiteRun` and its `CustomTestCase` rows
 in a serializable transaction. Invalid requests roll back the run and its cases together.
 Source and stored case content use EntKt validation; request validation handles
-the case count and decoding JSON. Expected outputs start absent and will be prepared
-by the runner using the private reference solution on `JudgeConfiguration`.
+the case count and decoding JSON. Expected outputs start absent and are prepared
+asynchronously using the private reference solution on `JudgeConfiguration`.
 
 Admission requires an available public problem and language, a configured runtime,
 an EXACT_JSON judge, and nonblank reference code. Custom runs do not require official
@@ -228,8 +228,66 @@ deletion remains disabled until the cleanup stage.
 Polling maps the retained result JSON to generated DGS types and returns each case in
 input order. SQL null expected output means unprepared; JSON null is returned as the
 string `"null"`. Reference code, compiler diagnostics, and official hidden cases are not
-part of this response. This stage uses persisted result fixtures to verify polling;
-the runner will supply those results in later stages.
+part of this response. Integration tests exercise admission, asynchronous preparation,
+grading, and owner polling together.
+
+## Custom reference preparation
+
+`CustomTestSuiteScheduler` prepares queued custom runs. `GradingScheduler` independently
+processes ready grading jobs for both kinds of attempt. Scheduling uses two threads, and
+each scheduler processes one item at a time, so reference execution and grading can overlap.
+Both queues use creation time and ID order. Reference execution and submitted execution each
+use a fresh sandbox that compiles once and runs its full list of inputs in one JVM.
+
+1. Claim the oldest QUEUED custom run and mark it RUNNING with its start time.
+2. Load its immutable ordered inputs and current reference settings through
+   `CodeExecutionSettingsService`. Execute the reference solution through `CodeExecutionService`.
+3. Require successful execution and a valid bounded JSON answer for every input. JSON null is
+   a valid answer; missing answers, compilation errors, runtime failures, or oversized answers
+   finish the run as REFERENCE_SOLUTION_FAILED, with all submitted cases NOT_RUN. Infrastructure
+   and configuration exceptions finish it as INTERNAL_ERROR. Reference diagnostics are not retained.
+4. Save all expected answers and a QUEUED grading job in one transaction. The job contains the
+   user's source, inputs, and the generated answers. The custom run stays RUNNING while awaiting grading.
+5. Claim the job through `GradingJobService`, execute the submitted code with `CodeGrader`, then
+   atomically retain all case results and the summary and delete the job. The run's start time
+   remains the start of preparation; runtimeMs measures only submitted execution.
+
+`ExecutionStartup.workersReady()` completes Docker cleanup and database recovery before
+either scheduler can claim work. Recovery is synchronized, retries on failure, and never runs
+globally again once workers start. Interrupted RUNNING grading jobs finish their originating
+attempt with INTERNAL_ERROR. RUNNING custom runs without a job are interrupted preparations;
+a custom run with a QUEUED job continues to grading without executing the reference again.
+
+After startup, each scheduler remembers only its own unfinished claim. If the final write
+fails, the next tick recovers that ID before claiming more work. Missing jobs and already-finished
+runs indicate that completion committed; custom runs with a grading job are prepared and must
+not be failed. Neither scheduler scans the other scheduler's active work during normal operation.
+Expiration does not cancel queued work; deletion remains stage 11.
+
+Stage 10 is reviewed and committed. No database schema or dependency changes are required.
+GraphQL timing descriptions now distinguish preparation from submitted execution; DGS and Relay
+generation passed without changes to committed generated artifacts.
+The official settings loader is now the shared `CodeExecutionSettingsService`,
+and `CodeExecutionSettings` replaces the grading-only name. Separate `GradingScheduler` and
+`CustomTestSuiteScheduler` classes share the startup gate but own their respective processing loops.
+
+All 71 focused tests passed, covering real Docker reference-then-submission execution, privacy after problem
+archival, mixed official/custom queue processing, transaction rollback through EntKt hooks,
+and concurrent preparation/grading without recovering live work:
+
+```sh
+./gradlew test \
+  --tests com.application.execution.CustomTestSuiteExecutionIntegrationTest \
+  --tests com.application.execution.GradingSchedulerTest \
+  --tests com.application.execution.CustomTestSuiteSchedulerTest \
+  --tests com.application.execution.SubmissionExecutionIntegrationTest \
+  --tests com.application.execution.CustomTestSuiteRunPersistenceIntegrationTest \
+  --tests com.application.graphql.CustomTestSuiteRunIntegrationTest
+```
+
+After review refinements, all 8 scheduler tests and `buildRelay` passed. The final helper
+extractions and explicit outcome mapping passed `compileTestKotlin` and `git diff --check`.
+No full-project test suite or browser checks were run.
 
 ## API contract
 
@@ -286,16 +344,18 @@ admission without starting executions. The default Kotlin image is configured in
 
 ## Submission execution and result retention
 
-`GradingJobScheduler` coordinates claiming, grading, and finishing one job.
+`GradingScheduler` coordinates claiming, grading, and finishing ready jobs.
 `GradingJobService.claimNextQueuedGradingJob()` uses the status/creation-time index and a
-row lock to claim the oldest official job, breaking ties by ID. The job and its submission
-become RUNNING together. Custom jobs are excluded until stage 10 adds result routing.
+row lock to claim the oldest ready job, breaking ties by ID. The job and its submission
+become RUNNING together. Custom attempts already became RUNNING during preparation;
+claiming their grading job preserves the original start time.
 
-`GradingJobService.loadExecutionSettings()` reads the current judge and runtime settings.
+`CodeExecutionSettingsService.loadSubmittedCodeSettings()` reads the current judge and runtime settings.
 `CodeGrader.gradeCode` receives the job's source and selected cases, uses `CodeExecutionService`
 to compile and execute, and compares every returned answer. Compilation and execution happen
 outside database transactions. The scheduler passes the result to `finishGradingJob`, which
-calls `SubmissionService.finishSubmission` and deletes the job in the same transaction.
+routes to `SubmissionService.finishSubmission` or `CustomTestSuiteRunService.finishCustomTestSuiteRun`
+and deletes the job in the same transaction.
 The old `SubmissionRunner`, `SubmissionScheduler`, and submission-specific execution wrappers
 are removed. Runtime, driver, checker, and limits remain current configuration; the selected
 case snapshots persist only until the job finishes.
@@ -324,19 +384,18 @@ cannot read it. Public errors exclude private diagnostics.
 The existing owner polling API exposes RUNNING and the terminal summary; there are no
 per-case progress writes during the suite.
 
-The scheduler cleans abandoned Docker resources before its first job and finishes
-leftover RUNNING jobs as INTERNAL_ERROR before claiming more work. Finishing a recovered
-job also finishes its submission and deletes the job. This assumes one scheduler for the
-application. Execution exceptions produce a safe infrastructure error; interruptions also
-propagate with the thread's interruption flag restored. Final database writes are not
-retried because a lost connection can leave their commit outcome unknown. If the transaction
-rolled back, recovery finishes the remaining RUNNING job without running the code again.
+Shared startup recovery cleans abandoned Docker resources and finishes leftover RUNNING
+jobs before either scheduler starts. Finishing a recovered job also finishes its attempt and
+deletes the job. This assumes one application instance, with one worker per queue. Execution
+exceptions produce a safe infrastructure error; interruptions propagate with the thread's
+interruption flag restored. A failed final write leaves the job ID with its owning scheduler;
+its next tick checks that job without running the code again or touching other active attempts.
 
-`GradingJobScheduler` checks for queued work every second after application startup,
-provided a configured runtime is available. Calls are sequential, with a delay after
-each job. `execution.worker-enabled=false` pauses automatic processing; tests invoke
-the scheduler directly. Fake-execution tests cover failure handling, while real Docker
-tests exercise compilation and grading through the submission/polling API.
+Both schedulers check their queues every second after startup, provided a configured runtime
+is available. Each loop is sequential, but the two loops can run concurrently.
+`execution.worker-enabled=false` pauses automatic processing; tests invoke schedulers directly.
+Fake-execution tests cover failure handling, while real Docker tests exercise compilation and
+grading through the submission/polling API.
 
 Before switching from the old worker, drain any existing queued or running official
 submissions: those older attempts have no grading jobs. This stage does not backfill them.

@@ -23,7 +23,7 @@ type CustomTestSuiteRun {
   """
   caseResults: [CustomTestSuiteRunCaseResult!]
 
-  """Execution time in milliseconds, excluding compilation and reference execution; null if unavailable."""
+  """Submitted code execution time in milliseconds, excluding compilation and reference execution; null if unavailable."""
   runtimeMs: Int
 
   """User-facing failure explanation, at most 20,000 characters; null when not applicable."""
@@ -32,7 +32,10 @@ type CustomTestSuiteRun {
   """Creation time as an ISO 8601 UTC timestamp."""
   createdAt: String!
 
-  """Execution start as an ISO 8601 UTC timestamp; null before execution."""
+  """
+  Preparation start as an ISO 8601 UTC timestamp; null while queued.
+  Elapsed time to finishedAt includes preparation and differs from runtimeMs.
+  """
   startedAt: String
 
   """Completion time as an ISO 8601 UTC timestamp; null until FINISHED."""

@@ -18,6 +18,8 @@ import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
 import com.application.security.ExecutionAccess
 import com.application.services.GradingJobService
+import com.application.services.CustomTestSuiteRunService
+import com.application.services.CodeExecutionSettingsService
 import com.application.services.SubmissionService
 import entkt.postgres.PostgresDriver
 import entkt.runtime.privacy.Viewer
@@ -80,12 +82,19 @@ class SubmissionExecutionIntegrationTest {
   lateinit var gradingJobService: GradingJobService
 
   @Autowired
+  lateinit var customRunService: CustomTestSuiteRunService
+
+  @Autowired
+  lateinit var settingsService: CodeExecutionSettingsService
+
+  @Autowired
   lateinit var submissionService: SubmissionService
 
   @Autowired
   lateinit var dataSource: DataSource
 
-  private lateinit var scheduler: GradingJobScheduler
+  private lateinit var startup: ExecutionStartup
+  private lateinit var scheduler: GradingScheduler
   private lateinit var executor: FakeCodeExecutionService
 
   @Autowired
@@ -116,7 +125,7 @@ class SubmissionExecutionIntegrationTest {
   fun setUp() {
     executor = FakeCodeExecutionService()
     scheduler = createScheduler(executor)
-    scheduler.onApplicationReady()
+    startup.onApplicationReady()
 
     entClient.withTransaction { tx ->
       tx.submissionFailures.deleteMany(fixtures).getOrThrow()
@@ -220,7 +229,7 @@ class SubmissionExecutionIntegrationTest {
         }
       }
     }
-    val failingService = GradingJobService(failingClient, submissionService, ExecutionProperties(), emptyList())
+    val failingService = GradingJobService(failingClient, submissionService, customRunService)
 
     val failure = assertThrows(Exception::class.java) { failingService.finishGradingJob(job.id, result) }
 
@@ -258,7 +267,7 @@ class SubmissionExecutionIntegrationTest {
         }
       }
     }
-    val failingService = GradingJobService(failingClient, submissionService, ExecutionProperties(), emptyList())
+    val failingService = GradingJobService(failingClient, submissionService, customRunService)
 
     val failure = assertThrows(Exception::class.java) { failingService.claimNextQueuedGradingJob() }
 
@@ -700,7 +709,7 @@ class SubmissionExecutionIntegrationTest {
     scheduler.processQueuedGradingJobs()
     assertEquals("QUEUED", poll(id)["status"].asString(), "Wait for application startup")
 
-    scheduler.onApplicationReady()
+    startup.onApplicationReady()
     scheduler.processQueuedGradingJobs()
 
     val result = poll(id)
@@ -726,7 +735,7 @@ class SubmissionExecutionIntegrationTest {
     """.trimIndent())
 
     val scheduler = createScheduler(dockerExecutor)
-    scheduler.onApplicationReady()
+    startup.onApplicationReady()
     scheduler.processQueuedGradingJobs()
 
     val result = poll(id)
@@ -745,7 +754,7 @@ class SubmissionExecutionIntegrationTest {
     val id = submit("fun solve(input: String) = invalid syntax")
 
     val scheduler = createScheduler(dockerExecutor)
-    scheduler.onApplicationReady()
+    startup.onApplicationReady()
     scheduler.processQueuedGradingJobs()
 
     assertEquals("COMPILE_ERROR", poll(id)["verdict"].asString())
@@ -838,7 +847,7 @@ class SubmissionExecutionIntegrationTest {
   )
 
   private fun gradeJob(job: GradingJob): GradingResult {
-    val settings = gradingJobService.loadExecutionSettings(job)
+    val settings = settingsService.loadSubmittedCodeSettings(job.problemLanguageId, job.sourceCode)
     return CodeGrader(executor).gradeCode(
       executionId = "grading-job-${job.id}",
       runtime = settings.runtime,
@@ -849,16 +858,17 @@ class SubmissionExecutionIntegrationTest {
     )
   }
 
-  private fun storedJobs() = entClient.gradingJobs.query {}.all(fixtures).getOrThrow()
+  private fun storedJobs() = entClient.gradingJobs.query().all(fixtures).getOrThrow()
 
-  private fun storedResults() = entClient.submissionFailures.query {}.all(fixtures).getOrThrow()
+  private fun storedResults() = entClient.submissionFailures.query().all(fixtures).getOrThrow()
 
-  private fun createScheduler(executor: CodeExecutionService) = GradingJobScheduler(
-    gradingJobService,
-    CodeGrader(executor),
-    executor,
-    ExecutionProperties(runtimes = mapOf("kotlin" to DockerExecutionServiceTest.IMAGE)),
-  )
+  private fun createScheduler(executor: CodeExecutionService): GradingScheduler {
+    startup = ExecutionStartup(
+      gradingJobService, customRunService, executor,
+      ExecutionProperties(runtimes = mapOf("kotlin" to DockerExecutionServiceTest.IMAGE)),
+    )
+    return GradingScheduler(gradingJobService, settingsService, CodeGrader(executor), startup)
+  }
 
   private fun assertRuntimeWorkspaceEmpty() {
     Files.list(runtimeWorkspace).use { assertEquals(0, it.count()) }

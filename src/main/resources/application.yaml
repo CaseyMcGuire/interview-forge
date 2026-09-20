@@ -1,3 +1,10 @@
+spring:
+  task:
+    scheduling:
+      pool:
+        # Reference preparation and grading can progress independently; each scheduler is sequential.
+        size: 2
+
 execution:
   runtimes:
     kotlin: interview-forge-kotlin:2.4.20

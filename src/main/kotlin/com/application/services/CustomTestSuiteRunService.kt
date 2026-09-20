@@ -9,6 +9,7 @@ import com.application.execution.CustomTestCaseResult
 import com.application.execution.CustomTestSuiteRunResult
 import com.application.execution.TestCaseOutcome
 import com.application.execution.customTestSuiteRunErrorMessage
+import com.application.schema.GradingCase
 import com.application.schema.CustomTestSuiteRunOutcome
 import com.application.schema.CustomTestSuiteRunStatus
 import com.application.security.CurrentUser
@@ -18,6 +19,7 @@ import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntValidationException
 import entkt.runtime.result.visibleOrNull
+import entkt.runtime.query.requireLoaded
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -177,26 +179,115 @@ class CustomTestSuiteRunService(
     }.getOrThrow()
   }
 
-  /** Saves one summary and one result array; missing case results become NOT_RUN. */
-  fun finishCustomTestSuiteRun(runId: Long, result: CustomTestSuiteRunResult) {
-    entClient.withTransaction { tx ->
-      val run = lockRunForCompletion(tx, runId)
-      val cases = loadRunCases(tx, run.id)
-      val caseResults = completeCaseResults(cases, result)
+  fun claimNextQueuedCustomRun(): CustomTestSuiteRun? = entClient.withTransaction { tx ->
+    val run = tx.customTestSuiteRuns.indexes.status(CustomTestSuiteRunStatus.QUEUED).query {
+      orderBy(CustomTestSuiteRun.createdAt.asc())
+      orderBy(CustomTestSuiteRun.id.asc())
+    }
+      .forUpdate()
+      .firstOrNull(ExecutionAccess.context)
+      .getOrThrow()
+      ?: return@withTransaction null
 
-      tx.customTestSuiteRuns.update(runId) {
-        status = CustomTestSuiteRunStatus.FINISHED
-        outcome = result.outcome
-        passedCases = caseResults.count { it.outcome == TestCaseOutcome.PASSED }
-        this.caseResults = JsonArray(caseResults.map { it.toJson() })
-        runtimeMs = result.runtimeMs
-        publicErrorMessage = customTestSuiteRunErrorMessage(result.outcome)
-        finishedAt = Instant.now()
+    tx.customTestSuiteRuns.update(run.id) {
+      status = CustomTestSuiteRunStatus.RUNNING
+      startedAt = Instant.now()
+    }.saveAndLoad(ExecutionAccess.context).getOrThrow()
+  }.getOrThrow()
+
+  fun loadCustomInputs(runId: Long): List<JsonElement> =
+    entClient.customTestCases.indexes.customTestSuiteRunId(runId).query {
+      orderBy(CustomTestCase.position.asc())
+    }.all(ExecutionAccess.context).getOrThrow().map { it.inputJson }
+
+  /** Saves all answers and the ready job together; a failed write leaves the run unprepared. */
+  fun saveExpectedOutputsAndEnqueueGradingJob(runId: Long, expectedOutputs: List<JsonElement>) {
+    entClient.withTransaction { tx ->
+      val run = lockRunningCustomRun(tx, runId)
+      val cases = loadRunCases(tx, runId)
+
+      check(cases.isNotEmpty() && cases.size == expectedOutputs.size) { "Expected outputs must match every custom input" }
+      check(cases.all { it.expectedOutputJson == null }) { "Custom inputs are already prepared" }
+
+      cases.forEachIndexed { index, testCase ->
+        tx.customTestCases.update(testCase.id) {
+          expectedOutputJson = expectedOutputs[index]
+        }.save(ExecutionAccess.context).getOrThrow()
+      }
+
+      tx.gradingJobs.create {
+        customTestSuiteRunId = run.id
+        problemLanguageId = run.problemLanguageId
+        sourceCode = run.sourceCode
+        this.cases = cases.mapIndexed { index, testCase ->
+          GradingCase(testCase.id, testCase.inputJson, expectedOutputs[index])
+        }
       }.save(ExecutionAccess.context).getOrThrow()
     }.getOrThrow()
   }
 
-  private fun lockRunForCompletion(tx: EntTransactionClient, runId: Long): CustomTestSuiteRun {
+  /** Startup recovery only; a custom run with a job has completed reference preparation. */
+  fun finishInterruptedCustomPreparations() {
+    val runs = entClient.customTestSuiteRuns.indexes.status(CustomTestSuiteRunStatus.RUNNING).query {
+      loadGradingJob()
+    }.all(ExecutionAccess.context).getOrThrow()
+
+    for (run in runs) {
+      if (run.edges.gradingJob.requireLoaded() != null) {
+        continue
+      }
+
+      finishInterruptedCustomPreparation(run.id)
+    }
+  }
+
+  /** Recovers one preparation owned by this scheduler after an uncertain write. */
+  fun finishInterruptedCustomPreparation(runId: Long) {
+    entClient.withTransaction { tx ->
+      val run = tx.customTestSuiteRuns.query { where(CustomTestSuiteRun.id eq runId) }
+        .forUpdate()
+        .firstOrNull(ExecutionAccess.context)
+        .getOrThrow() ?: return@withTransaction
+
+      if (run.status != CustomTestSuiteRunStatus.RUNNING) {
+        return@withTransaction
+      }
+
+      val job = tx.gradingJobs.indexes.customTestSuiteRunId(runId).query()
+        .firstOrNull(ExecutionAccess.context).getOrThrow()
+      if (job != null) {
+        return@withTransaction
+      }
+
+      finishCustomTestSuiteRun(tx, runId, CustomTestSuiteRunResult(CustomTestSuiteRunOutcome.INTERNAL_ERROR))
+    }.getOrThrow()
+  }
+
+  /** Saves one summary and one result array; missing case results become NOT_RUN. */
+  fun finishCustomTestSuiteRun(runId: Long, result: CustomTestSuiteRunResult) {
+    entClient.withTransaction { tx ->
+      finishCustomTestSuiteRun(tx, runId, result)
+    }.getOrThrow()
+  }
+
+  /** Joins job completion so retaining all custom results and deleting the job are atomic. */
+  internal fun finishCustomTestSuiteRun(tx: EntTransactionClient, runId: Long, result: CustomTestSuiteRunResult) {
+    val run = lockRunningCustomRun(tx, runId)
+    val cases = loadRunCases(tx, run.id)
+    val caseResults = completeCaseResults(cases, result)
+
+    tx.customTestSuiteRuns.update(runId) {
+      status = CustomTestSuiteRunStatus.FINISHED
+      outcome = result.outcome
+      passedCases = caseResults.count { it.outcome == TestCaseOutcome.PASSED }
+      this.caseResults = JsonArray(caseResults.map { it.toJson() })
+      runtimeMs = result.runtimeMs
+      publicErrorMessage = customTestSuiteRunErrorMessage(result.outcome)
+      finishedAt = Instant.now()
+    }.save(ExecutionAccess.context).getOrThrow()
+  }
+
+  private fun lockRunningCustomRun(tx: EntTransactionClient, runId: Long): CustomTestSuiteRun {
     val run = tx.customTestSuiteRuns.query { where(CustomTestSuiteRun.id eq runId) }
       .forUpdate()
       .firstOrNull(ExecutionAccess.context)

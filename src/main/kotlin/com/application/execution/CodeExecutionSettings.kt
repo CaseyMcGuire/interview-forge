@@ -1,6 +1,6 @@
 package com.application.execution
 
-class GradingExecutionSettings(
+class CodeExecutionSettings(
   val runtime: String,
   val program: PreparedProgram,
   val timeLimitMs: Int,

@@ -1,52 +1,34 @@
 package com.application.execution
 
-import com.application.config.ExecutionProperties
 import com.application.ent.GradingJob
+import com.application.services.CodeExecutionSettingsService
 import com.application.services.GradingJobService
 import org.slf4j.LoggerFactory
-import org.springframework.boot.context.event.ApplicationReadyEvent
-import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
-/** Processes one persisted job at a time, keeping compilation and execution outside database transactions. */
+/** Grades ready jobs for official submissions and custom runs. */
 @Component
-class GradingJobScheduler(
+class GradingScheduler(
   private val gradingJobService: GradingJobService,
+  private val settingsService: CodeExecutionSettingsService,
   private val codeGrader: CodeGrader,
-  private val executionService: CodeExecutionService,
-  private val properties: ExecutionProperties,
+  private val startup: ExecutionStartup,
 ) {
   private val logger = LoggerFactory.getLogger(javaClass)
-  private var initialized = false
-
-  @Volatile
-  private var applicationReady = false
-
-  @EventListener(ApplicationReadyEvent::class)
-  fun onApplicationReady() {
-    applicationReady = true
-  }
+  // Retain this claim if its final write fails, even when the commit outcome is unknown.
+  private var unfinishedJobId: Long? = null
 
   @Scheduled(fixedDelay = 1_000)
   @Synchronized
   fun processQueuedGradingJobs() {
-    if (!applicationReady || !properties.workerEnabled || properties.runtimes.isEmpty()) {
-      return
-    }
-
     try {
-      if (properties.runtimes.values.none(executionService::isAvailable)) {
+      if (!startup.workersReady()) {
         return
       }
 
-      recoverInterruptedGradingJobs()
-
-      val job = gradingJobService.claimNextQueuedGradingJob() ?: return
-      val result = gradeClaimedJob(job)
-
-      // A failed final write may have committed. Recover remaining RUNNING jobs on the next tick; never rerun them.
-      gradingJobService.finishGradingJob(job.id, result)
+      recoverPreviousJob()
+      gradeNextJob()
     } catch (interruption: InterruptedException) {
       Thread.currentThread().interrupt()
       throw interruption
@@ -55,18 +37,26 @@ class GradingJobScheduler(
     }
   }
 
-  private fun recoverInterruptedGradingJobs() {
-    if (!initialized) {
-      executionService.cleanUpInterruptedExecutions()
-      initialized = true
-    }
+  private fun recoverPreviousJob() {
+    val id = unfinishedJobId ?: return
+    gradingJobService.failGradingJob(id)
+    unfinishedJobId = null
+  }
 
-    gradingJobService.finishInterruptedGradingJobs()
+  private fun gradeNextJob() {
+    val job = gradingJobService.claimNextQueuedGradingJob() ?: return
+    unfinishedJobId = job.id
+
+    val result = gradeClaimedJob(job)
+
+    // A failed final write may have committed. On the next tick, recover only this job without rerunning it.
+    gradingJobService.finishGradingJob(job.id, result)
+    unfinishedJobId = null
   }
 
   private fun gradeClaimedJob(job: GradingJob): GradingResult {
     try {
-      val settings = gradingJobService.loadExecutionSettings(job)
+      val settings = settingsService.loadSubmittedCodeSettings(job.problemLanguageId, job.sourceCode)
 
       return codeGrader.gradeCode(
         executionId = "grading-job-${job.id}",
@@ -92,6 +82,7 @@ class GradingJobScheduler(
   private fun finishInterruptedGradingJob(jobId: Long) {
     try {
       gradingJobService.failGradingJob(jobId)
+      unfinishedJobId = null
     } finally {
       Thread.currentThread().interrupt()
     }

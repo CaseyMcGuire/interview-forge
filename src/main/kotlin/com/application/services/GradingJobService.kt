@@ -1,23 +1,19 @@
 package com.application.services
 
-import com.application.config.ExecutionProperties
 import com.application.ent.EntClient
 import com.application.ent.EntTransactionClient
 import com.application.ent.GradingJob
-import com.application.execution.GradingExecutionSettings
+import com.application.execution.CustomTestCaseResult
+import com.application.execution.CustomTestSuiteRunResult
 import com.application.execution.GradingOutcome
 import com.application.execution.GradingResult
-import com.application.execution.LanguageExecutionConfig
 import com.application.execution.TestCaseGradingResult
 import com.application.execution.TestCaseOutcome
+import com.application.schema.CustomTestSuiteRunOutcome
+import com.application.schema.CustomTestSuiteRunStatus
 import com.application.schema.GradingJobStatus
-import com.application.schema.ProblemCheckerKind
 import com.application.schema.SubmissionStatus
 import com.application.security.ExecutionAccess
-import entkt.query.isNull
-import entkt.runtime.driver.IsolationLevel
-import entkt.runtime.privacy.Viewer
-import entkt.runtime.privacy.ViewerContext
 import org.springframework.stereotype.Service
 import java.time.Instant
 
@@ -26,16 +22,10 @@ import java.time.Instant
 class GradingJobService(
   private val entClient: EntClient,
   private val submissionService: SubmissionService,
-  private val properties: ExecutionProperties,
-  languageExecutionConfigs: List<LanguageExecutionConfig>,
+  private val customRunService: CustomTestSuiteRunService,
 ) {
-  private val languageConfigurations = languageExecutionConfigs.associateBy { it.key }
-  private val publicContext = ViewerContext(Viewer.Anonymous)
-
   fun claimNextQueuedGradingJob(): GradingJob? = entClient.withTransaction { tx ->
     val job = tx.gradingJobs.indexes.status(GradingJobStatus.QUEUED).query {
-      // Custom jobs join this worker when reference preparation and result routing are implemented.
-      where(GradingJob.customTestSuiteRunId.isNull())
       orderBy(GradingJob.createdAt.asc())
       orderBy(GradingJob.id.asc())
     }
@@ -44,16 +34,8 @@ class GradingJobService(
       .getOrThrow()
       ?: return@withTransaction null
 
-    val submissionId = checkNotNull(job.submissionId)
-    val submission = tx.submissions.findById(ExecutionAccess.context, submissionId)
-      .getOrThrow() ?: error("Submission is missing")
-    check(submission.status == SubmissionStatus.QUEUED) { "Submission is not queued" }
-
     val startedAt = Instant.now()
-    tx.submissions.update(submissionId) {
-      status = SubmissionStatus.RUNNING
-      this.startedAt = startedAt
-    }.save(ExecutionAccess.context).getOrThrow()
+    startJobAttempt(tx, job, startedAt)
 
     tx.gradingJobs.update(job.id) {
       status = GradingJobStatus.RUNNING
@@ -61,45 +43,17 @@ class GradingJobService(
     }.saveAndLoad(ExecutionAccess.context).getOrThrow()
   }.getOrThrow()
 
-  /** Reads current judge/runtime settings; the source and selected cases come from the claimed job. */
-  fun loadExecutionSettings(job: GradingJob): GradingExecutionSettings =
-    entClient.withTransaction(IsolationLevel.RepeatableRead) { tx ->
-      val configuration = tx.problemLanguages.findById(publicContext, job.problemLanguageId)
-        .getOrThrow() ?: error("Problem language is unavailable")
-
-      val language = tx.languages.findById(publicContext, configuration.languageId)
-        .getOrThrow() ?: error("Language is unavailable")
-
-      val problem = tx.problems.findById(publicContext, configuration.problemId)
-        .getOrThrow() ?: error("Problem is unavailable")
-      check(problem.checkerKind == ProblemCheckerKind.EXACT_JSON) { "Unsupported checker" }
-
-      val judge = tx.judgeConfigurations.indexes.problemLanguageId(configuration.id)
-        .find(ExecutionAccess.context)
-        .getOrThrow() ?: error("Judge is unavailable")
-
-      val languageConfiguration = languageConfigurations[language.key] ?: error("Unsupported language")
-      val runtime = properties.runtimes[language.key]?.takeIf { it.isNotBlank() }
-        ?: error("Runtime is unavailable")
-
-      GradingExecutionSettings(
-        runtime = runtime,
-        program = languageConfiguration.prepare(job.sourceCode, judge.testDriverCode),
-        timeLimitMs = judge.timeLimitMs,
-        memoryLimitMb = judge.memoryLimitMb,
-      )
-    }.getOrThrow()
-
   fun finishGradingJob(jobId: Long, result: GradingResult) {
     entClient.withTransaction { tx ->
-      val job = lockRunningGradingJob(tx, jobId)
+      val job = lockRunningGradingJob(tx, jobId) ?: error("Grading job is missing")
       saveResultAndDeleteJob(tx, job, result)
     }.getOrThrow()
   }
 
   fun failGradingJob(jobId: Long) {
     entClient.withTransaction { tx ->
-      val job = lockRunningGradingJob(tx, jobId)
+      // An uncertain completion may already have saved the result and removed the job.
+      val job = lockRunningGradingJob(tx, jobId) ?: return@withTransaction
       val result = GradingResult(
         outcome = GradingOutcome.INTERNAL_ERROR,
         caseResults = job.cases.map { TestCaseGradingResult(TestCaseOutcome.NOT_RUN) },
@@ -109,33 +63,95 @@ class GradingJobService(
     }.getOrThrow()
   }
 
-  /** Called between jobs after Docker cleanup; this recovery assumes one worker for the database. */
+  /** Called during startup, after Docker cleanup and before either execution scheduler claims work. */
   fun finishInterruptedGradingJobs() {
-    val interrupted = entClient.gradingJobs.indexes.status(GradingJobStatus.RUNNING).query {
-      where(GradingJob.customTestSuiteRunId.isNull())
-    }.all(ExecutionAccess.context).getOrThrow()
+    val interrupted = entClient.gradingJobs.indexes.status(GradingJobStatus.RUNNING).query()
+      .all(ExecutionAccess.context).getOrThrow()
 
     for (job in interrupted) {
       failGradingJob(job.id)
     }
   }
 
-  private fun lockRunningGradingJob(tx: EntTransactionClient, jobId: Long): GradingJob {
+  private fun lockRunningGradingJob(tx: EntTransactionClient, jobId: Long): GradingJob? {
     // Completion needs a row lock, which findById does not provide.
     val job = tx.gradingJobs.query { where(GradingJob.id eq jobId) }
       .forUpdate()
       .firstOrNull(ExecutionAccess.context)
       .getOrThrow()
-      ?: error("Grading job is missing")
+      ?: return null
 
     check(job.status == GradingJobStatus.RUNNING) { "Grading job is not running" }
     return job
   }
 
+  private fun startJobAttempt(tx: EntTransactionClient, job: GradingJob, startedAt: Instant) {
+    val submissionId = job.submissionId
+    val customRunId = job.customTestSuiteRunId
+
+    when {
+      submissionId != null -> startQueuedSubmission(tx, submissionId, startedAt)
+      customRunId != null -> checkCustomRunIsRunning(tx, customRunId)
+      else -> error("Grading job has no result destination")
+    }
+  }
+
+  private fun startQueuedSubmission(tx: EntTransactionClient, submissionId: Long, startedAt: Instant) {
+    val submission = tx.submissions.findById(ExecutionAccess.context, submissionId)
+      .getOrThrow() ?: error("Submission is missing")
+
+    check(submission.status == SubmissionStatus.QUEUED) { "Submission is not queued" }
+
+    tx.submissions.update(submissionId) {
+      status = SubmissionStatus.RUNNING
+      this.startedAt = startedAt
+    }.save(ExecutionAccess.context).getOrThrow()
+  }
+
+  private fun checkCustomRunIsRunning(tx: EntTransactionClient, customRunId: Long) {
+    val run = tx.customTestSuiteRuns.findById(ExecutionAccess.context, customRunId)
+      .getOrThrow() ?: error("Custom test suite run is missing")
+
+    // Preparation already started this attempt; preserve its original start time.
+    check(run.status == CustomTestSuiteRunStatus.RUNNING) { "Custom test suite run is not running" }
+  }
+
   private fun saveResultAndDeleteJob(tx: EntTransactionClient, job: GradingJob, result: GradingResult) {
-    val submissionId = checkNotNull(job.submissionId) { "Custom grading is not implemented yet" }
-    submissionService.finishSubmission(tx, submissionId, job.cases, result)
+    val submissionId = job.submissionId
+    val customRunId = job.customTestSuiteRunId
+
+    check(result.caseResults.size == job.cases.size) { "Grading results must match the selected cases" }
+
+    when {
+      submissionId != null -> submissionService.finishSubmission(tx, submissionId, job.cases, result)
+      customRunId != null -> customRunService.finishCustomTestSuiteRun(tx, customRunId, mapCustomRunResult(job, result))
+      else -> error("Grading job has no result destination")
+    }
 
     tx.gradingJobs.deleteById(ExecutionAccess.context, job.id).getOrThrow()
+  }
+
+  private fun mapCustomRunResult(job: GradingJob, result: GradingResult) = CustomTestSuiteRunResult(
+    outcome = result.outcome.toCustomRunOutcome(),
+    caseResults = result.caseResults.mapIndexed { index, caseResult ->
+      CustomTestCaseResult(
+        testCaseId = job.cases[index].testCaseId,
+        outcome = caseResult.outcome,
+        output = caseResult.execution?.stdout.orEmpty(),
+      )
+    },
+    runtimeMs = result.runtimeMs,
+  )
+
+  private fun GradingOutcome.toCustomRunOutcome(): CustomTestSuiteRunOutcome = when (this) {
+    GradingOutcome.PASSED -> CustomTestSuiteRunOutcome.PASSED
+    GradingOutcome.COMPILE_ERROR -> CustomTestSuiteRunOutcome.COMPILE_ERROR
+    GradingOutcome.WRONG_ANSWER -> CustomTestSuiteRunOutcome.WRONG_ANSWER
+    GradingOutcome.INVALID_OUTPUT -> CustomTestSuiteRunOutcome.INVALID_OUTPUT
+    GradingOutcome.RUNTIME_ERROR -> CustomTestSuiteRunOutcome.RUNTIME_ERROR
+    GradingOutcome.TIME_LIMIT_EXCEEDED -> CustomTestSuiteRunOutcome.TIME_LIMIT_EXCEEDED
+    GradingOutcome.MEMORY_LIMIT_EXCEEDED -> CustomTestSuiteRunOutcome.MEMORY_LIMIT_EXCEEDED
+    GradingOutcome.OUTPUT_LIMIT_EXCEEDED -> CustomTestSuiteRunOutcome.OUTPUT_LIMIT_EXCEEDED
+    GradingOutcome.INTERNAL_ERROR -> CustomTestSuiteRunOutcome.INTERNAL_ERROR
   }
 }
