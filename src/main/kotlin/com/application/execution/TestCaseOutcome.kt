@@ -1,0 +1,13 @@
+package com.application.execution
+
+enum class TestCaseOutcome {
+  PASSED,
+  WRONG_ANSWER,
+  INVALID_OUTPUT,
+  RUNTIME_ERROR,
+  TIME_LIMIT_EXCEEDED,
+  MEMORY_LIMIT_EXCEEDED,
+  OUTPUT_LIMIT_EXCEEDED,
+  INTERNAL_ERROR,
+  NOT_RUN,
+}

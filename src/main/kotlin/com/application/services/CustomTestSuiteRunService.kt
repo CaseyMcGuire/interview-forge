@@ -5,6 +5,12 @@ import com.application.ent.CustomTestCase
 import com.application.ent.CustomTestSuiteRun
 import com.application.ent.EntClient
 import com.application.ent.EntTransactionClient
+import com.application.execution.CustomTestCaseResult
+import com.application.execution.CustomTestSuiteRunResult
+import com.application.execution.TestCaseOutcome
+import com.application.execution.customTestSuiteRunErrorMessage
+import com.application.schema.CustomTestSuiteRunOutcome
+import com.application.schema.CustomTestSuiteRunStatus
 import com.application.security.CurrentUser
 import com.application.security.ExecutionAccess
 import entkt.runtime.driver.IsolationLevel
@@ -13,6 +19,7 @@ import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntValidationException
 import entkt.runtime.result.visibleOrNull
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import org.springframework.stereotype.Service
 import tools.jackson.core.JacksonException
@@ -168,5 +175,67 @@ class CustomTestSuiteRunService(
         loadCases { orderBy(CustomTestCase.position.asc()) }
       }.firstOrNull(viewer).visibleOrNull().getOrThrow()
     }.getOrThrow()
+  }
+
+  /** Saves one summary and one result array; missing case results become NOT_RUN. */
+  fun finishCustomTestSuiteRun(runId: Long, result: CustomTestSuiteRunResult) {
+    entClient.withTransaction { tx ->
+      val run = lockRunForCompletion(tx, runId)
+      val cases = loadRunCases(tx, run.id)
+      val caseResults = completeCaseResults(cases, result)
+
+      tx.customTestSuiteRuns.update(runId) {
+        status = CustomTestSuiteRunStatus.FINISHED
+        outcome = result.outcome
+        passedCases = caseResults.count { it.outcome == TestCaseOutcome.PASSED }
+        this.caseResults = JsonArray(caseResults.map { it.toJson() })
+        runtimeMs = result.runtimeMs
+        publicErrorMessage = customTestSuiteRunErrorMessage(result.outcome)
+        finishedAt = Instant.now()
+      }.save(ExecutionAccess.context).getOrThrow()
+    }.getOrThrow()
+  }
+
+  private fun lockRunForCompletion(tx: EntTransactionClient, runId: Long): CustomTestSuiteRun {
+    val run = tx.customTestSuiteRuns.query { where(CustomTestSuiteRun.id eq runId) }
+      .forUpdate()
+      .firstOrNull(ExecutionAccess.context)
+      .getOrThrow()
+      ?: error("Custom test suite run is missing")
+
+    check(run.status == CustomTestSuiteRunStatus.RUNNING) { "Custom test suite run is not running" }
+    return run
+  }
+
+  private fun loadRunCases(tx: EntTransactionClient, runId: Long): List<CustomTestCase> =
+    tx.customTestCases.indexes.customTestSuiteRunId(runId).query {
+      orderBy(CustomTestCase.position.asc())
+    }.all(ExecutionAccess.context).getOrThrow()
+
+  private fun completeCaseResults(
+    cases: List<CustomTestCase>,
+    result: CustomTestSuiteRunResult,
+  ): List<CustomTestCaseResult> {
+    val resultsByCaseId = result.caseResults.associateBy { it.testCaseId }
+    val caseIds = cases.map { it.id }.toSet()
+    check(resultsByCaseId.size == result.caseResults.size) { "Duplicate custom case results" }
+    check(caseIds.containsAll(resultsByCaseId.keys)) { "Results belong to another custom run" }
+    check(result.runtimeMs == null || result.runtimeMs >= 0) { "Invalid custom run duration" }
+
+    val completeResults = cases.map { testCase ->
+      val caseResult = resultsByCaseId[testCase.id]
+        ?: CustomTestCaseResult(testCase.id, TestCaseOutcome.NOT_RUN)
+
+      // PostgreSQL JSONB rejects NUL characters. Retain only bounded user-program output.
+      caseResult.copy(output = caseResult.output.replace('\u0000', '\uFFFD').take(20_000))
+    }
+
+    if (result.outcome == CustomTestSuiteRunOutcome.PASSED) {
+      check(completeResults.isNotEmpty() && completeResults.all { it.outcome == TestCaseOutcome.PASSED }) {
+        "A passing custom run must pass every case"
+      }
+    }
+
+    return completeResults
   }
 }

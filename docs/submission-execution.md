@@ -61,8 +61,8 @@ and the two queue producers into separate reviews:
 - [x] **5. Grading-job storage:** Schema, origin constraints, execution-only access, V15
   migration, EntKt generation, and storage tests. Also consolidates custom suites into
   runs through V16 and updates admission, polling, and ownership.
-- [ ] **6. Custom result storage:** Result payloads, safe messages, finalization,
-  polling mapping, and persistence tests. Reapply the existing storage work from the stash.
+- [x] **6. Custom result storage:** Result payloads, safe messages, finalization,
+  polling mapping, and persistence tests.
 - [ ] **7. Shared grading:** Common grading input/result types, `CodeGrader`, and its
   `CodeExecutionService` contract. Test comparison and execution outcomes with a fake
   execution service, independently of Docker and database access.
@@ -92,6 +92,24 @@ Each custom request already creates a fresh set of inputs for one run, so the se
 problem-language reference, expiration, and cases directly. V16 transfers these fields
 and reparents cases while preserving run and case IDs, retained results, and grading-job
 references. The public GraphQL contract is unchanged.
+
+Stage 6 restores custom result storage from the stash using the run's direct case
+relationship. `CustomTestSuiteRunService.finishCustomTestSuiteRun` locks a running
+attempt and saves its summary and ordered result array together. It rejects duplicate
+or foreign case IDs, invalid durations, incomplete passing results, and attempts to
+finish a queued or already-finished run. Missing case results become `NOT_RUN`.
+
+`CustomTestCaseResult` handles encoding and decoding each stored result, with only
+the case ID, outcome, and user-program output. Output is capped at 20,000 characters
+and NUL characters are replaced for PostgreSQL JSONB compatibility. Public messages
+come from outcome mappings rather than program diagnostics. The polling mapper still
+uses generated DGS types. `TestCaseOutcome` is in its own file; later grading stages
+should reuse it rather than reintroduce the enum from the stashed `TestCaseResult.kt`.
+
+Validation: `./gradlew test --tests '*CustomTestSuiteRunPersistenceIntegrationTest'
+--tests '*CustomTestSuiteRunIntegrationTest'` passed all 19 tests. This stage exercises
+storage and polling with supplied results; runtime execution and job consumption
+remain later stages. No schema or generated-artifact changes are required.
 
 ## Custom test suite admission and polling
 

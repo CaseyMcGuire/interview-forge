@@ -327,6 +327,30 @@ class CustomTestSuiteRunIntegrationTest {
   }
 
   @Test
+  fun `polling derives case error messages from outcomes instead of stored diagnostics`() {
+    val id = assertSuccess(enqueueCustomTestSuiteRun())
+    val run = storedRuns().single()
+    val testCase = storedCases(run.id).single()
+
+    entClient.customTestSuiteRuns.update(run.id) {
+      status = CustomTestSuiteRunStatus.FINISHED
+      outcome = CustomTestSuiteRunOutcome.RUNTIME_ERROR
+      caseResults = buildJsonArray {
+        addJsonObject {
+          put("testCaseId", testCase.id)
+          put("outcome", "RUNTIME_ERROR")
+          put("output", "")
+          put("publicErrorMessage", "private reference diagnostic")
+        }
+      }
+    }.save(ExecutionAccess.context).getOrThrow()
+
+    val polled = poll(id)
+    assertEquals("The solution stopped with an error.", polled["caseResults"][0]["publicErrorMessage"].asString())
+    assertFalse(polled.toString().contains("private reference diagnostic"))
+  }
+
+  @Test
   fun `expired retained runs remain readable until cleanup deletes them`() {
     val run = entClient.customTestSuiteRuns.create {
       userId = this@CustomTestSuiteRunIntegrationTest.userId

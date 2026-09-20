@@ -1,5 +1,7 @@
 package com.application.graphql
 
+import com.application.execution.CustomTestCaseResult
+import com.application.execution.customTestCaseErrorMessage
 import com.application.graphql.types.AuthenticationRequired
 import com.application.graphql.types.CustomTestCase
 import com.application.graphql.types.CustomTestSuiteRun
@@ -25,10 +27,7 @@ import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.InputArgument
 import entkt.runtime.query.requireLoaded
 import entkt.runtime.result.EntValidationException
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 import com.application.ent.CustomTestCase as CustomTestCaseEntity
 import com.application.ent.CustomTestSuiteRun as CustomTestSuiteRunEntity
 import com.application.schema.CustomTestSuiteRunStatus as StoredRunStatus
@@ -105,8 +104,8 @@ class CustomTestSuiteRunDataFetcher(
     val results = run.caseResults ?: return null
     val cases = run.edges.cases.requireLoaded()
     val resultsByCaseId = results.associate { result ->
-      val fields = result.jsonObject
-      fields.getValue("testCaseId").jsonPrimitive.long to fields
+      val caseResult = CustomTestCaseResult.fromJson(result.jsonObject)
+      caseResult.testCaseId to caseResult
     }
 
     check(resultsByCaseId.size == cases.size && results.size == cases.size) { "Incomplete custom case results" }
@@ -116,9 +115,9 @@ class CustomTestSuiteRunDataFetcher(
 
       CustomTestSuiteRunCaseResult(
         testCase = toGraphqlTestCase(testCase),
-        outcome = CustomTestSuiteRunCaseOutcome.valueOf(result.getValue("outcome").jsonPrimitive.content),
-        output = result.getValue("output").jsonPrimitive.content.take(20_000),
-        publicErrorMessage = result["publicErrorMessage"]?.jsonPrimitive?.contentOrNull?.take(20_000),
+        outcome = CustomTestSuiteRunCaseOutcome.valueOf(result.outcome.name),
+        output = result.output.take(20_000),
+        publicErrorMessage = customTestCaseErrorMessage(result.outcome),
       )
     }
   }
