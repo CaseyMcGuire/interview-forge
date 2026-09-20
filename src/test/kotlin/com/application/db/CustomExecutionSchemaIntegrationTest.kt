@@ -1,10 +1,10 @@
 package com.application.db
 
 import com.application.ent.CustomTestCase
-import com.application.ent.CustomTestSuiteRun
+import com.application.ent.CustomInputSubmission
 import com.application.ent.EntClient
-import com.application.schema.CustomTestSuiteRunOutcome
-import com.application.schema.CustomTestSuiteRunStatus
+import com.application.schema.CustomInputSubmissionOutcome
+import com.application.schema.CustomInputSubmissionStatus
 import com.application.schema.ProblemDifficulty
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
@@ -72,7 +72,7 @@ class CustomExecutionSchemaIntegrationTest {
 
   @Test
   fun `ordered cases distinguish missing expectations from prepared JSON null`() {
-    val run = createRun(2)
+    val run = createCustomInputSubmission(2)
     val second = createCase(run, 1)
     val first = createCase(run, 0)
 
@@ -80,8 +80,8 @@ class CustomExecutionSchemaIntegrationTest {
       expectedOutputJson = JsonNull
     }.save(fixtures).getOrThrow()
 
-    val stored = entClient.customTestSuiteRuns.query {
-      where(CustomTestSuiteRun.id eq run.id)
+    val stored = entClient.customInputSubmissions.query {
+      where(CustomInputSubmission.id eq run.id)
       loadCases { orderBy(CustomTestCase.position.asc()) }
     }.firstOrNull(fixtures).getOrThrow()!!
     val cases = stored.edges.cases.requireLoaded()
@@ -96,11 +96,11 @@ class CustomExecutionSchemaIntegrationTest {
 
   @Test
   fun `one run retains all case results as a JSON array`() {
-    val run = createRun(2)
+    val run = createCustomInputSubmission(2)
     val first = createCase(run, 0)
     val second = createCase(run, 1)
 
-    assertEquals(CustomTestSuiteRunStatus.QUEUED, run.status)
+    assertEquals(CustomInputSubmissionStatus.QUEUED, run.status)
     assertEquals(0, run.passedCases)
     assertNull(run.outcome)
     assertNull(run.caseResults)
@@ -118,38 +118,38 @@ class CustomExecutionSchemaIntegrationTest {
       }
     }
 
-    entClient.customTestSuiteRuns.update(run.id) {
-      status = CustomTestSuiteRunStatus.FINISHED
-      outcome = CustomTestSuiteRunOutcome.WRONG_ANSWER
+    entClient.customInputSubmissions.update(run.id) {
+      status = CustomInputSubmissionStatus.FINISHED
+      outcome = CustomInputSubmissionOutcome.WRONG_ANSWER
       passedCases = 1
       caseResults = results
       startedAt = Instant.now().minusSeconds(1)
       finishedAt = Instant.now()
     }.save(fixtures).getOrThrow()
 
-    val stored = entClient.customTestSuiteRuns.findById(fixtures, run.id)
+    val stored = entClient.customInputSubmissions.findById(fixtures, run.id)
       .getOrThrow()!!
 
     assertEquals(run.id, stored.id)
     assertEquals(results, stored.caseResults)
-    assertEquals(CustomTestSuiteRunOutcome.WRONG_ANSWER, stored.outcome)
+    assertEquals(CustomInputSubmissionOutcome.WRONG_ANSWER, stored.outcome)
     assertEquals(1, stored.passedCases)
     assertNotNull(stored.finishedAt)
   }
 
   @Test
   fun `case positions are unique within a run`() {
-    val run = createRun(1)
+    val run = createCustomInputSubmission(1)
     val first = createCase(run, 0)
-    val otherRun = createRun(1)
+    val otherRun = createCustomInputSubmission(1)
     createCase(otherRun, 0)
 
     val duplicate = assertThrows(EntConstraintViolationException::class.java) {
       createCase(run, 0)
     }
-    assertEquals("uq_custom_test_cases_run_position", duplicate.constraint)
+    assertEquals("uq_custom_test_cases_submission_position", duplicate.constraint)
 
-    val retained = entClient.customTestCases.indexes.customTestSuiteRunId(run.id)
+    val retained = entClient.customTestCases.indexes.customInputSubmissionId(run.id)
       .position(0)
       .find(fixtures)
       .getOrThrow()
@@ -158,29 +158,29 @@ class CustomExecutionSchemaIntegrationTest {
 
   @Test
   fun `deleting a run cascades to its cases without affecting another run`() {
-    val run = createRun(1)
+    val run = createCustomInputSubmission(1)
     val testCase = createCase(run, 0)
-    val otherRun = createRun(1)
+    val otherRun = createCustomInputSubmission(1)
     val otherCase = createCase(otherRun, 0)
 
-    entClient.customTestSuiteRuns.deleteById(fixtures, run.id).getOrThrow()
+    entClient.customInputSubmissions.deleteById(fixtures, run.id).getOrThrow()
 
     assertNull(entClient.customTestCases.findById(fixtures, testCase.id).getOrThrow())
-    assertNull(entClient.customTestSuiteRuns.findById(fixtures, run.id).getOrThrow())
+    assertNull(entClient.customInputSubmissions.findById(fixtures, run.id).getOrThrow())
     assertNotNull(entClient.customTestCases.findById(fixtures, otherCase.id).getOrThrow())
-    assertNotNull(entClient.customTestSuiteRuns.findById(fixtures, otherRun.id).getOrThrow())
+    assertNotNull(entClient.customInputSubmissions.findById(fixtures, otherRun.id).getOrThrow())
   }
 
   @Test
   fun `a retained run prevents deleting its language configuration`() {
-    val run = createRun(1)
+    val run = createCustomInputSubmission(1)
 
     val referenced = assertThrows(EntConstraintViolationException::class.java) {
       entClient.problemLanguages.deleteById(fixtures, configurationId).getOrThrow()
     }
-    assertEquals("fk_custom_test_suite_runs_problem_language_id", referenced.constraint)
+    assertEquals("fk_custom_input_submissions_problem_language_id", referenced.constraint)
 
-    entClient.customTestSuiteRuns.deleteById(fixtures, run.id).getOrThrow()
+    entClient.customInputSubmissions.deleteById(fixtures, run.id).getOrThrow()
     assertTrue(entClient.problemLanguages.deleteById(fixtures, configurationId).getOrThrow())
   }
 
@@ -214,7 +214,7 @@ class CustomExecutionSchemaIntegrationTest {
 
   @Test
   fun `custom execution data is not publicly readable`() {
-    val run = createRun(1)
+    val run = createCustomInputSubmission(1)
     val testCase = createCase(run, 0)
     val anonymous = ViewerContext(Viewer.Anonymous)
 
@@ -222,17 +222,17 @@ class CustomExecutionSchemaIntegrationTest {
       entClient.customTestCases.findById(anonymous, testCase.id).getOrThrow()
     }
     assertThrows(EntPrivacyDeniedException::class.java) {
-      entClient.customTestSuiteRuns.findById(anonymous, run.id).getOrThrow()
+      entClient.customInputSubmissions.findById(anonymous, run.id).getOrThrow()
     }
   }
 
-  private fun createCase(run: CustomTestSuiteRun, position: Int): CustomTestCase = entClient.customTestCases.create {
-    customTestSuiteRunId = run.id
+  private fun createCase(run: CustomInputSubmission, position: Int): CustomTestCase = entClient.customTestCases.create {
+    customInputSubmissionId = run.id
     this.position = position
     inputJson = JsonPrimitive(position)
   }.saveAndLoad(fixtures).getOrThrow()
 
-  private fun createRun(caseCount: Int): CustomTestSuiteRun = entClient.customTestSuiteRuns.create {
+  private fun createCustomInputSubmission(caseCount: Int): CustomInputSubmission = entClient.customInputSubmissions.create {
     userId = this@CustomExecutionSchemaIntegrationTest.userId
     problemLanguageId = configurationId
     expiresAt = Instant.now().plusSeconds(300)

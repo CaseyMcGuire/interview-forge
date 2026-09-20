@@ -12,11 +12,11 @@ class GradingJobContentValidationRule : GradingJobCreateValidationRule {
     item: GradingJobWriteCandidate,
   ): ValidationDecision {
     when {
-      item.submissionId == null && item.customTestSuiteRunId == null ->
-        return ValidationDecision.Invalid("A grading job must belong to a submission or a custom test suite run")
+      item.problemSubmissionId == null && item.customInputSubmissionId == null ->
+        return ValidationDecision.Invalid("A grading job must belong to a problem submission or a custom input submission")
 
-      item.submissionId != null && item.customTestSuiteRunId != null ->
-        return ValidationDecision.Invalid("A grading job cannot belong to both a submission and a custom test suite run")
+      item.problemSubmissionId != null && item.customInputSubmissionId != null ->
+        return ValidationDecision.Invalid("A grading job cannot belong to both a problem submission and a custom input submission")
 
       item.cases.isEmpty() ->
         return ValidationDecision.Invalid("A grading job must contain at least one case", field = "cases")

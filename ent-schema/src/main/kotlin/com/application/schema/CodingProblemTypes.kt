@@ -20,14 +20,14 @@ enum class TestCaseVisibility {
 }
 
 /** Execution lifecycle, separate from whether the submitted code was correct. */
-enum class SubmissionStatus {
+enum class ProblemSubmissionStatus {
   QUEUED,
   RUNNING,
   FINISHED,
 }
 
 /** Overall result; a finished execution can still have a failing verdict. */
-enum class SubmissionVerdict {
+enum class ProblemSubmissionVerdict {
   PENDING,
   ACCEPTED,
   WRONG_ANSWER,
@@ -41,14 +41,14 @@ enum class SubmissionVerdict {
 }
 
 /** Test origin captured for history and access decisions, even if the original test changes. */
-enum class SubmissionTestSource {
+enum class ProblemSubmissionTestSource {
   EXAMPLE,
   HIDDEN,
   CUSTOM,
 }
 
 /** Per-case result; compile failures belong to the submission and leave cases skipped. */
-enum class SubmissionTestOutcome {
+enum class ProblemSubmissionTestOutcome {
   PENDING,
   PASSED,
   WRONG_ANSWER,

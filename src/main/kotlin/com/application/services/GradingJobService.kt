@@ -4,15 +4,15 @@ import com.application.ent.EntClient
 import com.application.ent.EntTransactionClient
 import com.application.ent.GradingJob
 import com.application.execution.CustomTestCaseResult
-import com.application.execution.CustomTestSuiteRunResult
+import com.application.execution.CustomInputSubmissionResult
 import com.application.execution.GradingOutcome
 import com.application.execution.GradingResult
 import com.application.execution.TestCaseGradingResult
 import com.application.execution.TestCaseOutcome
-import com.application.schema.CustomTestSuiteRunOutcome
-import com.application.schema.CustomTestSuiteRunStatus
+import com.application.schema.CustomInputSubmissionOutcome
+import com.application.schema.CustomInputSubmissionStatus
 import com.application.schema.GradingJobStatus
-import com.application.schema.SubmissionStatus
+import com.application.schema.ProblemSubmissionStatus
 import com.application.security.ExecutionAccess
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -21,8 +21,8 @@ import java.time.Instant
 @Service
 class GradingJobService(
   private val entClient: EntClient,
-  private val submissionService: SubmissionService,
-  private val customRunService: CustomTestSuiteRunService,
+  private val problemSubmissionService: ProblemSubmissionService,
+  private val customInputSubmissionService: CustomInputSubmissionService,
 ) {
   fun claimNextQueuedGradingJob(): GradingJob? = entClient.withTransaction { tx ->
     val job = tx.gradingJobs.indexes.status(GradingJobStatus.QUEUED).query {
@@ -86,53 +86,61 @@ class GradingJobService(
   }
 
   private fun startJobAttempt(tx: EntTransactionClient, job: GradingJob, startedAt: Instant) {
-    val submissionId = job.submissionId
-    val customRunId = job.customTestSuiteRunId
+    val problemSubmissionId = job.problemSubmissionId
+    val customInputSubmissionId = job.customInputSubmissionId
 
     when {
-      submissionId != null -> startQueuedSubmission(tx, submissionId, startedAt)
-      customRunId != null -> checkCustomRunIsRunning(tx, customRunId)
+      problemSubmissionId != null -> startQueuedProblemSubmission(tx, problemSubmissionId, startedAt)
+      customInputSubmissionId != null -> checkCustomInputSubmissionIsRunning(tx, customInputSubmissionId)
       else -> error("Grading job has no result destination")
     }
   }
 
-  private fun startQueuedSubmission(tx: EntTransactionClient, submissionId: Long, startedAt: Instant) {
-    val submission = tx.submissions.findById(ExecutionAccess.context, submissionId)
-      .getOrThrow() ?: error("Submission is missing")
+  private fun startQueuedProblemSubmission(tx: EntTransactionClient, problemSubmissionId: Long, startedAt: Instant) {
+    val problemSubmission = tx.problemSubmissions.findById(ExecutionAccess.context, problemSubmissionId)
+      .getOrThrow() ?: error("Problem submission is missing")
 
-    check(submission.status == SubmissionStatus.QUEUED) { "Submission is not queued" }
+    check(problemSubmission.status == ProblemSubmissionStatus.QUEUED) { "Problem submission is not queued" }
 
-    tx.submissions.update(submissionId) {
-      status = SubmissionStatus.RUNNING
+    tx.problemSubmissions.update(problemSubmissionId) {
+      status = ProblemSubmissionStatus.RUNNING
       this.startedAt = startedAt
     }.save(ExecutionAccess.context).getOrThrow()
   }
 
-  private fun checkCustomRunIsRunning(tx: EntTransactionClient, customRunId: Long) {
-    val run = tx.customTestSuiteRuns.findById(ExecutionAccess.context, customRunId)
-      .getOrThrow() ?: error("Custom test suite run is missing")
+  private fun checkCustomInputSubmissionIsRunning(tx: EntTransactionClient, customInputSubmissionId: Long) {
+    val customInputSubmission = tx.customInputSubmissions.findById(ExecutionAccess.context, customInputSubmissionId)
+      .getOrThrow() ?: error("Custom input submission is missing")
 
     // Preparation already started this attempt; preserve its original start time.
-    check(run.status == CustomTestSuiteRunStatus.RUNNING) { "Custom test suite run is not running" }
+    check(customInputSubmission.status == CustomInputSubmissionStatus.RUNNING) {
+      "Custom input submission is not running"
+    }
   }
 
   private fun saveResultAndDeleteJob(tx: EntTransactionClient, job: GradingJob, result: GradingResult) {
-    val submissionId = job.submissionId
-    val customRunId = job.customTestSuiteRunId
+    val problemSubmissionId = job.problemSubmissionId
+    val customInputSubmissionId = job.customInputSubmissionId
 
     check(result.caseResults.size == job.cases.size) { "Grading results must match the selected cases" }
 
     when {
-      submissionId != null -> submissionService.finishSubmission(tx, submissionId, job.cases, result)
-      customRunId != null -> customRunService.finishCustomTestSuiteRun(tx, customRunId, mapCustomRunResult(job, result))
+      problemSubmissionId != null -> problemSubmissionService.finishProblemSubmission(
+        tx, problemSubmissionId, job.cases, result,
+      )
+
+      customInputSubmissionId != null -> customInputSubmissionService.finishCustomInputSubmission(
+        tx, customInputSubmissionId, mapCustomInputSubmissionResult(job, result),
+      )
+
       else -> error("Grading job has no result destination")
     }
 
     tx.gradingJobs.deleteById(ExecutionAccess.context, job.id).getOrThrow()
   }
 
-  private fun mapCustomRunResult(job: GradingJob, result: GradingResult) = CustomTestSuiteRunResult(
-    outcome = result.outcome.toCustomRunOutcome(),
+  private fun mapCustomInputSubmissionResult(job: GradingJob, result: GradingResult) = CustomInputSubmissionResult(
+    outcome = result.outcome.toCustomInputSubmissionOutcome(),
     caseResults = result.caseResults.mapIndexed { index, caseResult ->
       CustomTestCaseResult(
         testCaseId = job.cases[index].testCaseId,
@@ -143,15 +151,15 @@ class GradingJobService(
     runtimeMs = result.runtimeMs,
   )
 
-  private fun GradingOutcome.toCustomRunOutcome(): CustomTestSuiteRunOutcome = when (this) {
-    GradingOutcome.PASSED -> CustomTestSuiteRunOutcome.PASSED
-    GradingOutcome.COMPILE_ERROR -> CustomTestSuiteRunOutcome.COMPILE_ERROR
-    GradingOutcome.WRONG_ANSWER -> CustomTestSuiteRunOutcome.WRONG_ANSWER
-    GradingOutcome.INVALID_OUTPUT -> CustomTestSuiteRunOutcome.INVALID_OUTPUT
-    GradingOutcome.RUNTIME_ERROR -> CustomTestSuiteRunOutcome.RUNTIME_ERROR
-    GradingOutcome.TIME_LIMIT_EXCEEDED -> CustomTestSuiteRunOutcome.TIME_LIMIT_EXCEEDED
-    GradingOutcome.MEMORY_LIMIT_EXCEEDED -> CustomTestSuiteRunOutcome.MEMORY_LIMIT_EXCEEDED
-    GradingOutcome.OUTPUT_LIMIT_EXCEEDED -> CustomTestSuiteRunOutcome.OUTPUT_LIMIT_EXCEEDED
-    GradingOutcome.INTERNAL_ERROR -> CustomTestSuiteRunOutcome.INTERNAL_ERROR
+  private fun GradingOutcome.toCustomInputSubmissionOutcome(): CustomInputSubmissionOutcome = when (this) {
+    GradingOutcome.PASSED -> CustomInputSubmissionOutcome.PASSED
+    GradingOutcome.COMPILE_ERROR -> CustomInputSubmissionOutcome.COMPILE_ERROR
+    GradingOutcome.WRONG_ANSWER -> CustomInputSubmissionOutcome.WRONG_ANSWER
+    GradingOutcome.INVALID_OUTPUT -> CustomInputSubmissionOutcome.INVALID_OUTPUT
+    GradingOutcome.RUNTIME_ERROR -> CustomInputSubmissionOutcome.RUNTIME_ERROR
+    GradingOutcome.TIME_LIMIT_EXCEEDED -> CustomInputSubmissionOutcome.TIME_LIMIT_EXCEEDED
+    GradingOutcome.MEMORY_LIMIT_EXCEEDED -> CustomInputSubmissionOutcome.MEMORY_LIMIT_EXCEEDED
+    GradingOutcome.OUTPUT_LIMIT_EXCEEDED -> CustomInputSubmissionOutcome.OUTPUT_LIMIT_EXCEEDED
+    GradingOutcome.INTERNAL_ERROR -> CustomInputSubmissionOutcome.INTERNAL_ERROR
   }
 }

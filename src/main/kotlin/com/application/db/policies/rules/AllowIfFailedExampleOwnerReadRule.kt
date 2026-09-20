@@ -1,38 +1,38 @@
 package com.application.db.policies.rules
 
 import com.application.ent.ReadOnlyEntClient
-import com.application.ent.SubmissionFailure
-import com.application.schema.SubmissionStatus
-import com.application.schema.SubmissionTestOutcome
-import com.application.schema.SubmissionTestSource
+import com.application.ent.ProblemSubmissionFailure
+import com.application.schema.ProblemSubmissionStatus
+import com.application.schema.ProblemSubmissionTestOutcome
+import com.application.schema.ProblemSubmissionTestSource
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRule
 import entkt.runtime.privacy.PrivacyRuleContext
 import entkt.runtime.result.visibleOrNull
 
 /** Uses retained visibility so making a hidden test public never reveals an earlier hidden failure. */
-class AllowIfFailedExampleOwnerReadRule : PrivacyRule<ReadOnlyEntClient, SubmissionFailure> {
-  override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: SubmissionFailure): PrivacyDecision {
-    if (item.source != SubmissionTestSource.EXAMPLE) {
+class AllowIfFailedExampleOwnerReadRule : PrivacyRule<ReadOnlyEntClient, ProblemSubmissionFailure> {
+  override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: ProblemSubmissionFailure): PrivacyDecision {
+    if (item.source != ProblemSubmissionTestSource.EXAMPLE) {
       return PrivacyDecision.Continue
     }
 
     if (item.outcome in listOf(
-      SubmissionTestOutcome.PENDING,
-      SubmissionTestOutcome.PASSED,
-      SubmissionTestOutcome.EXECUTED,
-      SubmissionTestOutcome.SKIPPED,
+      ProblemSubmissionTestOutcome.PENDING,
+      ProblemSubmissionTestOutcome.PASSED,
+      ProblemSubmissionTestOutcome.EXECUTED,
+      ProblemSubmissionTestOutcome.SKIPPED,
     )) {
       return PrivacyDecision.Continue
     }
 
     // The submission's policy enforces authenticated ownership.
-    val submission = context.client.submissions.findById(context.viewerContext, item.submissionId)
+    val problemSubmission = context.client.problemSubmissions.findById(context.viewerContext, item.problemSubmissionId)
       .visibleOrNull()
       .getOrThrow()
       ?: return PrivacyDecision.Continue
 
-    if (submission.status != SubmissionStatus.FINISHED) {
+    if (problemSubmission.status != ProblemSubmissionStatus.FINISHED) {
       return PrivacyDecision.Continue
     }
 

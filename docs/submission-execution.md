@@ -9,9 +9,9 @@ The failed-example API is reviewed and committed.
 ## Current scope
 
 `submitSolution` accepts a problem-language ID and source code. It creates a persisted
-official attempt and returns its ID and current summary. `submission(id)` polls an official
+official attempt and returns its ID and current summary. `problemSubmission(id)` polls an official
 submission owned by the authenticated user, including after refresh or problem archival.
-Custom requests use the separate persisted `enqueueCustomTestSuiteRun` and `customTestSuiteRun` API below.
+Custom requests use the separate persisted `enqueueCustomInputSubmission` and `customInputSubmission` API below.
 
 Official admission selects the problem's ordered examples and hidden tests and saves their
 inputs, expected answers, IDs, and visibility in a grading job alongside the submission.
@@ -21,6 +21,50 @@ custom-Run limit of twenty cases does not apply to official submissions.
 Custom-run admission, owner polling, and result storage are reviewed and committed.
 Stage 10 adds asynchronous reference preparation and shared grading and is reviewed and committed.
 Expiration cleanup and frontend integration remain later stages.
+
+## Submission naming review
+
+`ProblemSubmission` is a candidate solution submitted against the problem's tests for an
+acceptance decision. `CustomInputSubmission` submits code with user-selected inputs for
+per-case feedback. Both continue through the shared grader; retention and execution behavior
+are unchanged.
+
+The polling fields are `problemSubmission(id)` and `customInputSubmission(id)`.
+`submitSolution` retains its action name and returns `SubmitSolutionSuccess.problemSubmission`;
+custom admission is `enqueueCustomInputSubmission`, returning `customInputSubmissionId`.
+The React polling hook, result components, and Relay artifacts use the corresponding names.
+
+V17 renames the tables, sequences, foreign-key columns, constraints, and indexes in place,
+including the two grading-job origins. Existing database IDs, case results, and relationships
+are preserved. Historical migrations remain unchanged. GraphQL global IDs include their type
+name, so IDs issued under the former type names no longer resolve through the renamed API.
+Restart the application after migration and refresh the frontend to use the updated contract.
+
+The preserved stash predates these names. Apply later stages selectively and adapt their old
+`Submission` and `CustomTestSuiteRun` references to the new concepts.
+
+Naming validation passed: `generateEntkt validateEntSchemas flywayMigrate`, backend/test
+compilation, `buildRelay`, and `npm run build` (including TypeScript checking). The 101 focused
+tests below all passed across the initial run and a rerun of the affected API/job tests after
+correcting renamed fixture slugs and retaining the shared capacity property names:
+
+```sh
+./gradlew test \
+  --tests com.application.graphql.ProblemSubmissionIntegrationTest \
+  --tests com.application.graphql.CustomInputSubmissionIntegrationTest \
+  --tests com.application.execution.GradingJobIntegrationTest \
+  --tests com.application.execution.ProblemSubmissionExecutionIntegrationTest \
+  --tests com.application.execution.CustomInputSubmissionExecutionIntegrationTest \
+  --tests com.application.execution.CustomInputSubmissionPersistenceIntegrationTest \
+  --tests com.application.execution.GradingSchedulerTest \
+  --tests com.application.execution.CustomInputSubmissionSchedulerTest \
+  --tests com.application.db.CustomExecutionSchemaIntegrationTest \
+  --tests com.application.config.EntViewerIntegrationTest
+```
+
+The schema-viewer tests assert that the new entity names are present and the former names
+are absent. DGS and EntKt outputs remain untracked; Relay artifacts are regenerated under
+`src/main/web-frontend/__generated__/`. No browser checks or full-project test run were performed.
 
 ## Grading-job design and review plan
 
@@ -75,7 +119,9 @@ and the two queue producers into separate reviews:
 - [x] **10. Custom reference preparation:** Claim queued custom runs, generate expected
   outputs asynchronously, and atomically enqueue their grading jobs. Route their grading
   results to custom storage and test preparation failures, recovery, and polling.
-- [ ] **11. Expiration cleanup:** Delete expired custom runs and their cases after execution finishes.
+- [x] **10a. Submission naming:** Rename the models, API, services, and callers to `ProblemSubmission`
+  and `CustomInputSubmission`; migrate existing database names and regenerate artifacts.
+- [ ] **11. Expiration cleanup:** Delete expired custom input submissions and their cases after execution finishes.
 - [ ] **12. Frontend components:** Custom-input editing and per-case result views.
 - [ ] **13. Frontend integration:** Connect enqueue/polling and validate complete flows.
 
@@ -88,13 +134,13 @@ to the job. Access to grading jobs is controlled by the execution-only privacy p
 Stage 9 connects official admission and execution to these jobs.
 
 Each custom request already creates a fresh set of inputs for one run, so the separate
-`CustomTestSuite` entity has been removed. `CustomTestSuiteRun` now owns the user,
+`CustomTestSuite` entity has been removed. `CustomInputSubmission` now owns the user,
 problem-language reference, expiration, and cases directly. V16 transfers these fields
 and reparents cases while preserving run and case IDs, retained results, and grading-job
 references. The public GraphQL contract is unchanged.
 
 Stage 6 restores custom result storage from the stash using the run's direct case
-relationship. `CustomTestSuiteRunService.finishCustomTestSuiteRun` locks a running
+relationship. `CustomInputSubmissionService.finishCustomInputSubmission` locks a running
 attempt and saves its summary and ordered result array together. It rejects duplicate
 or foreign case IDs, invalid durations, incomplete passing results, and attempts to
 finish a queued or already-finished run. Missing case results become `NOT_RUN`.
@@ -160,7 +206,7 @@ Initial stage 8 validation passed all 62 then-current tests with this focused co
   --tests com.application.execution.TestSuiteOutputReaderTest \
   --tests com.application.execution.SubmissionSchedulerTest \
   --tests com.application.execution.DockerExecutionServiceTest \
-  --tests com.application.execution.SubmissionExecutionIntegrationTest
+  --tests com.application.execution.ProblemSubmissionExecutionIntegrationTest
 ```
 
 `./gradlew :kotlin-runtime:installDist`,
@@ -176,7 +222,7 @@ All 43 Docker and submission integration tests passed after these changes:
 ```sh
 ./gradlew test \
   --tests com.application.execution.DockerExecutionServiceTest \
-  --tests com.application.execution.SubmissionExecutionIntegrationTest
+  --tests com.application.execution.ProblemSubmissionExecutionIntegrationTest
 ```
 
 Stage 9 is reviewed and committed. Official admission writes the attempt and
@@ -192,8 +238,8 @@ Stage 9 validation passed all 46 focused tests:
 ```sh
 ./gradlew test \
   --tests com.application.execution.GradingJobSchedulerTest \
-  --tests com.application.execution.SubmissionExecutionIntegrationTest \
-  --tests com.application.graphql.SubmissionIntegrationTest \
+  --tests com.application.execution.ProblemSubmissionExecutionIntegrationTest \
+  --tests com.application.graphql.ProblemSubmissionIntegrationTest \
   --tests com.application.execution.GradingJobIntegrationTest
 ```
 
@@ -202,8 +248,8 @@ writes; they verify that the transaction preserves both records' previous states
 
 ## Custom test suite admission and polling
 
-`enqueueCustomTestSuiteRun` accepts a problem-language ID, source code, and ordered JSON inputs. Each
-accepted request creates a new owned `CustomTestSuiteRun` and its `CustomTestCase` rows
+`enqueueCustomInputSubmission` accepts a problem-language ID, source code, and ordered JSON inputs. Each
+accepted request creates a new owned `CustomInputSubmission` and its `CustomTestCase` rows
 in a serializable transaction. Invalid requests roll back the run and its cases together.
 Source and stored case content use EntKt validation; request validation handles
 the case count and decoding JSON. Expected outputs start absent and are prepared
@@ -215,11 +261,11 @@ test cases. `ExecutionAvailabilityService` applies the existing global and per-u
 to queued/running attempts across both official submissions and custom runs. Both
 admission paths read those counts in the transaction that creates the attempt.
 
-`execution.max-custom-test-cases` defaults to 20. `execution.custom-test-suite-lifetime`
+`execution.max-custom-test-cases` defaults to 20. `execution.custom-input-submission-lifetime`
 defaults to 5 minutes and sets the run's expiration when it is created. Expiration is
 metadata until the cleanup stage is implemented; it does not make retained data unreadable.
 
-`customTestSuiteRun(id)` returns only the authenticated owner's attempt, including after
+`customInputSubmission(id)` returns only the authenticated owner's attempt, including after
 problem archival. Run ownership governs the run and its cases. Ordinary viewers,
 including administrators, cannot read someone else's inputs/results or mutate execution
 state. Execution may create runs and cases, prepare expectations, and update runs;
@@ -233,7 +279,7 @@ grading, and owner polling together.
 
 ## Custom reference preparation
 
-`CustomTestSuiteScheduler` prepares queued custom runs. `GradingScheduler` independently
+`CustomInputSubmissionScheduler` prepares queued custom runs. `GradingScheduler` independently
 processes ready grading jobs for both kinds of attempt. Scheduling uses two threads, and
 each scheduler processes one item at a time, so reference execution and grading can overlap.
 Both queues use creation time and ID order. Reference execution and submitted execution each
@@ -269,7 +315,7 @@ GraphQL timing descriptions now distinguish preparation from submitted execution
 generation passed without changes to committed generated artifacts.
 The official settings loader is now the shared `CodeExecutionSettingsService`,
 and `CodeExecutionSettings` replaces the grading-only name. Separate `GradingScheduler` and
-`CustomTestSuiteScheduler` classes share the startup gate but own their respective processing loops.
+`CustomInputSubmissionScheduler` classes share the startup gate but own their respective processing loops.
 
 All 71 focused tests passed, covering real Docker reference-then-submission execution, privacy after problem
 archival, mixed official/custom queue processing, transaction rollback through EntKt hooks,
@@ -277,12 +323,12 @@ and concurrent preparation/grading without recovering live work:
 
 ```sh
 ./gradlew test \
-  --tests com.application.execution.CustomTestSuiteExecutionIntegrationTest \
+  --tests com.application.execution.CustomInputSubmissionExecutionIntegrationTest \
   --tests com.application.execution.GradingSchedulerTest \
-  --tests com.application.execution.CustomTestSuiteSchedulerTest \
-  --tests com.application.execution.SubmissionExecutionIntegrationTest \
-  --tests com.application.execution.CustomTestSuiteRunPersistenceIntegrationTest \
-  --tests com.application.graphql.CustomTestSuiteRunIntegrationTest
+  --tests com.application.execution.CustomInputSubmissionSchedulerTest \
+  --tests com.application.execution.ProblemSubmissionExecutionIntegrationTest \
+  --tests com.application.execution.CustomInputSubmissionPersistenceIntegrationTest \
+  --tests com.application.graphql.CustomInputSubmissionIntegrationTest
 ```
 
 After review refinements, all 8 scheduler tests and `buildRelay` passed. The final helper
@@ -292,7 +338,7 @@ No full-project test suite or browser checks were run.
 ## API contract
 
 The complete contract is in [submitSolution.graphql](../src/main/resources/schema/submitSolution.graphql)
-and [submission.graphql](../src/main/resources/schema/submission.graphql).
+and [problemSubmission.graphql](../src/main/resources/schema/problemSubmission.graphql).
 
 - Input contains only `problemLanguageId` and `sourceCode`. Require nonblank source of at
   most 50,000 characters and retain it without trimming.
@@ -322,7 +368,7 @@ and [submission.graphql](../src/main/resources/schema/submission.graphql).
    runtime, an available execution adapter, and a nonempty official suite.
 3. In the same serializable transaction, check global/per-user queued/running submission limits
    and create the official submission with its owner, problem-language reference, and source.
-   EntKt validates source with `SubmissionContentValidationRule` when saving; the resolver maps
+   EntKt validates source with `ProblemSubmissionContentValidationRule` when saving; the resolver maps
    violations to field errors. Availability and capacity checks precede source validation.
    Admission defaults remain 100 active submissions globally and 2 per user.
 4. Make one transaction attempt. Concurrent requests may cause serialization failures,
@@ -354,16 +400,16 @@ claiming their grading job preserves the original start time.
 `CodeGrader.gradeCode` receives the job's source and selected cases, uses `CodeExecutionService`
 to compile and execute, and compares every returned answer. Compilation and execution happen
 outside database transactions. The scheduler passes the result to `finishGradingJob`, which
-routes to `SubmissionService.finishSubmission` or `CustomTestSuiteRunService.finishCustomTestSuiteRun`
+routes to `ProblemSubmissionService.finishProblemSubmission` or `CustomInputSubmissionService.finishCustomInputSubmission`
 and deletes the job in the same transaction.
 The old `SubmissionRunner`, `SubmissionScheduler`, and submission-specific execution wrappers
 are removed. Runtime, driver, checker, and limits remain current configuration; the selected
 case snapshots persist only until the job finishes.
 
 The summary and at most the first failed case are saved together in one transaction.
-`Submission.failedTestResult` is an optional one-to-one edge to `SubmissionFailure`.
-The `submission_failures.submission_id` unique constraint prevents retaining more than
-one failure for an attempt. `Submission` represents
+`ProblemSubmission.failedTestResult` is an optional one-to-one edge to `ProblemSubmissionFailure`.
+The `problem_submission_failures.problem_submission_id` unique constraint prevents retaining more than
+one failure for an attempt. `ProblemSubmission` represents
 official attempts only and has no run/submit discriminator.
 The submission service selects the first failing graded case and retains its original input,
 expectation, and visibility. Later test edits cannot change that retained data.

@@ -10,11 +10,11 @@ type Feedback = {
 
 /**
  * Submits the language configuration ID and editor source, tracks request progress,
- * and turns API failures into UI feedback. Calls onSubmissionAccepted with the new
+ * and turns API failures into UI feedback. Calls onProblemSubmissionAccepted with the new
  * submission ID so the workspace can update the URL and begin status polling.
  * Requests are not retried automatically because the server may already have accepted them.
  */
-export default function useSubmitSolution(onSubmissionAccepted: (submissionId: string) => void) {
+export default function useSubmitSolution(onProblemSubmissionAccepted: (problemSubmissionId: string) => void) {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const activeRequest = useRef<Disposable | null>(null);
   const [commit, isSubmitting] = useMutation<useSubmitSolutionMutation>(graphql`
@@ -22,11 +22,11 @@ export default function useSubmitSolution(onSubmissionAccepted: (submissionId: s
       submitSolution(input: $input) {
         __typename
         ... on SubmitSolutionSuccess {
-          submission {
+          problemSubmission {
             id
           }
         }
-        ... on SubmissionValidationFailure {
+        ... on ProblemSubmissionValidationFailure {
           message
           fieldErrors {
             message
@@ -72,10 +72,10 @@ export default function useSubmitSolution(onSubmissionAccepted: (submissionId: s
 
         switch (result.__typename) {
           case "SubmitSolutionSuccess":
-            onSubmissionAccepted(result.submission.id);
+            onProblemSubmissionAccepted(result.problemSubmission.id);
             return;
 
-          case "SubmissionValidationFailure":
+          case "ProblemSubmissionValidationFailure":
             setFeedback({
               message: result.fieldErrors.length > 0
                 ? result.fieldErrors.map(error => error.message).join("\n")

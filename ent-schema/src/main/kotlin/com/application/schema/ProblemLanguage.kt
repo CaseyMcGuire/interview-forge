@@ -28,10 +28,10 @@ class ProblemLanguage : EntSchema("problem_languages", clientName = "problemLang
   val judgeConfiguration by hasOne<JudgeConfiguration>("judge_configuration")
 
   /** All attempts using this configuration; each attempt retains its own submitted source. */
-  val submissions by hasMany<Submission>("submissions")
+  val problemSubmissions by hasMany<ProblemSubmission>("problem_submissions")
 
   /** Custom attempts and their user-supplied inputs, retained until expiration cleanup. */
-  val customTestSuiteRuns by hasMany<CustomTestSuiteRun>("custom_test_suite_runs")
+  val customInputSubmissions by hasMany<CustomInputSubmission>("custom_input_submissions")
 
   /** Time this language was added to the problem. */
   val createdAt by instant("created_at").defaultNow().immutable()

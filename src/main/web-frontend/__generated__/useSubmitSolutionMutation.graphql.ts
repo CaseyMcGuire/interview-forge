@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<e04bed9ce69502dbec68ed7d357cf5bd>>
+ * @generated SignedSource<<d85e88650baa9b37794546cea1fdd514>>
  * @lightSyntaxTransform
  */
 
@@ -29,14 +29,14 @@ export type useSubmitSolutionMutation$data = {
     readonly __typename: "ProblemNotFound";
     readonly message: string;
   } | {
-    readonly __typename: "SubmissionValidationFailure";
+    readonly __typename: "ProblemSubmissionValidationFailure";
     readonly fieldErrors: ReadonlyArray<{
       readonly message: string;
     }>;
     readonly message: string;
   } | {
     readonly __typename: "SubmitSolutionSuccess";
-    readonly submission: {
+    readonly problemSubmission: {
       readonly id: string;
     };
   } | {
@@ -96,9 +96,9 @@ v3 = [
           {
             "alias": null,
             "args": null,
-            "concreteType": "Submission",
+            "concreteType": "ProblemSubmission",
             "kind": "LinkedField",
-            "name": "submission",
+            "name": "problemSubmission",
             "plural": false,
             "selections": [
               {
@@ -130,7 +130,7 @@ v3 = [
             "storageKey": null
           }
         ],
-        "type": "SubmissionValidationFailure",
+        "type": "ProblemSubmissionValidationFailure",
         "abstractKey": null
       },
       {
@@ -179,16 +179,16 @@ return {
     "selections": (v3/*:: as any*/)
   },
   "params": {
-    "cacheID": "c093a846659e4212a69c4535a55691a0",
+    "cacheID": "3ace10ecaea63ef9aea60c59f8ba17df",
     "id": null,
     "metadata": {},
     "name": "useSubmitSolutionMutation",
     "operationKind": "mutation",
-    "text": "mutation useSubmitSolutionMutation(\n  $input: SubmitSolutionInput!\n) {\n  submitSolution(input: $input) {\n    __typename\n    ... on SubmitSolutionSuccess {\n      submission {\n        id\n      }\n    }\n    ... on SubmissionValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on AuthenticationRequired {\n      message\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ExecutionUnavailable {\n      message\n    }\n    ... on ExecutionBusy {\n      message\n    }\n  }\n}\n"
+    "text": "mutation useSubmitSolutionMutation(\n  $input: SubmitSolutionInput!\n) {\n  submitSolution(input: $input) {\n    __typename\n    ... on SubmitSolutionSuccess {\n      problemSubmission {\n        id\n      }\n    }\n    ... on ProblemSubmissionValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on AuthenticationRequired {\n      message\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ExecutionUnavailable {\n      message\n    }\n    ... on ExecutionBusy {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "fc92de5fffd8df59f70fd2d4664749b6";
+(node as any).hash = "03f4677dc89a56aec8da74cc8a46200f";
 
 export default node;

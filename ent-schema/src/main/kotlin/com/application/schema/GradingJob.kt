@@ -8,19 +8,19 @@ import entkt.schema.OnDelete
 class GradingJob : EntSchema("grading_jobs", clientName = "gradingJobs") {
   override fun id() = EntId.long()
 
-  /** Exactly one of submission and customTestSuiteRun identifies the result destination. */
-  val submission by belongsTo<Submission>("submission")
+  /** Exactly one of problemSubmission and customInputSubmission identifies the result destination. */
+  val problemSubmission by belongsTo<ProblemSubmission>("problem_submission")
     .nullable()
     .immutable()
     .unique()
-    .inverse(Submission::gradingJob)
+    .inverse(ProblemSubmission::gradingJob)
     .onDelete(OnDelete.CASCADE)
 
-  val customTestSuiteRun by belongsTo<CustomTestSuiteRun>("custom_test_suite_run")
+  val customInputSubmission by belongsTo<CustomInputSubmission>("custom_input_submission")
     .nullable()
     .immutable()
     .unique()
-    .inverse(CustomTestSuiteRun::gradingJob)
+    .inverse(CustomInputSubmission::gradingJob)
     .onDelete(OnDelete.CASCADE)
 
   /** Selects the language and current judge configuration; the runtime stays in application config. */

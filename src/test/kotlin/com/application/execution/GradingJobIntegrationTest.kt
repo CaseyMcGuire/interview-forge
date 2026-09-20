@@ -1,10 +1,10 @@
 package com.application.execution
 
-import com.application.ent.CustomTestSuiteRun
+import com.application.ent.CustomInputSubmission
 import com.application.ent.EntClient
 import com.application.ent.EntClientScope
 import com.application.ent.GradingJob
-import com.application.ent.Submission
+import com.application.ent.ProblemSubmission
 import com.application.schema.GradingCase
 import com.application.schema.GradingJobStatus
 import com.application.schema.ProblemDifficulty
@@ -85,15 +85,15 @@ class GradingJobIntegrationTest {
 
   @Test
   fun `jobs preserve ordered snapshots including JSON null and are unique per attempt`() {
-    val submission = createSubmission()
-    val run = createCustomRun()
+    val problemSubmission = createProblemSubmission()
+    val run = createCustomInputSubmission()
 
-    val officialJob = createJob(submissionId = submission.id)
+    val officialJob = createJob(problemSubmissionId = problemSubmission.id)
     val customCases = caseSnapshots.map { it.copy(visibility = null) }
-    val customJob = createJob(customRunId = run.id, cases = customCases)
+    val customJob = createJob(customInputSubmissionId = run.id, cases = customCases)
 
-    val stored = entClient.gradingJobs.indexes.submissionId(submission.id)
-      .query {}
+    val stored = entClient.gradingJobs.indexes.problemSubmissionId(problemSubmission.id)
+      .query()
       .firstOrNull(ExecutionAccess.context)
       .getOrThrow()!!
 
@@ -104,59 +104,59 @@ class GradingJobIntegrationTest {
     assertEquals("submitted source", stored.sourceCode)
     assertEquals(GradingJobStatus.QUEUED, stored.status)
     assertNull(stored.startedAt)
-    assertNull(stored.customTestSuiteRunId)
-    assertNull(customJob.submissionId)
-    assertEquals(run.id, customJob.customTestSuiteRunId)
+    assertNull(stored.customInputSubmissionId)
+    assertNull(customJob.problemSubmissionId)
+    assertEquals(run.id, customJob.customInputSubmissionId)
     assertEquals(customCases, customJob.cases)
 
-    assertDatabaseFailure("23505") { createJob(submissionId = submission.id) }
-    assertDatabaseFailure("23505") { createJob(customRunId = run.id) }
+    assertDatabaseFailure("23505") { createJob(problemSubmissionId = problemSubmission.id) }
+    assertDatabaseFailure("23505") { createJob(customInputSubmissionId = run.id) }
   }
 
   @Test
   fun `database requires exactly one existing origin even without application validation`() {
     // Keep these checks on the actual migration rather than stopping at the policy's validator.
     val schemaClient = EntClient(PostgresDriver(dataSource, autoDdl = false))
-    val submission = createSubmission()
-    val run = createCustomRun()
+    val problemSubmission = createProblemSubmission()
+    val run = createCustomInputSubmission()
 
     assertDatabaseFailure("23514") {
       createJob(client = schemaClient, viewer = fixtures)
     }
     assertDatabaseFailure("23514") {
-      createJob(submission.id, run.id, client = schemaClient, viewer = fixtures)
+      createJob(problemSubmission.id, run.id, client = schemaClient, viewer = fixtures)
     }
     assertDatabaseFailure("23503") {
-      createJob(submissionId = Long.MAX_VALUE, client = schemaClient, viewer = fixtures)
+      createJob(problemSubmissionId = Long.MAX_VALUE, client = schemaClient, viewer = fixtures)
     }
     assertDatabaseFailure("23503") {
-      createJob(customRunId = Long.MAX_VALUE, client = schemaClient, viewer = fixtures)
+      createJob(customInputSubmissionId = Long.MAX_VALUE, client = schemaClient, viewer = fixtures)
     }
   }
 
   @Test
   fun `execution writes validate the origin source and nonempty suite`() {
-    val submission = createSubmission()
-    val run = createCustomRun()
+    val problemSubmission = createProblemSubmission()
+    val run = createCustomInputSubmission()
 
     assertThrows(EntValidationException::class.java) { createJob() }
-    assertThrows(EntValidationException::class.java) { createJob(submission.id, run.id) }
+    assertThrows(EntValidationException::class.java) { createJob(problemSubmission.id, run.id) }
 
     assertThrows(EntValidationException::class.java) {
-      createJob(submissionId = submission.id, cases = emptyList())
+      createJob(problemSubmissionId = problemSubmission.id, cases = emptyList())
     }
     assertThrows(EntValidationException::class.java) {
-      createJob(submissionId = submission.id, sourceCode = " ")
+      createJob(problemSubmissionId = problemSubmission.id, sourceCode = " ")
     }
     assertThrows(EntValidationException::class.java) {
-      createJob(submissionId = submission.id, sourceCode = "x".repeat(50_001))
+      createJob(problemSubmissionId = problemSubmission.id, sourceCode = "x".repeat(50_001))
     }
   }
 
   @Test
   fun `jobs are private to execution including from owners and administrators`() {
-    val job = createJob(submissionId = createSubmission().id)
-    val unusedSubmission = createSubmission()
+    val job = createJob(problemSubmissionId = createProblemSubmission().id)
+    val unusedProblemSubmission = createProblemSubmission()
     val viewers = listOf(
       ViewerContext(Viewer.Anonymous),
       ViewerContext(Viewer.User(ownerId)),
@@ -169,7 +169,7 @@ class GradingJobIntegrationTest {
         entClient.gradingJobs.findById(viewer, job.id).getOrThrow()
       }
       assertThrows(EntMutationPrivacyDeniedException::class.java) {
-        createJob(submissionId = unusedSubmission.id, viewer = viewer)
+        createJob(problemSubmissionId = unusedProblemSubmission.id, viewer = viewer)
       }
       assertThrows(EntMutationPrivacyDeniedException::class.java) {
         entClient.gradingJobs.update(job.id) {
@@ -199,13 +199,13 @@ class GradingJobIntegrationTest {
 
   @Test
   fun `deleting an origin removes its job without leaving orphaned execution inputs`() {
-    val submission = createSubmission()
-    val officialJob = createJob(submissionId = submission.id)
-    val run = createCustomRun()
-    val customJob = createJob(customRunId = run.id)
+    val problemSubmission = createProblemSubmission()
+    val officialJob = createJob(problemSubmissionId = problemSubmission.id)
+    val run = createCustomInputSubmission()
+    val customJob = createJob(customInputSubmissionId = run.id)
 
-    entClient.submissions.deleteById(fixtures, submission.id).getOrThrow()
-    entClient.customTestSuiteRuns.deleteById(fixtures, run.id).getOrThrow()
+    entClient.problemSubmissions.deleteById(fixtures, problemSubmission.id).getOrThrow()
+    entClient.customInputSubmissions.deleteById(fixtures, run.id).getOrThrow()
 
     assertNull(entClient.gradingJobs.findById(ExecutionAccess.context, officialJob.id).getOrThrow())
     assertNull(entClient.gradingJobs.findById(ExecutionAccess.context, customJob.id).getOrThrow())
@@ -213,17 +213,17 @@ class GradingJobIntegrationTest {
 
   @Test
   fun `a rejected job rolls back its originating submission in the same transaction`() {
-    var submissionId = 0L
+    var problemSubmissionId = 0L
 
     assertThrows(EntValidationException::class.java) {
       entClient.withTransaction { tx ->
-        submissionId = createSubmission(tx).id
-        createJob(submissionId = submissionId, cases = emptyList(), client = tx)
+        problemSubmissionId = createProblemSubmission(tx).id
+        createJob(problemSubmissionId = problemSubmissionId, cases = emptyList(), client = tx)
       }.getOrThrow()
     }
 
-    assertNull(entClient.submissions.findById(fixtures, submissionId).getOrThrow())
-    val job = entClient.gradingJobs.indexes.submissionId(submissionId).query {}
+    assertNull(entClient.problemSubmissions.findById(fixtures, problemSubmissionId).getOrThrow())
+    val job = entClient.gradingJobs.indexes.problemSubmissionId(problemSubmissionId).query()
       .firstOrNull(ExecutionAccess.context)
       .getOrThrow()
 
@@ -236,7 +236,7 @@ class GradingJobIntegrationTest {
     this.role = role
   }.saveAndLoad(fixtures).getOrThrow().id
 
-  private fun createSubmission(client: EntClientScope = entClient): Submission = client.submissions.create {
+  private fun createProblemSubmission(client: EntClientScope = entClient): ProblemSubmission = client.problemSubmissions.create {
     userId = ownerId
     problemId = this@GradingJobIntegrationTest.problemId
     problemLanguageId = configurationId
@@ -244,7 +244,7 @@ class GradingJobIntegrationTest {
     totalCases = caseSnapshots.size
   }.saveAndLoad(ExecutionAccess.context).getOrThrow()
 
-  private fun createCustomRun(): CustomTestSuiteRun = entClient.customTestSuiteRuns.create {
+  private fun createCustomInputSubmission(): CustomInputSubmission = entClient.customInputSubmissions.create {
     userId = ownerId
     problemLanguageId = configurationId
     expiresAt = Instant.now().plusSeconds(300)
@@ -253,15 +253,15 @@ class GradingJobIntegrationTest {
   }.saveAndLoad(ExecutionAccess.context).getOrThrow()
 
   private fun createJob(
-    submissionId: Long? = null,
-    customRunId: Long? = null,
+    problemSubmissionId: Long? = null,
+    customInputSubmissionId: Long? = null,
     sourceCode: String = "submitted source",
     cases: List<GradingCase> = caseSnapshots,
     client: EntClientScope = entClient,
     viewer: ViewerContext = ExecutionAccess.context,
   ): GradingJob = client.gradingJobs.create {
-    this.submissionId = submissionId
-    customTestSuiteRunId = customRunId
+    this.problemSubmissionId = problemSubmissionId
+    this.customInputSubmissionId = customInputSubmissionId
     problemLanguageId = configurationId
     this.sourceCode = sourceCode
     this.cases = cases

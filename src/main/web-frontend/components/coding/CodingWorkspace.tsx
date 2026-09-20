@@ -2,11 +2,11 @@ import * as stylex from "@stylexjs/stylex";
 import {useState} from "react";
 import {useSearchParams} from "react-router";
 import useSubmitSolution from "hooks/useSubmitSolution";
-import useSubmissionStatus from "hooks/useSubmissionStatus";
+import useProblemSubmissionStatus from "hooks/useProblemSubmissionStatus";
 import EditorPanel from "./EditorPanel";
 import ProblemPanel from "./ProblemPanel";
-import SubmissionActions from "./SubmissionActions";
-import SubmissionResultPanel from "./SubmissionResultPanel";
+import ProblemSubmissionActions from "./ProblemSubmissionActions";
+import ProblemSubmissionResultPanel from "./ProblemSubmissionResultPanel";
 import type {CodingProblem} from "./codingProblemTypes";
 
 type Props = {
@@ -65,12 +65,12 @@ export default function CodingWorkspace(props: Props) {
   ));
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const submissionId = searchParams.get("submission") || null;
-  const submissionStatus = useSubmissionStatus(submissionId);
-  const submissionRequest = useSubmitSolution(showSubmission);
-  const submitDisabled = !configuration || !draft || submissionStatus.isUnresolved;
+  const problemSubmissionId = searchParams.get("submission") || null;
+  const problemSubmissionStatus = useProblemSubmissionStatus(problemSubmissionId);
+  const problemSubmissionRequest = useSubmitSolution(showProblemSubmission);
+  const submitDisabled = !configuration || !draft || problemSubmissionStatus.isUnresolved;
 
-  function showSubmission(id: string) {
+  function showProblemSubmission(id: string) {
     setSearchParams(previous => {
       const updated = new URLSearchParams(previous);
       updated.set("submission", id);
@@ -79,11 +79,11 @@ export default function CodingWorkspace(props: Props) {
   }
 
   function submitSolution() {
-    if (submitDisabled || submissionStatus.isPending || submissionRequest.isSubmitting) {
+    if (submitDisabled || problemSubmissionStatus.isPending || problemSubmissionRequest.isSubmitting) {
       return;
     }
 
-    submissionRequest.submitSolution(configuration.id, draft.source);
+    problemSubmissionRequest.submitSolution(configuration.id, draft.source);
   }
 
   function updateSource(source: string) {
@@ -118,20 +118,20 @@ export default function CodingWorkspace(props: Props) {
           No starter code is available for this problem.
         </div>
       )}
-      <SubmissionActions
+      <ProblemSubmissionActions
         storageAvailable={draft?.available}
         onSubmit={submitSolution}
         disabled={submitDisabled}
-        isSubmitting={submissionRequest.isSubmitting}
-        isPending={submissionStatus.isPending}
-        error={submissionRequest.error}
-        requiresSignIn={submissionRequest.requiresSignIn}
+        isSubmitting={problemSubmissionRequest.isSubmitting}
+        isPending={problemSubmissionStatus.isPending}
+        error={problemSubmissionRequest.error}
+        requiresSignIn={problemSubmissionRequest.requiresSignIn}
       />
-      <SubmissionResultPanel
-        submission={submissionStatus.submission}
-        isLoading={submissionStatus.isLoading}
-        error={submissionStatus.error}
-        onRetry={submissionStatus.retrySubmissionStatus}
+      <ProblemSubmissionResultPanel
+        problemSubmission={problemSubmissionStatus.problemSubmission}
+        isLoading={problemSubmissionStatus.isLoading}
+        error={problemSubmissionStatus.error}
+        onRetry={problemSubmissionStatus.retryProblemSubmissionStatus}
       />
     </div>
   );

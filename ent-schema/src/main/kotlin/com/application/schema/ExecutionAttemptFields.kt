@@ -2,7 +2,7 @@ package com.application.schema
 
 import entkt.schema.EntMixin
 
-/** Source and execution summary shared by official submissions and custom test runs. */
+/** Source and execution summary shared by problem submissions and custom input submissions. */
 class ExecutionAttemptFields(scope: EntMixin.Scope) : EntMixin(scope) {
   /** Exact submitted source, retained independently of later editor changes. */
   val sourceCode by string("source_code").immutable()

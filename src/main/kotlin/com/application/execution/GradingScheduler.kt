@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
-/** Grades ready jobs for official submissions and custom runs. */
+/** Grades ready jobs for problem submissions and custom input submissions. */
 @Component
 class GradingScheduler(
   private val gradingJobService: GradingJobService,

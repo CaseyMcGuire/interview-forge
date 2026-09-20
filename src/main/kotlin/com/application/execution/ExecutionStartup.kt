@@ -1,7 +1,7 @@
 package com.application.execution
 
 import com.application.config.ExecutionProperties
-import com.application.services.CustomTestSuiteRunService
+import com.application.services.CustomInputSubmissionService
 import com.application.services.GradingJobService
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 @Component
 class ExecutionStartup(
   private val gradingJobService: GradingJobService,
-  private val customRunService: CustomTestSuiteRunService,
+  private val customInputSubmissionService: CustomInputSubmissionService,
   private val executionService: CodeExecutionService,
   private val properties: ExecutionProperties,
 ) {
@@ -39,7 +39,7 @@ class ExecutionStartup(
     if (!recovered) {
       executionService.cleanUpInterruptedExecutions()
       gradingJobService.finishInterruptedGradingJobs()
-      customRunService.finishInterruptedCustomPreparations()
+      customInputSubmissionService.finishInterruptedCustomPreparations()
       recovered = true
     }
 

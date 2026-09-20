@@ -1,0 +1,56 @@
+-- Rename in place so existing attempts, retained results, and queued jobs keep their IDs.
+ALTER TABLE submissions RENAME TO problem_submissions;
+ALTER SEQUENCE submissions_id_seq RENAME TO problem_submissions_id_seq;
+ALTER TABLE problem_submissions RENAME CONSTRAINT submissions_pkey TO problem_submissions_pkey;
+ALTER TABLE problem_submissions RENAME CONSTRAINT fk_submissions_user_id TO fk_problem_submissions_user_id;
+ALTER TABLE problem_submissions RENAME CONSTRAINT fk_submissions_problem_id TO fk_problem_submissions_problem_id;
+ALTER TABLE problem_submissions
+  RENAME CONSTRAINT fk_submissions_problem_language_id TO fk_problem_submissions_problem_language_id;
+
+ALTER INDEX idx_submissions_user_created_at RENAME TO idx_problem_submissions_user_created_at;
+ALTER INDEX idx_submissions_user_problem_created_at RENAME TO idx_problem_submissions_user_problem_created_at;
+ALTER INDEX idx_submissions_problem RENAME TO idx_problem_submissions_problem;
+ALTER INDEX idx_submissions_problem_language RENAME TO idx_problem_submissions_problem_language;
+ALTER INDEX idx_submissions_status_created_at RENAME TO idx_problem_submissions_status_created_at;
+
+ALTER TABLE submission_failures RENAME TO problem_submission_failures;
+ALTER SEQUENCE submission_failures_id_seq RENAME TO problem_submission_failures_id_seq;
+ALTER TABLE problem_submission_failures RENAME COLUMN submission_id TO problem_submission_id;
+ALTER TABLE problem_submission_failures
+  RENAME CONSTRAINT submission_failures_pkey TO problem_submission_failures_pkey;
+ALTER TABLE problem_submission_failures
+  RENAME CONSTRAINT fk_submission_failures_submission_id TO fk_problem_submission_failures_problem_submission_id;
+ALTER TABLE problem_submission_failures
+  RENAME CONSTRAINT fk_submission_failures_test_case_id TO fk_problem_submission_failures_test_case_id;
+ALTER TABLE problem_submission_failures
+  RENAME CONSTRAINT uq_submission_failures_submission TO uq_problem_submission_failures_problem_submission;
+ALTER INDEX idx_submission_failures_test_case RENAME TO idx_problem_submission_failures_test_case;
+
+ALTER TABLE custom_test_suite_runs RENAME TO custom_input_submissions;
+ALTER SEQUENCE custom_test_suite_runs_id_seq RENAME TO custom_input_submissions_id_seq;
+ALTER TABLE custom_input_submissions
+  RENAME CONSTRAINT custom_test_suite_runs_pkey TO custom_input_submissions_pkey;
+ALTER TABLE custom_input_submissions
+  RENAME CONSTRAINT fk_custom_test_suite_runs_user_id TO fk_custom_input_submissions_user_id;
+ALTER TABLE custom_input_submissions
+  RENAME CONSTRAINT fk_custom_test_suite_runs_problem_language_id TO fk_custom_input_submissions_problem_language_id;
+
+ALTER INDEX idx_custom_test_suite_runs_status_created_at RENAME TO idx_custom_input_submissions_status_created_at;
+ALTER INDEX idx_custom_test_suite_runs_user RENAME TO idx_custom_input_submissions_user;
+ALTER INDEX idx_custom_test_suite_runs_problem_language RENAME TO idx_custom_input_submissions_problem_language;
+ALTER INDEX idx_custom_test_suite_runs_expires_at RENAME TO idx_custom_input_submissions_expires_at;
+
+ALTER TABLE custom_test_cases RENAME COLUMN custom_test_suite_run_id TO custom_input_submission_id;
+ALTER TABLE custom_test_cases
+  RENAME CONSTRAINT fk_custom_test_cases_custom_test_suite_run_id TO fk_custom_test_cases_custom_input_submission_id;
+ALTER INDEX uq_custom_test_cases_run_position RENAME TO uq_custom_test_cases_submission_position;
+
+-- PostgreSQL keeps the foreign-key targets and exclusive-origin check attached across these renames.
+ALTER TABLE grading_jobs RENAME COLUMN submission_id TO problem_submission_id;
+ALTER TABLE grading_jobs RENAME COLUMN custom_test_suite_run_id TO custom_input_submission_id;
+ALTER TABLE grading_jobs
+  RENAME CONSTRAINT fk_grading_jobs_submission_id TO fk_grading_jobs_problem_submission_id;
+ALTER TABLE grading_jobs
+  RENAME CONSTRAINT fk_grading_jobs_custom_test_suite_run_id TO fk_grading_jobs_custom_input_submission_id;
+ALTER INDEX idx_grading_jobs_submission_id_unique RENAME TO idx_grading_jobs_problem_submission_id_unique;
+ALTER INDEX idx_grading_jobs_custom_test_suite_run_id_unique RENAME TO idx_grading_jobs_custom_input_submission_id_unique;

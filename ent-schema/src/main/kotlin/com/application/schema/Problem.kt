@@ -43,7 +43,7 @@ class Problem : EntSchema("problems", clientName = "problems") {
   val testCases by hasMany<TestCase>("test_cases")
 
   /** Attempts by all users; future access policies must filter this history by the viewer. */
-  val submissions by hasMany<Submission>("submissions")
+  val problemSubmissions by hasMany<ProblemSubmission>("problem_submissions")
 
   /** Time the catalog entry was created. */
   val createdAt by instant("created_at").defaultNow().immutable()

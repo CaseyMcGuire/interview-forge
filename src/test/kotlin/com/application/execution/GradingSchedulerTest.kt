@@ -3,7 +3,7 @@ package com.application.execution
 import com.application.config.ExecutionProperties
 import com.application.ent.GradingJob
 import com.application.services.GradingJobService
-import com.application.services.CustomTestSuiteRunService
+import com.application.services.CustomInputSubmissionService
 import com.application.services.CodeExecutionSettingsService
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
@@ -11,7 +11,7 @@ import org.mockito.Mockito.*
 class GradingSchedulerTest {
   private lateinit var startup: ExecutionStartup
   private val gradingJobService = mock(GradingJobService::class.java)
-  private val customRunService = mock(CustomTestSuiteRunService::class.java)
+  private val customInputSubmissionService = mock(CustomInputSubmissionService::class.java)
   private val settingsService = mock(CodeExecutionSettingsService::class.java)
   private val codeGrader = mock(CodeGrader::class.java)
   private val executor = mock(CodeExecutionService::class.java)
@@ -26,7 +26,7 @@ class GradingSchedulerTest {
     startup.onApplicationReady()
     scheduler.processQueuedGradingJobs()
 
-    verifyNoInteractions(gradingJobService, customRunService, settingsService, codeGrader, executor)
+    verifyNoInteractions(gradingJobService, customInputSubmissionService, settingsService, codeGrader, executor)
   }
 
   @Test
@@ -36,7 +36,7 @@ class GradingSchedulerTest {
     startup.onApplicationReady()
 
     scheduler.processQueuedGradingJobs()
-    verifyNoInteractions(gradingJobService, customRunService, settingsService, codeGrader)
+    verifyNoInteractions(gradingJobService, customInputSubmissionService, settingsService, codeGrader)
 
     scheduler.processQueuedGradingJobs()
     verify(gradingJobService).claimNextQueuedGradingJob()
@@ -51,7 +51,7 @@ class GradingSchedulerTest {
     startup.onApplicationReady()
 
     scheduler.processQueuedGradingJobs()
-    verifyNoInteractions(gradingJobService, customRunService, settingsService, codeGrader)
+    verifyNoInteractions(gradingJobService, customInputSubmissionService, settingsService, codeGrader)
 
     scheduler.processQueuedGradingJobs()
 
@@ -78,10 +78,10 @@ class GradingSchedulerTest {
 
     scheduler.processQueuedGradingJobs()
 
-    val order = inOrder(executor, gradingJobService, customRunService, settingsService, codeGrader)
+    val order = inOrder(executor, gradingJobService, customInputSubmissionService, settingsService, codeGrader)
     order.verify(executor).cleanUpInterruptedExecutions()
     order.verify(gradingJobService).finishInterruptedGradingJobs()
-    order.verify(customRunService).finishInterruptedCustomPreparations()
+    order.verify(customInputSubmissionService).finishInterruptedCustomPreparations()
     order.verify(gradingJobService).claimNextQueuedGradingJob()
     order.verify(settingsService).loadSubmittedCodeSettings(12L, "source")
     order.verify(codeGrader).gradeCode("grading-job-123", "runtime", program, emptyList(), 1_000, 128)
@@ -117,28 +117,28 @@ class GradingSchedulerTest {
   @Test
   fun `both schedulers finish startup recovery before claiming and never repeat it`() {
     val gradingScheduler = createScheduler()
-    val customScheduler = CustomTestSuiteScheduler(customRunService, settingsService, executor, startup)
+    val customScheduler = CustomInputSubmissionScheduler(customInputSubmissionService, settingsService, executor, startup)
     `when`(executor.isAvailable("runtime")).thenReturn(true)
     startup.onApplicationReady()
 
-    customScheduler.prepareQueuedCustomRuns()
+    customScheduler.prepareQueuedCustomInputSubmissions()
     gradingScheduler.processQueuedGradingJobs()
-    customScheduler.prepareQueuedCustomRuns()
+    customScheduler.prepareQueuedCustomInputSubmissions()
     gradingScheduler.processQueuedGradingJobs()
 
-    val order = inOrder(executor, gradingJobService, customRunService)
+    val order = inOrder(executor, gradingJobService, customInputSubmissionService)
     order.verify(executor).cleanUpInterruptedExecutions()
     order.verify(gradingJobService).finishInterruptedGradingJobs()
-    order.verify(customRunService).finishInterruptedCustomPreparations()
-    order.verify(customRunService).claimNextQueuedCustomRun()
+    order.verify(customInputSubmissionService).finishInterruptedCustomPreparations()
+    order.verify(customInputSubmissionService).claimNextQueuedCustomInputSubmission()
     order.verify(gradingJobService).claimNextQueuedGradingJob()
     verify(executor).cleanUpInterruptedExecutions()
     verify(gradingJobService).finishInterruptedGradingJobs()
-    verify(customRunService).finishInterruptedCustomPreparations()
+    verify(customInputSubmissionService).finishInterruptedCustomPreparations()
   }
 
   private fun createScheduler(properties: ExecutionProperties = this.properties): GradingScheduler {
-    startup = ExecutionStartup(gradingJobService, customRunService, executor, properties)
+    startup = ExecutionStartup(gradingJobService, customInputSubmissionService, executor, properties)
     return GradingScheduler(gradingJobService, settingsService, codeGrader, startup)
   }
 }

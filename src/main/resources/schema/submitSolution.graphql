@@ -8,15 +8,15 @@ extend type Mutation {
 
 union SubmitSolutionResult =
     SubmitSolutionSuccess
-  | SubmissionValidationFailure
+  | ProblemSubmissionValidationFailure
   | AuthenticationRequired
   | ProblemNotFound
   | ExecutionUnavailable
   | ExecutionBusy
 
 type SubmitSolutionSuccess {
-  """Submission to poll for status and results."""
-  submission: Submission!
+  """Problem submission to poll for status and results."""
+  problemSubmission: ProblemSubmission!
 }
 
 input SubmitSolutionInput {
@@ -28,7 +28,7 @@ input SubmitSolutionInput {
 }
 
 """Invalid submission input. No submission was created."""
-type SubmissionValidationFailure {
+type ProblemSubmissionValidationFailure {
   message: String!
   fieldErrors: [FieldError!]!
 }

@@ -9,9 +9,9 @@ import kotlinx.serialization.json.JsonElement
 class CustomTestCase : EntSchema("custom_test_cases", clientName = "customTestCases") {
   override fun id() = EntId.long()
 
-  val customTestSuiteRun by belongsTo<CustomTestSuiteRun>("custom_test_suite_run")
+  val customInputSubmission by belongsTo<CustomInputSubmission>("custom_input_submission")
     .immutable()
-    .inverse(CustomTestSuiteRun::cases)
+    .inverse(CustomInputSubmission::cases)
     .onDelete(OnDelete.CASCADE)
 
   /** Zero-based position in the submitted input list; results refer back to this case. */
@@ -24,6 +24,6 @@ class CustomTestCase : EntSchema("custom_test_cases", clientName = "customTestCa
 
   val timestamps = include(::Timestamps)
 
-  val byRunAndPosition =
-    index("uq_custom_test_cases_run_position", customTestSuiteRun.fk, position).unique()
+  val bySubmissionAndPosition =
+    index("uq_custom_test_cases_submission_position", customInputSubmission.fk, position).unique()
 }

@@ -1,0 +1,44 @@
+extend type Mutation {
+  """Queues the signed-in user's solution against supplied inputs and returns a submission ID for polling."""
+  enqueueCustomInputSubmission(input: EnqueueCustomInputSubmissionInput!): EnqueueCustomInputSubmissionResult!
+}
+
+union EnqueueCustomInputSubmissionResult =
+    EnqueueCustomInputSubmissionSuccess
+  | EnqueueCustomInputSubmissionValidationFailure
+  | AuthenticationRequired
+  | ProblemNotFound
+  | ExecutionUnavailable
+  | ExecutionBusy
+
+type EnqueueCustomInputSubmissionSuccess {
+  """ID to poll with customInputSubmission(id) for status and results."""
+  customInputSubmissionId: ID!
+}
+
+input EnqueueCustomInputSubmissionInput {
+  """ID of the problem-language configuration to use."""
+  problemLanguageId: ID!
+
+  """Nonblank solution source, at most 50,000 characters."""
+  sourceCode: String!
+
+  """Ordered test inputs. At least one is required; the configured maximum defaults to 20."""
+  cases: [CustomTestCaseInput!]!
+}
+
+input CustomTestCaseInput {
+  """
+  Serialized JSON input, at most 20,000 characters when compactly serialized.
+  Expected outputs are computed automatically.
+  """
+  inputJson: String!
+}
+
+"""Invalid source or test cases. No submission was queued."""
+type EnqueueCustomInputSubmissionValidationFailure {
+  message: String!
+
+  """Input paths such as sourceCode, cases, or cases[0].inputJson."""
+  fieldErrors: [FieldError!]!
+}

@@ -79,29 +79,31 @@ class EntViewerIntegrationTest {
     val index = mvc.perform(get("/_ent/schema").session(session))
       .andExpect(status().isOk)
       .andReturn().response.contentAsString
-    assertTrue(index.contains("/_ent/schema/submissions"))
+    assertTrue(index.contains("/_ent/schema/problemSubmissions"))
     assertTrue(index.contains("/_ent/schema/testCases"))
     assertFalse(index.contains("/_ent/schema/customTestSuites"))
+    assertFalse(index.contains("/_ent/schema/submissions"))
+    assertFalse(index.contains("/_ent/schema/customTestSuiteRuns"))
     assertTrue(index.contains("/_ent/schema/customTestCases"))
-    assertTrue(index.contains("/_ent/schema/customTestSuiteRuns"))
+    assertTrue(index.contains("/_ent/schema/customInputSubmissions"))
 
-    val detail = mvc.perform(get("/_ent/schema/submissions").session(session))
+    val detail = mvc.perform(get("/_ent/schema/problemSubmissions").session(session))
       .andExpect(status().isOk)
       .andReturn().response.contentAsString
     assertTrue(detail.contains("source_code"))
     assertTrue(detail.contains("failedTestResult"))
-    assertTrue(detail.contains("/_ent/schema/submissionFailures"))
+    assertTrue(detail.contains("/_ent/schema/problemSubmissionFailures"))
     assertTrue(detail.contains("/_ent/schema/problems"))
 
-    val customRun = mvc.perform(get("/_ent/schema/customTestSuiteRuns").session(session))
+    val customInputSubmission = mvc.perform(get("/_ent/schema/customInputSubmissions").session(session))
       .andExpect(status().isOk)
       .andReturn().response.contentAsString
-    assertTrue(customRun.contains("case_results"))
-    assertTrue(customRun.contains("user_id"))
-    assertTrue(customRun.contains("problem_language_id"))
-    assertTrue(customRun.contains("expires_at"))
-    assertTrue(customRun.contains("/_ent/schema/customTestCases"))
-    assertTrue(customRun.contains("/_ent/schema/problemLanguages"))
+    assertTrue(customInputSubmission.contains("case_results"))
+    assertTrue(customInputSubmission.contains("user_id"))
+    assertTrue(customInputSubmission.contains("problem_language_id"))
+    assertTrue(customInputSubmission.contains("expires_at"))
+    assertTrue(customInputSubmission.contains("/_ent/schema/customTestCases"))
+    assertTrue(customInputSubmission.contains("/_ent/schema/problemLanguages"))
   }
 
   @Test
