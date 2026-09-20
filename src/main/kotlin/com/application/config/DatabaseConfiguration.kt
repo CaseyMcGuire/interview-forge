@@ -1,8 +1,8 @@
 package com.application.config
 
 import com.application.db.policies.CustomTestCasePolicy
-import com.application.db.policies.CustomTestSuitePolicy
 import com.application.db.policies.CustomTestSuiteRunPolicy
+import com.application.db.policies.GradingJobPolicy
 import com.application.db.policies.JudgeConfigurationPolicy
 import com.application.db.policies.LanguagePolicy
 import com.application.db.policies.ProblemLanguagePolicy
@@ -30,9 +30,9 @@ class DatabaseConfiguration {
     judgeConfigurationPolicy: JudgeConfigurationPolicy,
     submissionPolicy: SubmissionPolicy,
     submissionFailurePolicy: SubmissionFailurePolicy,
-    customTestSuitePolicy: CustomTestSuitePolicy,
     customTestCasePolicy: CustomTestCasePolicy,
     customTestSuiteRunPolicy: CustomTestSuiteRunPolicy,
+    gradingJobPolicy: GradingJobPolicy,
   ): EntClient {
     // Flyway owns database changes; registering EntKt schemas only configures runtime metadata.
     return EntClient(PostgresDriver(dataSource, autoDdl = false)) {
@@ -45,9 +45,9 @@ class DatabaseConfiguration {
         judgeConfigurations(judgeConfigurationPolicy)
         submissions(submissionPolicy)
         submissionFailures(submissionFailurePolicy)
-        customTestSuites(customTestSuitePolicy)
         customTestCases(customTestCasePolicy)
         customTestSuiteRuns(customTestSuiteRunPolicy)
+        gradingJobs(gradingJobPolicy)
       }
     }
   }

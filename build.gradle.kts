@@ -41,6 +41,7 @@ val dgsCodegenPackage = "com.${applicationFolderName}.graphql"
 
 plugins {
   id("org.jetbrains.kotlin.jvm") version "2.4.20"
+  id("org.jetbrains.kotlin.plugin.serialization") version "2.4.20" apply false
   // Kotlin makes all classes final by default but Spring relies
   // upon classes being extendable to implement certain functionality.
   id("org.jetbrains.kotlin.plugin.spring") version "2.4.20"

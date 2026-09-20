@@ -9,10 +9,12 @@ import entkt.runtime.privacy.EntityPolicy
 import org.springframework.stereotype.Component
 
 @Component
-class CustomTestSuiteRunPolicy : EntityPolicy<CustomTestSuiteRun, CustomTestSuiteRunPolicyScope> {
+class CustomTestSuiteRunPolicy(
+  private val ownerReadRule: AllowIfCustomTestSuiteRunOwnerReadRule,
+) : EntityPolicy<CustomTestSuiteRun, CustomTestSuiteRunPolicyScope> {
   override fun configure(scope: CustomTestSuiteRunPolicyScope) = scope.run {
     privacy {
-      load(AllowIfExecutionRule(), AllowIfCustomTestSuiteRunOwnerReadRule())
+      load(AllowIfExecutionRule(), ownerReadRule)
       create(AllowIfExecutionRule())
       update(AllowIfExecutionRule())
     }

@@ -22,12 +22,83 @@ Custom-run admission and owner polling are reviewed and committed. Execution,
 reference-output preparation, scheduling, expiration cleanup, and frontend integration
 remain later stages. Custom runs currently stay queued.
 
+## Grading-job design and review plan
+
+Official admission will create the submission and a ready grading job in one transaction,
+using the problem's stored inputs and expected answers. Custom admission will save only
+the queued run and its cases. A background worker will execute the reference solution, then
+save the generated expectations and create the grading job together. Both paths will use
+the same `CodeGrader`; all compilation and execution stay outside API requests and database
+transactions. No separate expected-output job table is needed.
+
+A grading job holds the submitted source, ordered input/expected-output snapshots, the
+problem-language reference, and exactly one originating attempt. Case metadata supports
+retaining the first official failure or all custom results. Runtime selection stays in
+application configuration. Saving the final result and deleting the job will be atomic.
+
+The `cases` field is a typed `List<GradingCase>` serialized into the existing JSONB column.
+Each entry requires a case ID, JSON input, and JSON expected output; JSON null remains a
+valid answer. Optional `TestCaseVisibility` records the original visibility of official
+cases and is absent for custom cases. Array order determines execution order.
+
+Grading-job storage and the consolidation of custom suites into runs are reviewed and
+committed. Later work is preserved in
+stash `875135cbbb210a6577b68e0a5fb5578429c535d5`, named
+`Custom test suite workflow: later review stages after grading-job storage`. Reapply only
+the files or hunks needed for each stage; do not restore the entire stash at once. The
+superseded standalone custom runner was removed before this stash was created.
+The stash predates the consolidation: adapt its suite lookups to run-owned cases when
+reapplying each stage.
+
+Review and commit one slice at a time. Tests and necessary generation belong with the
+code they validate. The remaining stages split storage, grading, runtime integration,
+and the two queue producers into separate reviews:
+
+- [x] **1. Official submission model:** Summary and first-failure retention.
+- [x] **2. GraphQL contract:** Enqueue and poll custom runs.
+- [x] **3. Custom execution schemas:** Owned suites, cases, and runs.
+- [x] **4. Backend services and access rules:** Admission, validation, and owner polling.
+- [x] **5. Grading-job storage:** Schema, origin constraints, execution-only access, V15
+  migration, EntKt generation, and storage tests. Also consolidates custom suites into
+  runs through V16 and updates admission, polling, and ownership.
+- [ ] **6. Custom result storage:** Result payloads, safe messages, finalization,
+  polling mapping, and persistence tests. Reapply the existing storage work from the stash.
+- [ ] **7. Shared grading:** Common grading input/result types, `CodeGrader`, and its
+  `CodeExecutionService` contract. Test comparison and execution outcomes with a fake
+  execution service, independently of Docker and database access.
+- [ ] **8. Docker execution:** Implement the shared execution contract, collect every
+  reachable case's output in one JVM, and update the protocol reader and current official
+  caller together. Include lifecycle, output-limit, and Docker tests; rebuild the image.
+- [ ] **9. Official grading-job flow:** Create jobs during official admission, process
+  them through the shared grader, and atomically retain the summary/first failure and
+  delete the job. Replace the old official runner/scheduler path and test recovery.
+- [ ] **10. Custom reference preparation:** Claim queued custom runs, generate expected
+  outputs asynchronously, and atomically enqueue their grading jobs. Route their grading
+  results to custom storage and test preparation failures, recovery, and polling.
+- [ ] **11. Expiration cleanup:** Delete expired custom runs and their cases after execution finishes.
+- [ ] **12. Frontend components:** Custom-input editing and per-case result views.
+- [ ] **13. Frontend integration:** Connect enqueue/polling and validate complete flows.
+
+Stage 5 adds `GradingJob`, `GradingCase`, its status enum and two inverse edges,
+the policy and validator, policy registration, migration V15, and `GradingJobIntegrationTest`.
+The schema module enables the Kotlin serialization compiler plugin for typed JSON payloads. Jobs have
+QUEUED/RUNNING status and creation/start timestamps. Foreign keys, unique indexes, and
+an exclusive-origin check enforce their destination; deleting that destination cascades
+to the job. Access to grading jobs is controlled by the execution-only privacy policy.
+The existing admission and workers do not create or consume jobs yet.
+
+Each custom request already creates a fresh set of inputs for one run, so the separate
+`CustomTestSuite` entity has been removed. `CustomTestSuiteRun` now owns the user,
+problem-language reference, expiration, and cases directly. V16 transfers these fields
+and reparents cases while preserving run and case IDs, retained results, and grading-job
+references. The public GraphQL contract is unchanged.
+
 ## Custom test suite admission and polling
 
 `enqueueCustomTestSuiteRun` accepts a problem-language ID, source code, and ordered JSON inputs. Each
-accepted request creates a new owned `CustomTestSuite`, its `CustomTestCase` rows, and
-one `CustomTestSuiteRun` in a serializable transaction. Invalid requests roll back all
-three. Source and stored case content use EntKt validation; request validation handles
+accepted request creates a new owned `CustomTestSuiteRun` and its `CustomTestCase` rows
+in a serializable transaction. Invalid requests roll back the run and its cases together.
+Source and stored case content use EntKt validation; request validation handles
 the case count and decoding JSON. Expected outputs start absent and will be prepared
 by the runner using the private reference solution on `JudgeConfiguration`.
 
@@ -38,13 +109,13 @@ to queued/running attempts across both official submissions and custom runs. Bot
 admission paths read those counts in the transaction that creates the attempt.
 
 `execution.max-custom-test-cases` defaults to 20. `execution.custom-test-suite-lifetime`
-defaults to 5 minutes and sets the suite's expiration when it is created. Expiration is
+defaults to 5 minutes and sets the run's expiration when it is created. Expiration is
 metadata until the cleanup stage is implemented; it does not make retained data unreadable.
 
 `customTestSuiteRun(id)` returns only the authenticated owner's attempt, including after
-problem archival. Suite ownership governs all three custom entities. Ordinary viewers,
+problem archival. Run ownership governs the run and its cases. Ordinary viewers,
 including administrators, cannot read someone else's inputs/results or mutate execution
-state. Execution may create suites/cases/runs, prepare expectations, and update runs;
+state. Execution may create runs and cases, prepare expectations, and update runs;
 deletion remains disabled until the cleanup stage.
 
 Polling maps the retained result JSON to generated DGS types and returns each case in

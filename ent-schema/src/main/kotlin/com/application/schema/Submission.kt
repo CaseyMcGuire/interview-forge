@@ -40,6 +40,9 @@ class Submission : EntSchema("submissions", clientName = "submissions") {
   /** The first failed case, when known; hidden-case details remain private to execution. */
   val failedTestResult by hasOne<SubmissionFailure>("failed_test_result")
 
+  /** Present while the submitted source is waiting for grading or being graded. */
+  val gradingJob by hasOne<GradingJob>("grading_job")
+
   val timestamps = include(::Timestamps)
 
   /** Supports a user's complete submission history. */

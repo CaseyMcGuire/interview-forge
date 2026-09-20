@@ -103,8 +103,7 @@ class CustomTestSuiteRunDataFetcher(
     }
 
     val results = run.caseResults ?: return null
-    val suite = checkNotNull(run.edges.customTestSuite.requireLoaded())
-    val cases = suite.edges.cases.requireLoaded()
+    val cases = run.edges.cases.requireLoaded()
     val resultsByCaseId = results.associate { result ->
       val fields = result.jsonObject
       fields.getValue("testCaseId").jsonPrimitive.long to fields

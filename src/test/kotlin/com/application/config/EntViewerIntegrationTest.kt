@@ -6,6 +6,7 @@ import com.application.schema.UserRole
 import com.application.services.User
 import entkt.runtime.privacy.ViewerContext
 import jakarta.servlet.Filter
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -80,7 +81,7 @@ class EntViewerIntegrationTest {
       .andReturn().response.contentAsString
     assertTrue(index.contains("/_ent/schema/submissions"))
     assertTrue(index.contains("/_ent/schema/testCases"))
-    assertTrue(index.contains("/_ent/schema/customTestSuites"))
+    assertFalse(index.contains("/_ent/schema/customTestSuites"))
     assertTrue(index.contains("/_ent/schema/customTestCases"))
     assertTrue(index.contains("/_ent/schema/customTestSuiteRuns"))
 
@@ -96,7 +97,11 @@ class EntViewerIntegrationTest {
       .andExpect(status().isOk)
       .andReturn().response.contentAsString
     assertTrue(customRun.contains("case_results"))
-    assertTrue(customRun.contains("/_ent/schema/customTestSuites"))
+    assertTrue(customRun.contains("user_id"))
+    assertTrue(customRun.contains("problem_language_id"))
+    assertTrue(customRun.contains("expires_at"))
+    assertTrue(customRun.contains("/_ent/schema/customTestCases"))
+    assertTrue(customRun.contains("/_ent/schema/problemLanguages"))
   }
 
   @Test

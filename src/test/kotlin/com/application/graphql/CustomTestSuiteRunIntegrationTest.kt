@@ -1,7 +1,6 @@
 package com.application.graphql
 
 import com.application.ent.CustomTestCase
-import com.application.ent.CustomTestSuite
 import com.application.ent.CustomTestSuiteRun
 import com.application.ent.EntClient
 import com.application.ent.Problem
@@ -121,7 +120,7 @@ class CustomTestSuiteRunIntegrationTest {
   @BeforeEach
   fun setUp() {
     entClient.withTransaction { tx ->
-      tx.customTestSuites.deleteMany(fixtures).getOrThrow()
+      tx.customTestSuiteRuns.deleteMany(fixtures).getOrThrow()
       tx.submissionFailures.deleteMany(fixtures).getOrThrow()
       tx.submissions.deleteMany(fixtures).getOrThrow()
     }.getOrThrow()
@@ -161,20 +160,18 @@ class CustomTestSuiteRunIntegrationTest {
   }
 
   @Test
-  fun `each request creates its own owned suite and ordered inputs without running code`() {
+  fun `each request creates its own owned run and ordered inputs without running code`() {
     val before = Instant.now()
     val id = assertSuccess(enqueueCustomTestSuiteRun(listOf("null", "  [1, 2]  ", "9007199254740993")))
     val run = storedRuns().single()
-    val suite = storedSuites().single()
-    val cases = storedCases(suite.id)
+    val cases = storedCases(run.id)
 
-    assertEquals(userId, suite.userId)
-    assertEquals(configurationId, suite.problemLanguageId)
-    assertEquals(suite.id, run.customTestSuiteId)
+    assertEquals(userId, run.userId)
+    assertEquals(configurationId, run.problemLanguageId)
     assertEquals("  solution source\n", run.sourceCode)
     assertEquals(CustomTestSuiteRunStatus.QUEUED, run.status)
-    assertTrue(suite.expiresAt >= before.plus(Duration.ofHours(2)))
-    assertTrue(suite.expiresAt <= Instant.now().plus(Duration.ofHours(2)))
+    assertTrue(run.expiresAt >= before.plus(Duration.ofHours(2)))
+    assertTrue(run.expiresAt <= Instant.now().plus(Duration.ofHours(2)))
     assertEquals(listOf(0, 1, 2), cases.map { it.position })
     assertEquals(listOf("null", "[1,2]", "9007199254740993"), cases.map { it.inputJson.toString() })
     assertTrue(cases.all { it.expectedOutputJson == null })
@@ -190,8 +187,11 @@ class CustomTestSuiteRunIntegrationTest {
 
     val secondId = assertSuccess(enqueueCustomTestSuiteRun())
     assertNotEquals(id, secondId)
-    assertEquals(2, storedSuites().size)
-    assertEquals(2, storedRuns().map { it.customTestSuiteId }.distinct().size)
+    val runs = storedRuns()
+    assertEquals(2, runs.size)
+    val secondRun = runs.single { it.id != run.id }
+    assertEquals(listOf(JsonPrimitive(1)), storedCases(secondRun.id).map { it.inputJson })
+    assertEquals(cases.map { it.id }, storedCases(run.id).map { it.id })
     assertTrue(entClient.submissions.query {}.all(fixtures).getOrThrow().isEmpty())
   }
 
@@ -210,7 +210,6 @@ class CustomTestSuiteRunIntegrationTest {
     }
 
     assertTrue(storedRuns().isEmpty())
-    assertTrue(storedSuites().isEmpty())
     assertTrue(entClient.customTestCases.query {}.all(fixtures).getOrThrow().isEmpty())
   }
 
@@ -222,9 +221,9 @@ class CustomTestSuiteRunIntegrationTest {
 
     val run = storedRuns().single()
     assertEquals(50_000, run.sourceCode.length)
-    assertEquals(JsonNull, storedCases(run.customTestSuiteId).first().inputJson)
-    assertEquals(20_000, storedCases(run.customTestSuiteId)[1].inputJson.toString().length)
-    assertEquals("1.0", storedCases(run.customTestSuiteId)[2].inputJson.toString())
+    assertEquals(JsonNull, storedCases(run.id).first().inputJson)
+    assertEquals(20_000, storedCases(run.id)[1].inputJson.toString().length)
+    assertEquals("1.0", storedCases(run.id)[2].inputJson.toString())
   }
 
   @Test
@@ -250,7 +249,6 @@ class CustomTestSuiteRunIntegrationTest {
     entClient.problems.update(problem.id) { archivedAt = Instant.now() }.save(fixtures).getOrThrow()
     assertEquals("ProblemNotFound", enqueueCustomTestSuiteRun()["__typename"].asString())
     assertTrue(storedRuns().isEmpty())
-    assertTrue(storedSuites().isEmpty())
   }
 
   @Test
@@ -277,7 +275,7 @@ class CustomTestSuiteRunIntegrationTest {
   fun `finished polling includes every case in input order and distinguishes JSON null`() {
     val id = assertSuccess(enqueueCustomTestSuiteRun(listOf("null", "2", "3")))
     val run = storedRuns().single()
-    val cases = storedCases(run.customTestSuiteId)
+    val cases = storedCases(run.id)
 
     entClient.withTransaction { tx ->
       tx.customTestCases.update(cases[0].id) { expectedOutputJson = JsonNull }.save(ExecutionAccess.context).getOrThrow()
@@ -330,29 +328,25 @@ class CustomTestSuiteRunIntegrationTest {
 
   @Test
   fun `expired retained runs remain readable until cleanup deletes them`() {
-    val suite = entClient.customTestSuites.create {
+    val run = entClient.customTestSuiteRuns.create {
       userId = this@CustomTestSuiteRunIntegrationTest.userId
       problemLanguageId = configurationId
       expiresAt = Instant.now().minusSeconds(1)
-    }.saveAndLoad(fixtures).getOrThrow()
-    val run = entClient.customTestSuiteRuns.create {
-      customTestSuiteId = suite.id
       sourceCode = "solution"
       totalCases = 1
     }.saveAndLoad(fixtures).getOrThrow()
 
     val id = globalIdUtil.toGlobalId(GraphqlCustomTestSuiteRun::class, run.id)
     assertFalse(poll(id).isNull)
-    entClient.customTestSuites.deleteById(fixtures, suite.id).getOrThrow()
+    entClient.customTestSuiteRuns.deleteById(fixtures, run.id).getOrThrow()
     assertTrue(poll(id).isNull)
   }
 
   @Test
-  fun `EntKt enforces ownership for suites cases and runs and denies ordinary writes`() {
+  fun `EntKt enforces ownership for cases and runs and denies ordinary writes`() {
     assertSuccess(enqueueCustomTestSuiteRun())
     val run = storedRuns().single()
-    val suite = storedSuites().single()
-    val testCase = storedCases(suite.id).single()
+    val testCase = storedCases(run.id).single()
     val (otherId, other) = login()
     val (adminId, admin) = login(UserRole.ADMIN)
 
@@ -360,13 +354,9 @@ class CustomTestSuiteRunIntegrationTest {
       asUser(viewerSession) {
         val viewer = ViewerContext(Viewer.User(viewerId))
         if (viewerId == userId) {
-          assertEquals(suite.id, entClient.customTestSuites.findById(viewer, suite.id).getOrThrow()!!.id)
           assertEquals(testCase.id, entClient.customTestCases.findById(viewer, testCase.id).getOrThrow()!!.id)
           assertEquals(run.id, entClient.customTestSuiteRuns.findById(viewer, run.id).getOrThrow()!!.id)
         } else {
-          assertThrows(EntPrivacyDeniedException::class.java) {
-            entClient.customTestSuites.findById(viewer, suite.id).getOrThrow()
-          }
           assertThrows(EntPrivacyDeniedException::class.java) {
             entClient.customTestCases.findById(viewer, testCase.id).getOrThrow()
           }
@@ -376,10 +366,12 @@ class CustomTestSuiteRunIntegrationTest {
         }
 
         assertThrows(EntMutationPrivacyDeniedException::class.java) {
-          entClient.customTestSuites.create {
+          entClient.customTestSuiteRuns.create {
             userId = viewerId
             problemLanguageId = configurationId
             expiresAt = Instant.now().plusSeconds(60)
+            sourceCode = "solution"
+            totalCases = 1
           }.save(viewer).getOrThrow()
         }
         assertThrows(EntMutationPrivacyDeniedException::class.java) {
@@ -391,7 +383,7 @@ class CustomTestSuiteRunIntegrationTest {
           }.save(viewer).getOrThrow()
         }
         assertThrows(EntMutationPrivacyDeniedException::class.java) {
-          entClient.customTestSuites.deleteById(viewer, suite.id).getOrThrow()
+          entClient.customTestSuiteRuns.deleteById(viewer, run.id).getOrThrow()
         }
       }
     }
@@ -406,12 +398,14 @@ class CustomTestSuiteRunIntegrationTest {
   @Test
   fun `source and case content remain validated for direct execution writes`() {
     assertSuccess(enqueueCustomTestSuiteRun())
-    val suite = storedSuites().single()
-    val testCase = storedCases(suite.id).single()
+    val run = storedRuns().single()
+    val testCase = storedCases(run.id).single()
 
     val error = assertThrows(EntValidationException::class.java) {
       entClient.customTestSuiteRuns.create {
-        customTestSuiteId = suite.id
+        userId = this@CustomTestSuiteRunIntegrationTest.userId
+        problemLanguageId = configurationId
+        expiresAt = Instant.now().plusSeconds(60)
         sourceCode = " "
         totalCases = 1
       }.save(ExecutionAccess.context).getOrThrow()
@@ -460,7 +454,6 @@ class CustomTestSuiteRunIntegrationTest {
     assertEquals("ExecutionBusy", enqueueCustomTestSuiteRun(session = third)["__typename"].asString())
     assertEquals("ExecutionBusy", submitSolution(third)["__typename"].asString())
     assertEquals(2, storedRuns().size)
-    assertEquals(2, storedSuites().size)
   }
 
   @Test
@@ -503,7 +496,7 @@ class CustomTestSuiteRunIntegrationTest {
 
       val officialCount = entClient.submissions.query {}.all(fixtures).getOrThrow().size
       assertEquals(2, storedRuns().size + officialCount)
-      assertEquals(storedRuns().size, storedSuites().size)
+      assertEquals(storedRuns().size, entClient.customTestCases.query {}.all(fixtures).getOrThrow().size)
     } finally {
       start.countDown()
       executor.shutdownNow()
@@ -514,11 +507,8 @@ class CustomTestSuiteRunIntegrationTest {
   private fun storedRuns(): List<CustomTestSuiteRun> = entClient.customTestSuiteRuns.query {}
     .all(fixtures).getOrThrow()
 
-  private fun storedSuites(): List<CustomTestSuite> = entClient.customTestSuites.query {}
-    .all(fixtures).getOrThrow()
-
-  private fun storedCases(suiteId: Long): List<CustomTestCase> =
-    entClient.customTestCases.indexes.customTestSuiteId(suiteId).query {
+  private fun storedCases(runId: Long): List<CustomTestCase> =
+    entClient.customTestCases.indexes.customTestSuiteRunId(runId).query {
       orderBy(CustomTestCase.position.asc())
     }.all(fixtures).getOrThrow()
 

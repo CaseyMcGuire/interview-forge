@@ -12,7 +12,6 @@ import com.application.schema.CustomTestSuiteRunStatus
 import com.application.schema.ProblemCheckerKind
 import com.application.schema.SubmissionStatus
 import com.application.security.ExecutionAccess
-import entkt.runtime.query.requireLoaded
 import org.springframework.stereotype.Service
 
 /** Availability and shared queue limits for official submissions and custom test suite runs. */
@@ -61,13 +60,10 @@ class ExecutionAvailabilityService(
     val customRuns = tx.customTestSuiteRuns.query {
       where(CustomTestSuiteRun.status `in` listOf(CustomTestSuiteRunStatus.QUEUED, CustomTestSuiteRunStatus.RUNNING))
       limit(properties.maxActiveSubmissions)
-      loadCustomTestSuite()
     }.all(ExecutionAccess.context).getOrThrow()
 
     val activeCount = submissions.size + customRuns.size
-    val userActiveCount = submissions.count { it.userId == userId } + customRuns.count {
-      checkNotNull(it.edges.customTestSuite.requireLoaded()).userId == userId
-    }
+    val userActiveCount = submissions.count { it.userId == userId } + customRuns.count { it.userId == userId }
 
     return activeCount < properties.maxActiveSubmissions && userActiveCount < properties.maxActiveSubmissionsPerUser
   }

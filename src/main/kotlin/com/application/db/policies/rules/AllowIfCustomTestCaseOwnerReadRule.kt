@@ -9,8 +9,8 @@ import entkt.runtime.result.visibleOrNull
 
 class AllowIfCustomTestCaseOwnerReadRule : PrivacyRule<ReadOnlyEntClient, CustomTestCase> {
   override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: CustomTestCase): PrivacyDecision {
-    // The suite's policy enforces authenticated ownership, including after problem archival.
-    context.client.customTestSuites.findById(context.viewerContext, item.customTestSuiteId)
+    // The run's policy enforces authenticated ownership, including after problem archival.
+    context.client.customTestSuiteRuns.findById(context.viewerContext, item.customTestSuiteRunId)
       .visibleOrNull()
       .getOrThrow()
       ?: return PrivacyDecision.Continue

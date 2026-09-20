@@ -2,19 +2,28 @@ package com.application.db.policies.rules
 
 import com.application.ent.CustomTestSuiteRun
 import com.application.ent.ReadOnlyEntClient
+import com.application.security.CurrentUser
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRule
 import entkt.runtime.privacy.PrivacyRuleContext
-import entkt.runtime.result.visibleOrNull
+import entkt.runtime.privacy.longIdOrNull
+import org.springframework.stereotype.Component
 
-class AllowIfCustomTestSuiteRunOwnerReadRule : PrivacyRule<ReadOnlyEntClient, CustomTestSuiteRun> {
+@Component
+class AllowIfCustomTestSuiteRunOwnerReadRule(
+  private val currentUser: CurrentUser,
+) : PrivacyRule<ReadOnlyEntClient, CustomTestSuiteRun> {
   override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: CustomTestSuiteRun): PrivacyDecision {
-    // Ownership belongs to the immutable suite, rather than the current problem configuration.
-    context.client.customTestSuites.findById(context.viewerContext, item.customTestSuiteId)
-      .visibleOrNull()
-      .getOrThrow()
-      ?: return PrivacyDecision.Continue
+    val user = currentUser.get()
 
-    return PrivacyDecision.Allow
+    return if (
+      user != null &&
+      user.id == context.viewerContext.longIdOrNull() &&
+      user.id == item.userId
+    ) {
+      PrivacyDecision.Allow
+    } else {
+      PrivacyDecision.Deny("Custom test suite run is unavailable to this viewer")
+    }
   }
 }

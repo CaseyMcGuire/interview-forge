@@ -89,9 +89,8 @@ class CustomTestSuiteRunService(
       return EnqueueCustomTestSuiteRunOutcome.Busy
     }
 
-    val suiteId = createCustomTestSuite(tx, userId, configurationId)
-    createCustomTestCases(tx, suiteId, caseInputs)
-    val runId = createQueuedRun(tx, suiteId, sourceCode, caseInputs.size)
+    val runId = createQueuedRun(tx, userId, configurationId, sourceCode, caseInputs.size)
+    createCustomTestCases(tx, runId, caseInputs)
 
     return EnqueueCustomTestSuiteRunOutcome.Success(runId)
   }
@@ -105,28 +104,21 @@ class CustomTestSuiteRunService(
     }
   }
 
-  private fun createCustomTestSuite(tx: EntTransactionClient, userId: Long, configurationId: Long): Long =
-    tx.customTestSuites.create {
-      this.userId = userId
-      problemLanguageId = configurationId
-      expiresAt = Instant.now().plus(properties.customTestSuiteLifetime)
-    }.saveAndLoad(ExecutionAccess.context).getOrThrow().id
-
-  private fun createCustomTestCases(tx: EntTransactionClient, suiteId: Long, inputs: List<String>) {
+  private fun createCustomTestCases(tx: EntTransactionClient, runId: Long, inputs: List<String>) {
     inputs.forEachIndexed { position, input ->
-      createCustomTestCase(tx, suiteId, position, parseCaseInput(input, position))
+      createCustomTestCase(tx, runId, position, parseCaseInput(input, position))
     }
   }
 
   private fun createCustomTestCase(
     tx: EntTransactionClient,
-    suiteId: Long,
+    runId: Long,
     position: Int,
     input: JsonElement,
   ) {
     try {
       tx.customTestCases.create {
-        customTestSuiteId = suiteId
+        customTestSuiteRunId = runId
         this.position = position
         inputJson = input
       }.save(ExecutionAccess.context).getOrThrow()
@@ -153,11 +145,14 @@ class CustomTestSuiteRunService(
 
   private fun createQueuedRun(
     tx: EntTransactionClient,
-    suiteId: Long,
+    userId: Long,
+    configurationId: Long,
     sourceCode: String,
     caseCount: Int,
   ): Long = tx.customTestSuiteRuns.create {
-    customTestSuiteId = suiteId
+    this.userId = userId
+    problemLanguageId = configurationId
+    expiresAt = Instant.now().plus(properties.customTestSuiteLifetime)
     this.sourceCode = sourceCode
     totalCases = caseCount
   }.saveAndLoad(ExecutionAccess.context).getOrThrow().id
@@ -170,9 +165,7 @@ class CustomTestSuiteRunService(
     return entClient.withTransaction(IsolationLevel.RepeatableRead) { tx ->
       tx.customTestSuiteRuns.query {
         where(CustomTestSuiteRun.id eq id)
-        loadCustomTestSuite {
-          loadCases { orderBy(CustomTestCase.position.asc()) }
-        }
+        loadCases { orderBy(CustomTestCase.position.asc()) }
       }.firstOrNull(viewer).visibleOrNull().getOrThrow()
     }.getOrThrow()
   }
