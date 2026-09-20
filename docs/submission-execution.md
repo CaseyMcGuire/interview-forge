@@ -63,7 +63,7 @@ and the two queue producers into separate reviews:
   runs through V16 and updates admission, polling, and ownership.
 - [x] **6. Custom result storage:** Result payloads, safe messages, finalization,
   polling mapping, and persistence tests.
-- [ ] **7. Shared grading:** Common grading input/result types, `CodeGrader`, and its
+- [x] **7. Shared grading:** Common grading input/result types, `CodeGrader`, and its
   `CodeExecutionService` contract. Test comparison and execution outcomes with a fake
   execution service, independently of Docker and database access.
 - [ ] **8. Docker execution:** Implement the shared execution contract, collect every
@@ -110,6 +110,40 @@ Validation: `./gradlew test --tests '*CustomTestSuiteRunPersistenceIntegrationTe
 --tests '*CustomTestSuiteRunIntegrationTest'` passed all 19 tests. This stage exercises
 storage and polling with supplied results; runtime execution and job consumption
 remain later stages. No schema or generated-artifact changes are required.
+
+Stage 7 introduces `CodeGrader.gradeCode`, which accepts a prepared program, ordered
+`TestCaseInput` values, and execution settings. It has no EntKt, GraphQL, or attempt-type
+dependency. `CodeExecutionService.executeCode` owns compilation, running all inputs in
+one process, and cleanup. It receives only inputs; expected answers stay with the grader.
+The same execution contract will let reference preparation collect outputs without grading.
+
+`CodeExecutionResult` distinguishes compilation failure from completed execution and
+keeps the process status separate from individual cases. Its `caseResults` contain
+`TestCaseExecutionResult` values with the JSON input, nullable parsed JSON answer,
+`ProgramStatus`, stdout, stderr, and nullable per-case runtime. Kotlin null means no
+valid answer was produced; `JsonNull` represents a valid JSON null answer. The execution
+implementation must parse answers without losing numeric type or precision.
+
+`GradingResult` contains one `TestCaseGradingResult` per supplied case, its overall outcome,
+and the suite duration. Each graded case holds its outcome and the original execution
+result, which owns the input, parsed answer, process status, streams, and measured runtime.
+Unrun cases have no execution result; their position matches the supplied case list.
+The grader verifies that returned inputs match the requested
+order and compares every structured answer separately from stdout. It fills unreached
+cases with `NOT_RUN` and rejects missing results from a reportedly successful process.
+A failed process exit overrides matching
+case outputs. Strict JSON comparison preserves numeric types and precision; output caps
+count UTF-8 bytes for JSON answers and both streams.
+
+This replaces the stashed `ProgramRunner` and `TestSuiteGrader` design. Do not reapply
+those classes or their old result wrappers when adapting the Docker stage. The new
+execution contract has only a test fake at this point; Spring wiring and its Docker
+implementation belong to stage 8. The existing official worker continues to use its
+current execution path until that integration is reviewed.
+
+Validation: `./gradlew test --tests '*CodeGraderTest' --tests '*JsonOutputCheckerTest'`
+passed all 17 unit tests without Docker or database access. Docker lifecycle and
+production wiring are not exercised in this stage. No generated artifacts changed.
 
 ## Custom test suite admission and polling
 
