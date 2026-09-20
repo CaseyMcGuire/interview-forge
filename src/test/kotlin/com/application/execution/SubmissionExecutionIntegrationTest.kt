@@ -1,18 +1,25 @@
 package com.application.execution
 
 import com.application.config.ExecutionProperties
+import com.application.db.policies.GradingJobPolicy
+import com.application.db.policies.SubmissionPolicy
+import com.application.db.policies.SubmissionFailurePolicy
 import com.application.ent.EntClient
+import com.application.ent.GradingJob
 import com.application.ent.Submission
 import com.application.ent.TestCase
 import com.application.graphql.GlobalIdUtil
 import com.application.schema.ProblemDifficulty
+import com.application.schema.GradingJobStatus
 import com.application.schema.SubmissionStatus
 import com.application.schema.SubmissionTestOutcome
 import com.application.schema.SubmissionVerdict
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
 import com.application.security.ExecutionAccess
+import com.application.services.GradingJobService
 import com.application.services.SubmissionService
+import entkt.postgres.PostgresDriver
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.query.requireLoaded
@@ -56,6 +63,7 @@ import java.time.Instant
 import java.nio.file.Files
 import java.sql.SQLException
 import java.util.UUID
+import javax.sql.DataSource
 import com.application.graphql.types.ProblemLanguage as GraphqlProblemLanguage
 
 @Testcontainers
@@ -69,10 +77,15 @@ class SubmissionExecutionIntegrationTest {
   lateinit var dockerExecutor: DockerExecutionService
 
   @Autowired
+  lateinit var gradingJobService: GradingJobService
+
+  @Autowired
   lateinit var submissionService: SubmissionService
 
-  private lateinit var scheduler: SubmissionScheduler
-  private lateinit var runner: SubmissionRunner
+  @Autowired
+  lateinit var dataSource: DataSource
+
+  private lateinit var scheduler: GradingJobScheduler
   private lateinit var executor: FakeCodeExecutionService
 
   @Autowired
@@ -102,7 +115,6 @@ class SubmissionExecutionIntegrationTest {
   @BeforeEach
   fun setUp() {
     executor = FakeCodeExecutionService()
-    runner = SubmissionRunner(submissionService, CodeGrader(executor))
     scheduler = createScheduler(executor)
     scheduler.onApplicationReady()
 
@@ -139,50 +151,151 @@ class SubmissionExecutionIntegrationTest {
   }
 
   @Test
-  fun `the runner executes the claimed submission and leaves final persistence to the service`() {
+  fun `claiming and finishing a job advances its submission and removes the job`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val firstId = submit("first solution")
     val secondId = submit("second solution")
-    val submission = submissionService.claimNextQueuedSubmission()!!
-    assertEquals("first solution", submission.sourceCode)
-    assertEquals(SubmissionStatus.RUNNING, submission.status)
-    assertNotNull(submission.startedAt)
+    val job = gradingJobService.claimNextQueuedGradingJob()!!
+    val submissionId = job.submissionId!!
+    assertEquals("first solution", job.sourceCode)
+    assertEquals(GradingJobStatus.RUNNING, job.status)
+    assertNotNull(job.startedAt)
+    assertEquals("RUNNING", poll(firstId)["status"].asString())
+    assertEquals("QUEUED", poll(secondId)["status"].asString())
 
     val withoutFailure = entClient.submissions.query {
-      where(Submission.id eq submission.id)
+      where(Submission.id eq submissionId)
       loadFailedTestResult()
     }.firstOrNull(ExecutionAccess.context).getOrThrow()!!
+    assertEquals(job.startedAt, withoutFailure.startedAt)
     assertNull(withoutFailure.edges.failedTestResult.requireLoaded())
 
     executor.runInputs = { inputs, _, _ -> outputs(inputs, "2") }
+    val result = gradeJob(job)
 
-    val result = runner.runSubmission(submission)
-
-    assertEquals(SubmissionVerdict.WRONG_ANSWER, result.verdict)
+    assertEquals(GradingOutcome.WRONG_ANSWER, result.outcome)
     assertEquals("RUNNING", poll(firstId)["status"].asString())
-    assertEquals("QUEUED", poll(secondId)["status"].asString())
     assertTrue(storedResults().isEmpty())
     assertEquals(listOf("execute"), executor.events)
 
-    submissionService.finishSubmission(submission.id, result)
+    gradingJobService.finishGradingJob(job.id, result)
 
     assertEquals("FINISHED", poll(firstId)["status"].asString())
     assertEquals("WRONG_ANSWER", poll(firstId)["verdict"].asString())
     assertEquals("2", storedResults().single().stdout)
     assertEquals("QUEUED", poll(secondId)["status"].asString())
+    assertNull(entClient.gradingJobs.findById(fixtures, job.id).getOrThrow())
 
     val withFailure = entClient.submissions.query {
-      where(Submission.id eq submission.id)
+      where(Submission.id eq submissionId)
       loadFailedTestResult()
     }.firstOrNull(ExecutionAccess.context).getOrThrow()!!
     assertEquals(storedResults().single().id, withFailure.edges.failedTestResult.requireLoaded()!!.id)
+
+    assertThrows(IllegalStateException::class.java) { gradingJobService.finishGradingJob(job.id, result) }
+    assertEquals(1, storedResults().size)
   }
 
   @Test
-  fun `the runner passes the current ordered inputs to the grader in one call`() {
+  fun `a failed job deletion rolls back the submission summary and first failure`() {
+    createCase(0, TestCaseVisibility.EXAMPLE, 1)
+    val id = submit("solution")
+    val job = gradingJobService.claimNextQueuedGradingJob()!!
+    executor.runInputs = { inputs, _, _ -> outputs(inputs, "0") }
+    val result = gradeJob(job)
+    var deletionAttempted = false
+
+    val failingClient = EntClient(PostgresDriver(dataSource, autoDdl = false)) {
+      policies {
+        gradingJobs(context.getBean(GradingJobPolicy::class.java))
+        submissions(context.getBean(SubmissionPolicy::class.java))
+        submissionFailures(context.getBean(SubmissionFailurePolicy::class.java))
+      }
+      hooks {
+        gradingJobs {
+          beforeDelete {
+            deletionAttempted = true
+            error("Simulated job deletion failure")
+          }
+        }
+      }
+    }
+    val failingService = GradingJobService(failingClient, submissionService, ExecutionProperties(), emptyList())
+
+    val failure = assertThrows(Exception::class.java) { failingService.finishGradingJob(job.id, result) }
+
+    assertTrue(deletionAttempted, failure.toString())
+    assertEquals("RUNNING", poll(id)["status"].asString())
+    assertEquals("PENDING", poll(id)["verdict"].asString())
+    assertTrue(poll(id)["finishedAt"].isNull)
+    assertTrue(storedResults().isEmpty())
+    assertEquals(GradingJobStatus.RUNNING, storedJobs().single().status)
+
+    // Recovery finishes the retained job without invoking the code again.
+    gradingJobService.finishInterruptedGradingJobs()
+    assertEquals("INTERNAL_ERROR", poll(id)["verdict"].asString())
+    assertTrue(storedJobs().isEmpty())
+    assertEquals(listOf("execute"), executor.events)
+  }
+
+  @Test
+  fun `a failed job claim also rolls back the submission transition`() {
+    createCase(0, TestCaseVisibility.HIDDEN, 1)
+    val id = submit("solution")
+    var claimAttempted = false
+    val failingClient = EntClient(PostgresDriver(dataSource, autoDdl = false)) {
+      policies {
+        gradingJobs(context.getBean(GradingJobPolicy::class.java))
+        submissions(context.getBean(SubmissionPolicy::class.java))
+        submissionFailures(context.getBean(SubmissionFailurePolicy::class.java))
+      }
+      hooks {
+        gradingJobs {
+          beforeUpdate {
+            claimAttempted = true
+            error("Simulated job update failure")
+          }
+        }
+      }
+    }
+    val failingService = GradingJobService(failingClient, submissionService, ExecutionProperties(), emptyList())
+
+    val failure = assertThrows(Exception::class.java) { failingService.claimNextQueuedGradingJob() }
+
+    assertTrue(claimAttempted, failure.toString())
+    assertEquals("QUEUED", poll(id)["status"].asString())
+    assertTrue(poll(id)["startedAt"].isNull)
+    assertEquals(GradingJobStatus.QUEUED, storedJobs().single().status)
+    assertNull(storedJobs().single().startedAt)
+
+    assertNotNull(gradingJobService.claimNextQueuedGradingJob())
+  }
+
+  @Test
+  fun `completion rejects queued jobs and incomplete grading results`() {
+    createCase(0, TestCaseVisibility.HIDDEN, 1)
+    val id = submit("solution")
+    val job = storedJobs().single()
+    val incomplete = GradingResult(GradingOutcome.PASSED, emptyList())
+
+    assertThrows(IllegalStateException::class.java) { gradingJobService.finishGradingJob(job.id, incomplete) }
+    assertEquals("QUEUED", poll(id)["status"].asString())
+
+    gradingJobService.claimNextQueuedGradingJob()!!
+    assertThrows(IllegalStateException::class.java) { gradingJobService.finishGradingJob(job.id, incomplete) }
+    assertEquals("RUNNING", poll(id)["status"].asString())
+    assertEquals(GradingJobStatus.RUNNING, storedJobs().single().status)
+    assertTrue(storedResults().isEmpty())
+  }
+
+  @Test
+  fun `jobs retain the admitted cases while using current judge settings`() {
     createCase(7, TestCaseVisibility.HIDDEN, 7)
-    createCase(1, TestCaseVisibility.EXAMPLE, 1)
+    val example = createCase(1, TestCaseVisibility.EXAMPLE, 1)
     val id = submit("submitted source")
+    val jobId = storedJobs().single().id
+
+    entClient.testCases.deleteById(fixtures, example.id).getOrThrow()
 
     createCase(4, TestCaseVisibility.HIDDEN, 4)
     entClient.judgeConfigurations.update(judgeId) {
@@ -192,24 +305,23 @@ class SubmissionExecutionIntegrationTest {
     }.save(fixtures).getOrThrow()
 
     executor.runInputs = { cases, timeLimitMs, memoryLimitMb ->
-      assertEquals(listOf(1, 4, 7).map(::JsonPrimitive), cases)
+      assertEquals(listOf(1, 7).map(::JsonPrimitive), cases)
       assertEquals(1_234, timeLimitMs)
       assertEquals(192, memoryLimitMb)
 
       val running = poll(id)
       assertEquals("RUNNING", running["status"].asString())
-      assertEquals(3, running["totalCases"].asInt())
+      assertEquals(2, running["totalCases"].asInt())
       assertEquals(0, running["passedCases"].asInt())
       assertTrue(running["failedExample"].isNull)
       assertTrue(storedResults().isEmpty())
-      outputs(cases, "1", "4", "7", runtimeMs = 42)
+      outputs(cases, "1", "7", runtimeMs = 42)
     }
 
-    scheduler.processQueuedSubmissions()
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
+    scheduler.processQueuedGradingJobs()
     assertEquals(listOf("cleanup", "execute"), executor.events)
-    val submissionId = entClient.submissions.query {}.all(fixtures).getOrThrow().single().id
-    assertEquals("submission-$submissionId", executor.executionId)
+    assertEquals("grading-job-$jobId", executor.executionId)
     assertEquals(DockerExecutionServiceTest.IMAGE, executor.runtime)
     assertEquals("submitted source", executor.program.sourceFiles["Solution.kt"])
     assertEquals("updated driver", executor.program.sourceFiles["TestDriver.kt"])
@@ -217,7 +329,7 @@ class SubmissionExecutionIntegrationTest {
     val result = poll(id)
     assertEquals("FINISHED", result["status"].asString())
     assertEquals("ACCEPTED", result["verdict"].asString())
-    assertEquals(3, result["passedCases"].asInt())
+    assertEquals(2, result["passedCases"].asInt())
     assertEquals(42, result["runtimeMs"].asInt())
     assertTrue(result["failedExample"].isNull)
     assertFalse(result["startedAt"].isNull)
@@ -250,7 +362,7 @@ class SubmissionExecutionIntegrationTest {
         runtimeMs = 17,
       )
     }
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     val result = poll(id)
     assertEquals("WRONG_ANSWER", result["verdict"].asString())
@@ -293,7 +405,7 @@ class SubmissionExecutionIntegrationTest {
       )
     }
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     entClient.testCases.update(example.id) {
       inputJson = JsonPrimitive(99)
@@ -325,7 +437,7 @@ class SubmissionExecutionIntegrationTest {
     val id = submit("solution")
     executor.runInputs = { inputs, _, _ -> outputs(inputs, "not JSON") }
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     val submission = poll(id)
     assertEquals("RUNTIME_ERROR", submission["verdict"].asString())
@@ -340,7 +452,7 @@ class SubmissionExecutionIntegrationTest {
     createCase(0, TestCaseVisibility.EXAMPLE, 1)
     submit("solution")
     executor.runInputs = { inputs, _, _ -> outputs(inputs, "0") }
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     val result = storedResults().single()
     val ownerId = userId
@@ -400,7 +512,7 @@ class SubmissionExecutionIntegrationTest {
     createCase(0, TestCaseVisibility.EXAMPLE, 1)
     val id = submit("solution")
     executor.runInputs = { inputs, _, _ -> outputs(inputs, "0") }
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
     val result = storedResults().single()
 
     for (status in listOf(SubmissionStatus.QUEUED, SubmissionStatus.RUNNING)) {
@@ -429,7 +541,7 @@ class SubmissionExecutionIntegrationTest {
     val id = submit("invalid solution")
     executor.compilation = ProgramResult(ProgramStatus.FAILED, stderr = "TestDriver private diagnostic")
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     val result = poll(id)
     assertEquals("FINISHED", result["status"].asString())
@@ -460,7 +572,7 @@ class SubmissionExecutionIntegrationTest {
         )
       }
 
-      scheduler.processQueuedSubmissions()
+      scheduler.processQueuedGradingJobs()
 
       val result = poll(id)
       assertEquals("FINISHED", result["status"].asString())
@@ -489,7 +601,7 @@ class SubmissionExecutionIntegrationTest {
       )
     }
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     assertEquals("TIME_LIMIT_EXCEEDED", poll(id)["verdict"].asString())
     assertEquals("WRONG_ANSWER", storedResults().single().outcome.name)
@@ -503,7 +615,7 @@ class SubmissionExecutionIntegrationTest {
     val id = submit("solution")
     executor.runInputs = { inputs, _, _ -> completedExecution(inputs, ProgramStatus.MEMORY_LIMIT_EXCEEDED, emptyList()) }
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     assertEquals("MEMORY_LIMIT_EXCEEDED", poll(id)["verdict"].asString())
     assertTrue(storedResults().isEmpty())
@@ -515,7 +627,7 @@ class SubmissionExecutionIntegrationTest {
     val id = submit("solution")
     executor.runInputs = { _, _, _ -> error("secret driver input") }
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     val result = poll(id)
     assertEquals("FINISHED", result["status"].asString())
@@ -532,7 +644,7 @@ class SubmissionExecutionIntegrationTest {
     executor.runInputs = { _, _, _ -> throw InterruptedException("stopping") }
 
     try {
-      assertThrows(InterruptedException::class.java) { scheduler.processQueuedSubmissions() }
+      assertThrows(InterruptedException::class.java) { scheduler.processQueuedGradingJobs() }
       assertTrue(Thread.interrupted(), "The scheduler must restore the interruption flag")
       assertEquals("INTERNAL_ERROR", poll(id)["verdict"].asString())
       assertEquals("execute", executor.events.last())
@@ -545,26 +657,19 @@ class SubmissionExecutionIntegrationTest {
   @Test
   fun `interrupted attempts are finished before queued work executes`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
-    val interrupted = entClient.submissions.create {
-      userId = this@SubmissionExecutionIntegrationTest.userId
-      problemId = this@SubmissionExecutionIntegrationTest.problemId
-      problemLanguageId = configurationId
-      sourceCode = "previous attempt"
-      status = SubmissionStatus.RUNNING
-      totalCases = 2
-      passedCases = 1
-      runtimeMs = 12
-      startedAt = Instant.now().minusSeconds(60)
-    }.saveAndLoad(fixtures).getOrThrow()
+    val interruptedId = submit("previous attempt")
+    val interrupted = gradingJobService.claimNextQueuedGradingJob()!!
     val queuedId = submit("solution")
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
-    val recovered = entClient.submissions.findById(fixtures, interrupted.id).getOrThrow()!!
+    val recovered = entClient.submissions.findById(fixtures, interrupted.submissionId!!).getOrThrow()!!
     assertEquals(SubmissionStatus.FINISHED, recovered.status)
     assertEquals(SubmissionVerdict.INTERNAL_ERROR, recovered.verdict)
-    assertEquals(1, recovered.passedCases)
-    assertEquals(12L, recovered.runtimeMs)
+    assertEquals(0, recovered.passedCases)
+    assertNull(recovered.runtimeMs)
+    assertEquals("INTERNAL_ERROR", poll(interruptedId)["verdict"].asString())
+    assertTrue(storedJobs().isEmpty())
     assertEquals("ACCEPTED", poll(queuedId)["verdict"].asString())
   }
 
@@ -572,19 +677,15 @@ class SubmissionExecutionIntegrationTest {
   fun `failed container cleanup leaves interrupted submissions running until recovery succeeds`() {
     createCase(0, TestCaseVisibility.HIDDEN, 1)
     val id = submit("interrupted solution")
-    val submission = entClient.submissions.query {}.all(fixtures).getOrThrow().single()
-    entClient.submissions.update(submission.id) {
-      status = SubmissionStatus.RUNNING
-      startedAt = Instant.now()
-    }.save(fixtures).getOrThrow()
+    gradingJobService.claimNextQueuedGradingJob()!!
     executor.cleanupFailure = IllegalStateException("Docker is unavailable")
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
     assertEquals("RUNNING", poll(id)["status"].asString())
     assertEquals(listOf("cleanup"), executor.events)
 
     executor.cleanupFailure = null
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
     assertEquals("INTERNAL_ERROR", poll(id)["verdict"].asString())
     assertEquals(listOf("cleanup", "cleanup"), executor.events)
   }
@@ -596,11 +697,11 @@ class SubmissionExecutionIntegrationTest {
     val id = submit("fun solve(input: String) = input")
     val scheduler = createScheduler(dockerExecutor)
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
     assertEquals("QUEUED", poll(id)["status"].asString(), "Wait for application startup")
 
     scheduler.onApplicationReady()
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     val result = poll(id)
     assertEquals("FINISHED", result["status"].asString())
@@ -626,7 +727,7 @@ class SubmissionExecutionIntegrationTest {
 
     val scheduler = createScheduler(dockerExecutor)
     scheduler.onApplicationReady()
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     val result = poll(id)
     assertEquals("WRONG_ANSWER", result["verdict"].asString())
@@ -645,7 +746,7 @@ class SubmissionExecutionIntegrationTest {
 
     val scheduler = createScheduler(dockerExecutor)
     scheduler.onApplicationReady()
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     assertEquals("COMPILE_ERROR", poll(id)["verdict"].asString())
     assertTrue(storedResults().isEmpty())
@@ -658,7 +759,7 @@ class SubmissionExecutionIntegrationTest {
     val id = submit("solution")
     entClient.judgeConfigurations.deleteById(fixtures, judgeId).getOrThrow()
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     assertEquals("INTERNAL_ERROR", poll(id)["verdict"].asString())
     assertEquals(listOf("cleanup"), executor.events)
@@ -671,7 +772,7 @@ class SubmissionExecutionIntegrationTest {
     submit("first solution")
     submit("second solution")
     executor.runInputs = { inputs, _, _ -> outputs(inputs, "0") }
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
     val retained = storedResults().single()
 
     val exception = assertThrows(Exception::class.java) {
@@ -689,7 +790,7 @@ class SubmissionExecutionIntegrationTest {
     )
     assertEquals(retained.id, storedResults().single().id)
 
-    scheduler.processQueuedSubmissions()
+    scheduler.processQueuedGradingJobs()
 
     val failures = storedResults()
     assertEquals(2, failures.size)
@@ -736,11 +837,25 @@ class SubmissionExecutionIntegrationTest {
     runtimeMs,
   )
 
+  private fun gradeJob(job: GradingJob): GradingResult {
+    val settings = gradingJobService.loadExecutionSettings(job)
+    return CodeGrader(executor).gradeCode(
+      executionId = "grading-job-${job.id}",
+      runtime = settings.runtime,
+      program = settings.program,
+      cases = job.cases.map { TestCaseInput(it.inputJson, it.expectedOutputJson) },
+      timeLimitMs = settings.timeLimitMs,
+      memoryLimitMb = settings.memoryLimitMb,
+    )
+  }
+
+  private fun storedJobs() = entClient.gradingJobs.query {}.all(fixtures).getOrThrow()
+
   private fun storedResults() = entClient.submissionFailures.query {}.all(fixtures).getOrThrow()
 
-  private fun createScheduler(executor: CodeExecutionService) = SubmissionScheduler(
-    submissionService,
-    SubmissionRunner(submissionService, CodeGrader(executor)),
+  private fun createScheduler(executor: CodeExecutionService) = GradingJobScheduler(
+    gradingJobService,
+    CodeGrader(executor),
     executor,
     ExecutionProperties(runtimes = mapOf("kotlin" to DockerExecutionServiceTest.IMAGE)),
   )

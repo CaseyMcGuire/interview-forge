@@ -151,7 +151,7 @@ class SubmissionIntegrationTest {
   }
 
   @Test
-  fun `official submissions retain source and queue without copying test inputs`() {
+  fun `official submissions retain source and atomically enqueue selected test inputs`() {
     createCase(7, TestCaseVisibility.EXAMPLE, "7")
     createCase(3, TestCaseVisibility.HIDDEN, "\"secret\"")
 
@@ -163,7 +163,7 @@ class SubmissionIntegrationTest {
     assertEquals("PENDING", submission["verdict"].asString())
     assertTrue(submission["startedAt"].isNull)
     assertTrue(submission["finishedAt"].isNull)
-    assertEquals(0, submission["totalCases"].asInt())
+    assertEquals(2, submission["totalCases"].asInt())
     assertEquals(0, submission["passedCases"].asInt())
     assertFalse(submission.has("testResults"))
     assertFalse(submission.toString().contains("secret"))
@@ -174,6 +174,12 @@ class SubmissionIntegrationTest {
     assertEquals(configurationId, stored.problemLanguageId)
     assertEquals("  solution source\n", stored.sourceCode)
     assertEquals(SubmissionVerdict.PENDING, stored.verdict)
+    val job = entClient.gradingJobs.indexes.submissionId(stored.id).query {}
+      .firstOrNull(ExecutionAccess.context).getOrThrow()!!
+    assertEquals(stored.sourceCode, job.sourceCode)
+    assertEquals(configurationId, job.problemLanguageId)
+    assertEquals(listOf("\"secret\"", "7"), job.cases.map { it.inputJson.toString() })
+    assertEquals(listOf(TestCaseVisibility.HIDDEN, TestCaseVisibility.EXAMPLE), job.cases.map { it.visibility })
     assertTrue(storedCases().isEmpty())
     assertEquals(submission, poll(submission["id"].asString()))
   }

@@ -1,16 +1,7 @@
 package com.application.execution
 
-import com.application.ent.TestCase
 import com.application.schema.SubmissionTestOutcome
 import com.application.schema.SubmissionVerdict
-
-class SubmissionExecutionResult(
-  val verdict: SubmissionVerdict,
-  val passedCases: Int = 0,
-  val runtimeMs: Long? = null,
-  val failedCase: TestCase? = null,
-  val failedCaseResult: TestCaseGradingResult? = null,
-)
 
 internal fun GradingOutcome.toSubmissionVerdict(): SubmissionVerdict = when (this) {
   GradingOutcome.PASSED -> SubmissionVerdict.ACCEPTED

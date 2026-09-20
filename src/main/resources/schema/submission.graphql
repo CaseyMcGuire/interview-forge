@@ -13,7 +13,7 @@ type Submission {
   """Overall result; PENDING until execution finishes."""
   verdict: SubmissionVerdict!
 
-  """Number of official test cases; zero while queued."""
+  """Number of official test cases selected for this submission."""
   totalCases: Int!
 
   """Number of official cases passed so far."""
