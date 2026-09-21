@@ -30,7 +30,9 @@ const styles = stylex.create({
   input: {
     width: "100%",
     boxSizing: "border-box",
-    border: "1px solid #4e5157",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#4e5157",
     borderRadius: 5,
     padding: "10px 12px",
     backgroundColor: "#2b2d30",
