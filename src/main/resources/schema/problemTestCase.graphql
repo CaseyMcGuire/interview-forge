@@ -1,19 +1,12 @@
 extend type Problem {
-  """Hidden tests in position order. Admins only; null for other viewers."""
   testCases: [ProblemTestCase!]
-
-  """Finds a hidden test belonging to this problem. Admins only; null if unavailable."""
   testCase(id: ID!): ProblemTestCase
 }
 
-"""A hidden test managed by problem administrators."""
 type ProblemTestCase {
   id: ID!
   position: Int!
   inputJson: String!
-
-  """Serialized JSON expectation. The string "null" is a valid expected value."""
   expectedOutputJson: String!
-
   explanationMarkdown: String
 }

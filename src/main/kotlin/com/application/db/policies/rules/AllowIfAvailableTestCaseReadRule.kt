@@ -19,14 +19,17 @@ class AllowIfAvailableTestCaseReadRule(
     context: PrivacyRuleContext<ReadOnlyEntClient>,
     batch: RuleBatch<TestCase>,
   ): RuleDecisions<PrivacyDecision> {
-    val isAdmin = currentUser.isAdmin(context.viewerContext)
+    if (currentUser.isAdmin(context.viewerContext)) {
+      return batch.decideEach { PrivacyDecision.Allow }
+    }
+
     val problemIds = publishedProblemIds(
       context,
-      batch.filter { isAdmin || it.visibility == TestCaseVisibility.EXAMPLE }.map { it.problemId },
+      batch.filter { it.visibility == TestCaseVisibility.EXAMPLE }.map { it.problemId },
     )
 
     return batch.decideEach {
-      if ((isAdmin || it.visibility == TestCaseVisibility.EXAMPLE) && it.problemId in problemIds) {
+      if (it.visibility == TestCaseVisibility.EXAMPLE && it.problemId in problemIds) {
         PrivacyDecision.Allow
       } else {
         PrivacyDecision.Deny("Test case is unavailable to this viewer")

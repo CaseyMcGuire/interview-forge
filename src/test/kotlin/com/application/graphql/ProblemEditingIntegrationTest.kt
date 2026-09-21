@@ -270,7 +270,7 @@ class ProblemEditingIntegrationTest {
   }
 
   @Test
-  fun `unpublished future and archived problems cannot be edited through any mutation`() {
+  fun `unavailable problems still reject metadata and language updates and example deletion`() {
     val now = Instant.now()
     val availability = listOf(
       null to null,
@@ -283,7 +283,11 @@ class ProblemEditingIntegrationTest {
         this.archivedAt = archivedAt
       }.save(fixtureContext).getOrThrow()
 
-      for ((operation, id) in targets()) {
+      for ((operation, id) in listOf(
+        "updateProblem" to problemId,
+        "updateProblemLanguage" to configurationId,
+        "deleteProblemExample" to exampleId,
+      )) {
         assertEquals("ProblemNotFound", mutate(operation, id)["__typename"].asString(), operation)
       }
 
@@ -304,6 +308,26 @@ class ProblemEditingIntegrationTest {
     assertEquals(problem.title, storedProblem().title)
     assertEquals(configuration.starterCode, storedConfiguration(configuration.id).starterCode)
     assertExampleUnchanged(example)
+  }
+
+  @Test
+  fun `public examples can be updated before publication or after archival`() {
+    val now = Instant.now()
+    for ((publishedAt, archivedAt) in listOf(null to null, now.plusSeconds(3600) to null, now to now)) {
+      entClient.problems.update(problem.id) {
+        this.publishedAt = publishedAt
+        this.archivedAt = archivedAt
+      }.save(fixtureContext).getOrThrow()
+
+      val result = mutate("updateProblemExample", exampleId, mapOf("expectedOutputJson" to "[1,0]"))
+
+      assertEquals("UpdateProblemExampleSuccess", result["__typename"].asString())
+      val stored = storedExample(example.id)
+      assertEquals(Json.parseToJsonElement("[1,0]"), stored.expectedOutputJson)
+      assertEquals(example.inputJson, stored.inputJson)
+      assertEquals(example.position, stored.position)
+      assertEquals(example.visibility, stored.visibility)
+    }
   }
 
   @Test

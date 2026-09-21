@@ -217,7 +217,7 @@ class ProblemHiddenTestCaseIntegrationTest {
   }
 
   @Test
-  fun `hidden reads require a matching current admin and an available problem`() {
+  fun `hidden reads require a matching current admin regardless of problem publication or archival`() {
     val hidden = createCase(0, TestCaseVisibility.HIDDEN)
     val (ordinaryId, _) = login(UserRole.USER)
     val securityContext = adminSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) as SecurityContext
@@ -237,9 +237,19 @@ class ProblemHiddenTestCaseIntegrationTest {
       }
 
       entClient.users.update(adminId) { role = UserRole.ADMIN }.save(fixtureContext).getOrThrow()
-      entClient.problems.update(problem.id) { archivedAt = Instant.now() }.save(fixtureContext).getOrThrow()
-      assertThrows(EntPrivacyDeniedException::class.java) {
-        entClient.testCases.findById(adminViewer, hidden.id).getOrThrow()
+      val now = Instant.now()
+      for ((publishedAt, archivedAt) in listOf(null to null, now.plusSeconds(3600) to null, now to now)) {
+        entClient.problems.update(problem.id) {
+          this.publishedAt = publishedAt
+          this.archivedAt = archivedAt
+        }.save(fixtureContext).getOrThrow()
+
+        assertEquals(hidden.id, entClient.testCases.findById(adminViewer, hidden.id).getOrThrow()!!.id)
+        for (viewer in listOf(Viewer.Anonymous, Viewer.User(ordinaryId))) {
+          assertThrows(EntPrivacyDeniedException::class.java) {
+            entClient.testCases.findById(ViewerContext(viewer), hidden.id).getOrThrow()
+          }
+        }
       }
     } finally {
       SecurityContextHolder.clearContext()

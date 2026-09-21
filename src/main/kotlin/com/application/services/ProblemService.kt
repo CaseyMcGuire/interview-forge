@@ -11,6 +11,7 @@ import com.application.ent.ProblemQueryScope
 import com.application.ent.TestCase
 import com.application.schema.TestCaseVisibility
 import com.application.schema.ProblemDifficulty
+import com.application.schema.UserRole
 import com.application.security.CurrentUser
 import entkt.runtime.result.EntConstraintViolationException
 import kotlinx.serialization.json.Json
@@ -20,6 +21,11 @@ import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.visibleOrNull
 import org.springframework.stereotype.Service
+import tools.jackson.core.JacksonException
+import tools.jackson.core.StreamReadConstraints
+import tools.jackson.core.json.JsonFactory
+import tools.jackson.databind.DeserializationFeature
+import tools.jackson.databind.json.JsonMapper
 import java.time.Instant
 
 @Service
@@ -29,6 +35,13 @@ class ProblemService(
 ) {
   // This catalog view uses the same public visibility for signed-in and anonymous visitors.
   private val publicContext = ViewerContext(Viewer.Anonymous)
+  private val testCaseJsonMapper = JsonMapper.builder(
+    JsonFactory.builder()
+      .streamReadConstraints(StreamReadConstraints.builder().maxNumberLength(20_000).build())
+      .build(),
+  )
+    .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS, DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
+    .build()
 
   fun findEnabledLanguages(): List<Language> = entClient.languages.query {
     where(Language.enabled eq true)
@@ -318,6 +331,54 @@ class ProblemService(
     }.getOrThrow()
   }
 
+  fun findProblemTestCases(problemId: Long): List<TestCase>? {
+    val context = currentAdminContext() ?: return null
+    entClient.problems.findById(context, problemId).visibleOrNull().getOrThrow() ?: return null
+
+    return entClient.testCases.indexes.problemId(problemId).query {
+      where(TestCase.visibility eq TestCaseVisibility.HIDDEN)
+      orderBy(TestCase.position.asc())
+    }.all(context).getOrThrow()
+  }
+
+  fun findProblemTestCase(problemId: Long, id: Long): TestCase? {
+    val context = currentAdminContext() ?: return null
+    val testCase = entClient.testCases.findById(context, id).visibleOrNull().getOrThrow() ?: return null
+
+    return testCase.takeIf { it.problemId == problemId && it.visibility == TestCaseVisibility.HIDDEN }
+  }
+
+  fun updateProblemTestCase(
+    id: Long,
+    inputJson: String,
+    expectedOutputJson: String,
+    explanationMarkdown: String?,
+  ): TestCase? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val parsedInput = parseTestCaseJson(inputJson, "inputJson")
+    val parsedOutput = parseTestCaseJson(expectedOutputJson, "expectedOutputJson")
+
+    return entClient.withTransaction { tx ->
+      tx.testCases.findById(context, id).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      tx.testCases.update(id) {
+        this.inputJson = parsedInput
+        this.expectedOutputJson = parsedOutput
+        this.explanationMarkdown = explanationMarkdown
+      }.saveAndLoad(context).getOrThrow()
+    }.getOrThrow()
+  }
+
+  private fun currentAdminContext(): ViewerContext? {
+    val user = currentUser.get() ?: return null
+    if (user.role != UserRole.ADMIN) {
+      return null
+    }
+
+    return ViewerContext(Viewer.User(user.id))
+  }
+
   fun updateProblemExample(input: UpdateProblemExample): TestCase? {
     val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
 
@@ -350,6 +411,9 @@ class ProblemService(
         return@withTransaction null
       }
 
+      tx.problems.findById(context, example.problemId).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
       if (!tx.testCases.deleteById(context, id).getOrThrow()) {
         return@withTransaction null
       }
@@ -365,11 +429,18 @@ class ProblemService(
     }.firstOrNull(context).getOrThrow()
 
   private fun parseTestCaseJson(value: String, field: String): JsonElement {
-    return try {
-      Json.parseToJsonElement(value)
-    } catch (_: IllegalArgumentException) {
+    val parsed = try {
+      testCaseJsonMapper.readTree(value)
+    } catch (_: JacksonException) {
       throw ProblemInputException(field, "Provide valid JSON")
     }
+
+    if (parsed == null || parsed.isMissingNode) {
+      throw ProblemInputException(field, "Provide valid JSON")
+    }
+
+    // Check strict JSON syntax first, then preserve the supplied number representations.
+    return Json.parseToJsonElement(value)
   }
 
   private fun ProblemQueryScope.loadPublicContent() {

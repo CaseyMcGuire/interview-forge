@@ -1,5 +1,5 @@
 extend type Mutation {
-  """Updates a public example on a published problem. Admins only."""
+  """Updates a public example. Admins only."""
   updateProblemExample(input: UpdateProblemExampleInput!): UpdateProblemExampleResult!
 }
 

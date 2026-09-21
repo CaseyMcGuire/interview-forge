@@ -8,10 +8,12 @@ import com.application.graphql.types.Problem
 import com.application.graphql.types.ProblemExample
 import com.application.graphql.types.ProblemLanguage
 import com.application.graphql.types.ProblemNotFound
+import com.application.graphql.types.ProblemTestCase
 import com.application.graphql.types.UpdateJudgeConfigurationInput
 import com.application.graphql.types.UpdateProblemExampleInput
 import com.application.graphql.types.UpdateProblemInput
 import com.application.graphql.types.UpdateProblemLanguageInput
+import com.application.graphql.types.UpdateProblemTestCaseInput
 import com.application.services.ProblemService
 import com.application.services.CreateProblemHiddenTestCase
 import com.application.services.UpdateProblem
@@ -44,6 +46,8 @@ class ProblemMutationPrivacyTest {
       .thenThrow(denied("ProblemLanguage", EntOperation.UPDATE))
     `when`(service.updateProblemExample(UpdateProblemExample(id = 42)))
       .thenThrow(denied("TestCase", EntOperation.UPDATE))
+    `when`(service.updateProblemTestCase(42, "[]", "[]", null))
+      .thenThrow(denied("TestCase", EntOperation.UPDATE))
     `when`(service.deleteProblemExample(42))
       .thenThrow(denied("TestCase", EntOperation.DELETE))
     `when`(service.createProblemHiddenTestCase(CreateProblemHiddenTestCase(42, "[]", "[]")))
@@ -64,6 +68,13 @@ class ProblemMutationPrivacyTest {
     assertEquals(expected, fetcher.updateProblemExample(
       UpdateProblemExampleInput(id = globalIdUtil.toGlobalId(ProblemExample::class, 42)),
       environment,
+    ))
+    assertEquals(expected, fetcher.updateProblemTestCase(
+      UpdateProblemTestCaseInput(
+        id = globalIdUtil.toGlobalId(ProblemTestCase::class, 42),
+        inputJson = "[]",
+        expectedOutputJson = "[]",
+      ),
     ))
     assertEquals(expected, fetcher.deleteProblemExample(
       DeleteProblemExampleInput(id = globalIdUtil.toGlobalId(ProblemExample::class, 42)),
@@ -90,6 +101,7 @@ class ProblemMutationPrivacyTest {
     val failure = IllegalStateException("Unexpected service failure")
     `when`(service.updateProblem(UpdateProblem(id = 42))).thenThrow(failure)
     `when`(service.createProblemHiddenTestCase(CreateProblemHiddenTestCase(42, "[]", "[]"))).thenThrow(failure)
+    `when`(service.updateProblemTestCase(42, "[]", "[]", null)).thenThrow(failure)
 
     val thrown = assertThrows(IllegalStateException::class.java) {
       fetcher.updateProblem(UpdateProblemInput(id = globalIdUtil.toGlobalId(Problem::class, 42)))
@@ -105,6 +117,15 @@ class ProblemMutationPrivacyTest {
       ))
     }
     assertSame(failure, creationFailure)
+
+    val testCaseFailure = assertThrows(IllegalStateException::class.java) {
+      fetcher.updateProblemTestCase(UpdateProblemTestCaseInput(
+        id = globalIdUtil.toGlobalId(ProblemTestCase::class, 42),
+        inputJson = "[]",
+        expectedOutputJson = "[]",
+      ))
+    }
+    assertSame(failure, testCaseFailure)
   }
 
   private fun judgeCreationInput(globalIdUtil: GlobalIdUtil) = CreateJudgeConfigurationInput(

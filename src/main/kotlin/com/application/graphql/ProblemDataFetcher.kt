@@ -24,6 +24,7 @@ import com.application.graphql.types.Problem
 import com.application.graphql.types.ProblemDifficulty
 import com.application.graphql.types.ProblemExample
 import com.application.graphql.types.ProblemLanguage
+import com.application.graphql.types.ProblemTestCase
 import com.application.graphql.types.ProblemConnection
 import com.application.graphql.types.ProblemEdge
 import com.application.graphql.types.ProblemFilterInput
@@ -47,6 +48,9 @@ import com.application.graphql.types.UpdateProblemExampleSuccess
 import com.application.graphql.types.UpdateProblemLanguageInput
 import com.application.graphql.types.UpdateProblemLanguageResult
 import com.application.graphql.types.UpdateProblemLanguageSuccess
+import com.application.graphql.types.UpdateProblemTestCaseInput
+import com.application.graphql.types.UpdateProblemTestCaseResult
+import com.application.graphql.types.UpdateProblemTestCaseSuccess
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
@@ -314,6 +318,49 @@ class ProblemDataFetcher(
     validationFailure(exception)
   }
 
+  @DgsData(parentType = "Problem", field = "testCases")
+  fun testCases(environment: DgsDataFetchingEnvironment): List<ProblemTestCase>? {
+    val problem: Problem = environment.getSource() ?: return null
+    val problemId = globalIdUtil.fromGlobalIdOrNull(problem.id, Problem::class) ?: return null
+
+    return problemService.findProblemTestCases(problemId)?.map(::toGraphqlProblemTestCase)
+  }
+
+  @DgsData(parentType = "Problem", field = "testCase")
+  fun testCase(@InputArgument id: String, environment: DgsDataFetchingEnvironment): ProblemTestCase? {
+    val problem: Problem = environment.getSource() ?: return null
+    val problemId = globalIdUtil.fromGlobalIdOrNull(problem.id, Problem::class) ?: return null
+    val testCaseId = globalIdUtil.fromGlobalIdOrNull(id, ProblemTestCase::class) ?: return null
+
+    return problemService.findProblemTestCase(problemId, testCaseId)?.let(::toGraphqlProblemTestCase)
+  }
+
+  @DgsMutation
+  fun updateProblemTestCase(@InputArgument input: UpdateProblemTestCaseInput): UpdateProblemTestCaseResult = try {
+    val testCase = problemService.updateProblemTestCase(
+      id = problemContentId(input.id, ProblemTestCase::class),
+      inputJson = input.inputJson,
+      expectedOutputJson = input.expectedOutputJson,
+      explanationMarkdown = input.explanationMarkdown,
+    )
+
+    if (testCase == null) {
+      contentNotFound()
+    } else {
+      UpdateProblemTestCaseSuccess(toGraphqlProblemTestCase(testCase))
+    }
+  } catch (_: AccessDeniedException) {
+    contentForbidden()
+  } catch (_: EntMutationPrivacyDeniedException) {
+    contentNotFound()
+  } catch (_: EntTargetAbsentException) {
+    contentNotFound()
+  } catch (exception: EntValidationException) {
+    validationFailure(exception)
+  } catch (exception: ProblemInputException) {
+    validationFailure(exception)
+  }
+
   @DgsMutation
   fun updateProblemExample(
     @InputArgument input: UpdateProblemExampleInput,
@@ -427,6 +474,14 @@ class ProblemDataFetcher(
     checkerSource = judge.checkerSource,
     timeLimitMs = judge.timeLimitMs,
     memoryLimitMb = judge.memoryLimitMb,
+  )
+
+  private fun toGraphqlProblemTestCase(testCase: TestCaseEntity): ProblemTestCase = ProblemTestCase(
+    id = globalIdUtil.toGlobalId(ProblemTestCase::class, testCase.id),
+    position = testCase.position,
+    inputJson = testCase.inputJson.toString(),
+    expectedOutputJson = testCase.expectedOutputJson.toString(),
+    explanationMarkdown = testCase.explanationMarkdown,
   )
 
   private fun toGraphqlProblemExample(example: TestCaseEntity): ProblemExample = ProblemExample(

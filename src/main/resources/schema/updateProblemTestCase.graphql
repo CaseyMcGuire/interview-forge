@@ -1,5 +1,5 @@
 extend type Mutation {
-  """Updates a hidden test on a published, unarchived problem. Admins only."""
+  """Updates a test case. Admins only."""
   updateProblemTestCase(input: UpdateProblemTestCaseInput!): UpdateProblemTestCaseResult!
 }
 
@@ -13,9 +13,8 @@ type UpdateProblemTestCaseSuccess {
   testCase: ProblemTestCase!
 }
 
-"""Replaces the hidden test's content while preserving its position."""
+"""Replaces the test's content while preserving its position and visibility."""
 input UpdateProblemTestCaseInput {
-  """ID returned by ProblemTestCase.id."""
   id: ID!
 
   """Serialized JSON input, at most 20,000 characters when compactly serialized."""
