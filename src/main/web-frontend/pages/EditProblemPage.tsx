@@ -7,7 +7,6 @@ import PageLayout from "components/PageLayout";
 import ProblemDetailsForm from "components/problems/ProblemDetailsForm";
 import ProblemLanguageEditForm from "components/problems/ProblemLanguageEditForm";
 import ProblemExampleEditForm from "components/problems/ProblemExampleEditForm";
-import ProblemHiddenTestCaseCreationForm from "components/problems/ProblemHiddenTestCaseCreationForm";
 import ProblemEditSection from "components/problems/ProblemEditSection";
 import {AppRoutes} from "routes/AppRoutes";
 
@@ -102,7 +101,9 @@ function EditProblemContent({slug}: {slug: string}) {
       </ProblemEditSection>
 
       <ProblemEditSection title="Hidden test cases">
-        <ProblemHiddenTestCaseCreationForm key={problem.id} problemId={problem.id} />
+        <Link sx={styles.link} to={AppRoutes.CreateProblemHiddenTestCase({slug: problem.slug})}>
+          Add hidden test case
+        </Link>
       </ProblemEditSection>
     </div>
   );
@@ -117,7 +118,7 @@ export default function EditProblemPage() {
         <div sx={styles.title} role="heading" aria-level={1}>Edit problem</div>
 
         <div sx={styles.description}>
-          Edit the problem details, starter code, judge configurations, and public examples, or add hidden test cases. Save each section separately; saved changes take effect immediately.
+          Edit the problem details, starter code, judge configurations, and public examples. Save each section separately; saved changes take effect immediately.
         </div>
 
         <Suspense fallback={<div role="status">Loading problem…</div>}>

@@ -350,6 +350,7 @@ class ProblemCreationIntegrationTest {
     val routes = listOf(
       "/problem/create" to "CreateProblem",
       "/problem/two-sum/edit" to "EditProblem",
+      "/problem/two-sum/tests/create" to "CreateProblemHiddenTestCase",
     )
 
     for ((path, routeId) in routes) {
@@ -363,7 +364,7 @@ class ProblemCreationIntegrationTest {
         .param("applicationId", "app")
         .param("routeId", routeId)
 
-      if (routeId == "EditProblem") {
+      if (routeId != "CreateProblem") {
         decisionRequest.param("parameters.slug", "two-sum")
       }
 

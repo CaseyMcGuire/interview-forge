@@ -21,6 +21,11 @@ export const AppRoutes = {
   About: routeWithoutParams("/about", { applicationId: "app", routeId: "About" }),
   Blog: routeWithoutParams("/blog", { applicationId: "app", routeId: "Blog" }),
   CreateProblem: routeWithoutParams("/problem/create", { applicationId: "app", routeId: "CreateProblem" }),
+  CreateProblemHiddenTestCase: route(
+    "/problem/:slug/tests/create",
+    (params: { slug: string }) => `/problem/${encodeRouteParam(params.slug)}/tests/create`,
+    { applicationId: "app", routeId: "CreateProblemHiddenTestCase" }
+  ),
   EditProblem: route(
     "/problem/:slug/edit",
     (params: { slug: string }) => `/problem/${encodeRouteParam(params.slug)}/edit`,

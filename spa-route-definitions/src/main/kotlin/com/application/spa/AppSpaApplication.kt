@@ -21,6 +21,7 @@ object AppSpaApplication : SpaApplicationDefinition {
     route("problems", "Problems"),
     route("problem/create", "CreateProblem"),
     route("problem/{slug}/edit", "EditProblem", listOf(string("slug"))),
+    route("problem/{slug}/tests/create", "CreateProblemHiddenTestCase", listOf(string("slug"))),
     route("problem/{slug}", "Problem", listOf(string("slug"))),
     route("about", "About"),
     route("blog", "Blog"),
