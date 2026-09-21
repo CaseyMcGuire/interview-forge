@@ -3,7 +3,6 @@ import ProblemDifficultyBadge from "components/problems/ProblemDifficultyBadge";
 import type {CodingProblem} from "./codingProblemTypes";
 import {formatTestCaseJson} from "./formatTestCaseJson";
 import ProblemMarkdown from "./ProblemMarkdown";
-import Icon from "./WorkspaceIcon";
 
 type ProblemPanelProps = {
   problem: CodingProblem;
@@ -11,36 +10,33 @@ type ProblemPanelProps = {
 
 const styles = stylex.create({
   problem: {
+    flexGrow: {
+      default: 1,
+      "@media (max-width: 800px)": 0
+    },
+    maxHeight: {
+      default: "none",
+      "@media (max-width: 800px)": "45vh"
+    },
+    flexShrink: 0,
     minHeight: 0,
     minWidth: 0,
     display: "flex",
-    flexDirection: "column"
-  },
-  panelHeading: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    minHeight: 49,
-    padding: "0 24px",
-    borderBottomWidth: 1,
+    flexDirection: "column",
+    backgroundColor: "#1e1f22",
+    borderBottomWidth: {
+      default: 0,
+      "@media (max-width: 800px)": 1
+    },
     borderBottomStyle: "solid",
-    borderBottomColor: "#393b40",
-    flexShrink: 0
-  },
-  panelLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 9,
-    fontSize: 12,
-    fontWeight: 600
+    borderBottomColor: "#393b40"
   },
   problemBody: {
     overflowY: "auto",
-    padding: {
-      default: "28px 32px 32px",
-      "@media (max-width: 1100px)": "24px"
-    },
+    padding: "22px 26px 28px 28px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
     scrollbarWidth: "thin",
     scrollbarColor: "#4e5157 transparent",
     outline: {
@@ -50,62 +46,74 @@ const styles = stylex.create({
     outlineOffset: -2
   },
   title: {
-    fontSize: 29,
-    lineHeight: 1.25,
-    letterSpacing: "-0.9px",
+    margin: 0,
+    fontSize: 20,
+    lineHeight: 1.3,
+    letterSpacing: "-0.3px",
     fontWeight: 650,
-    marginTop: 8,
-    marginBottom: 14
+    color: "#dfe1e5"
   },
   badges: {
     display: "flex",
     alignItems: "center",
-    gap: 7,
-    flexWrap: "wrap",
-    marginBottom: 26
+    gap: 8,
+    flexWrap: "wrap"
   },
   sectionHeading: {
-    fontSize: 13,
+    margin: "8px 0 0",
+    fontSize: 12,
     fontWeight: 650,
-    marginTop: 25,
-    marginBottom: 12,
     color: "#dfe1e5"
   },
   example: {
-    borderLeftWidth: 2,
-    borderLeftStyle: "solid",
-    borderLeftColor: "#4e5157",
-    padding: "1px 0 1px 16px",
-    marginBottom: 23
+    display: "flex",
+    flexDirection: "column",
+    gap: 6
   },
   exampleTitle: {
     fontSize: 11,
-    color: "#9da0a8",
     fontWeight: 600,
-    marginBottom: 7
+    color: "#9da0a8"
   },
-  exampleCode: {
+  exampleValues: {
+    display: "grid",
+    gridTemplateColumns: "52px minmax(0, 1fr)",
+    rowGap: 3,
+    columnGap: 10,
+    margin: 0,
+    padding: "9px 12px",
+    backgroundColor: "#242528",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#393b40",
+    borderRadius: 6
+  },
+  exampleLabel: {
+    alignSelf: "start",
+    lineHeight: 1.6,
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#9da0a8"
+  },
+  exampleValue: {
+    margin: 0,
     fontFamily: '"SFMono-Regular", Consolas, monospace',
     fontSize: 12,
-    lineHeight: 1.9,
-    color: "#bcbec4",
+    lineHeight: 1.6,
+    color: "#dfe1e5",
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere"
   },
   exampleExplanation: {
-    fontSize: 12,
-    color: "#9da0a8",
-    lineHeight: 1.7,
-    marginTop: 7
+    fontSize: 12.5,
+    lineHeight: 1.55
   }
 });
 
+/** The problem reads as a quiet sidebar: no panel chrome, examples as label/value blocks. */
 export default function ProblemPanel({problem}: ProblemPanelProps) {
   return (
     <div sx={styles.problem} role="region" aria-labelledby="problem-title">
-      <div sx={styles.panelHeading}>
-        <span sx={styles.panelLabel}><Icon name="document" /> Problem</span>
-      </div>
       <div sx={styles.problemBody} tabIndex={0} aria-label="Problem description">
         <div role="heading" aria-level={1} id="problem-title" sx={styles.title}>{problem.title}</div>
         <div sx={styles.badges}>
@@ -119,7 +127,12 @@ export default function ProblemPanel({problem}: ProblemPanelProps) {
         {problem.examples.map((item, index) => (
           <div sx={styles.example} key={item.id}>
             <div sx={styles.exampleTitle}>Example {index + 1}</div>
-            <div sx={styles.exampleCode}>{`Input: ${formatTestCaseJson(item.inputJson)}\nExpected output: ${formatTestCaseJson(item.expectedOutputJson)}`}</div>
+            <dl sx={styles.exampleValues}>
+              <dt sx={styles.exampleLabel}>Input</dt>
+              <dd sx={styles.exampleValue}>{formatTestCaseJson(item.inputJson)}</dd>
+              <dt sx={styles.exampleLabel}>Output</dt>
+              <dd sx={styles.exampleValue}>{formatTestCaseJson(item.expectedOutputJson)}</dd>
+            </dl>
             {item.explanationMarkdown && (
               <div sx={styles.exampleExplanation}><ProblemMarkdown>{item.explanationMarkdown}</ProblemMarkdown></div>
             )}

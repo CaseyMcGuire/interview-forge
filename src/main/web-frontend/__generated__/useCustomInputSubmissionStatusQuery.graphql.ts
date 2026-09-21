@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<61aabec9b040844e185344fb5e4bc5b9>>
+ * @generated SignedSource<<38c616a61557ce76485e242cbeeafd15>>
  * @lightSyntaxTransform
  */
 
@@ -17,7 +17,7 @@ export type useCustomInputSubmissionStatusQuery$data = {
   readonly customInputSubmission: {
     readonly id: string;
     readonly status: CustomInputSubmissionStatus;
-    readonly " $fragmentSpreads": FragmentRefs<"CustomInputSubmissionResultPanel_submission">;
+    readonly " $fragmentSpreads": FragmentRefs<"TestPanel_submission">;
   } | null | undefined;
 };
 export type useCustomInputSubmissionStatusQuery = {
@@ -90,7 +90,7 @@ return {
           {
             "args": null,
             "kind": "FragmentSpread",
-            "name": "CustomInputSubmissionResultPanel_submission"
+            "name": "TestPanel_submission"
           }
         ],
         "storageKey": null
@@ -146,6 +146,15 @@ return {
             "name": "caseResults",
             "plural": true,
             "selections": [
+              (v4/*:: as any*/),
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
+                "name": "output",
+                "storageKey": null
+              },
+              (v5/*:: as any*/),
               {
                 "alias": null,
                 "args": null,
@@ -178,16 +187,7 @@ return {
                   }
                 ],
                 "storageKey": null
-              },
-              (v4/*:: as any*/),
-              {
-                "alias": null,
-                "args": null,
-                "kind": "ScalarField",
-                "name": "output",
-                "storageKey": null
-              },
-              (v5/*:: as any*/)
+              }
             ],
             "storageKey": null
           }
@@ -197,16 +197,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "8262cbd3755f79f0407dacd1635cd877",
+    "cacheID": "ad8422b86a0b66402456111bc34360c5",
     "id": null,
     "metadata": {},
     "name": "useCustomInputSubmissionStatusQuery",
     "operationKind": "query",
-    "text": "query useCustomInputSubmissionStatusQuery(\n  $id: ID!\n) {\n  customInputSubmission(id: $id) {\n    id\n    status\n    ...CustomInputSubmissionResultPanel_submission\n  }\n}\n\nfragment CustomInputSubmissionCaseResult_result on CustomInputSubmissionCaseResult {\n  outcome\n  output\n  publicErrorMessage\n  testCase {\n    position\n    inputJson\n    expectedOutputJson\n    id\n  }\n}\n\nfragment CustomInputSubmissionResultPanel_submission on CustomInputSubmission {\n  status\n  outcome\n  totalCases\n  passedCases\n  runtimeMs\n  publicErrorMessage\n  caseResults {\n    testCase {\n      id\n    }\n    ...CustomInputSubmissionCaseResult_result\n  }\n}\n"
+    "text": "query useCustomInputSubmissionStatusQuery(\n  $id: ID!\n) {\n  customInputSubmission(id: $id) {\n    id\n    status\n    ...TestPanel_submission\n  }\n}\n\nfragment TestPanel_submission on CustomInputSubmission {\n  status\n  outcome\n  totalCases\n  passedCases\n  runtimeMs\n  publicErrorMessage\n  caseResults {\n    outcome\n    output\n    publicErrorMessage\n    testCase {\n      id\n      position\n      inputJson\n      expectedOutputJson\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "d7dc6048317701cafb21224ad0fc4cad";
+(node as any).hash = "db1110ad514ee5599a40c4695b4dc9a0";
 
 export default node;

@@ -8,44 +8,46 @@ type Props = {
 };
 
 const styles = stylex.create({
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10
+  },
   heading: {
-    margin: "16px 0 8px",
-    fontSize: 12,
-    fontWeight: 600
+    margin: "4px 0 0",
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.3px",
+    textTransform: "uppercase",
+    color: "#9da0a8"
   },
   values: {
     display: "grid",
-    gridTemplateColumns: {
-      default: "repeat(3, minmax(0, 1fr))",
-      "@media (max-width: 1100px)": "minmax(0, 1fr)"
-    },
-    gap: 10
-  },
-  block: {
-    backgroundColor: "#1e1f22",
-    border: "1px solid #393b40",
-    borderRadius: 5,
-    padding: "9px 12px",
-    minWidth: 0
+    gridTemplateColumns: "96px minmax(0, 1fr)",
+    rowGap: 6,
+    columnGap: 12,
+    margin: 0
   },
   label: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: "#9da0a8",
-    marginBottom: 4
+    fontSize: 12,
+    color: "#9da0a8"
   },
   value: {
     margin: 0,
+    minWidth: 0,
     fontFamily: '"SFMono-Regular", Consolas, monospace',
-    fontSize: 12,
-    color: "#bcbec4",
-    lineHeight: 1.7,
+    fontSize: 13,
+    lineHeight: 1.5,
+    color: "#dfe1e5",
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere"
   },
+  wrong: {
+    color: "#f2a6a6"
+  },
   empty: {
-    color: "#9da0a8",
-    fontSize: 12
+    fontFamily: "inherit",
+    color: "#9da0a8"
   }
 });
 
@@ -59,29 +61,18 @@ export default function ProblemSubmissionFailedExample(props: Props) {
   `, props.example);
 
   return (
-    <section aria-label="Failed example">
-      <h3 sx={styles.heading}>Failed example</h3>
-
-      <div sx={styles.values}>
-        <div sx={styles.block}>
-          <div sx={styles.label}>Input</div>
-          <pre sx={styles.value}>{formatTestCaseJson(example.inputJson)}</pre>
-        </div>
-
-        <div sx={styles.block}>
-          <div sx={styles.label}>Expected output</div>
-          <pre sx={styles.value}>{formatTestCaseJson(example.expectedOutputJson)}</pre>
-        </div>
-
-        <div sx={styles.block}>
-          <div sx={styles.label}>Your output</div>
-          {example.output.length > 0 ? (
-            <pre sx={styles.value}>{example.output}</pre>
-          ) : (
-            <div sx={styles.empty}>No output</div>
-          )}
-        </div>
-      </div>
+    <section aria-label="Failed case" sx={styles.section}>
+      <h3 sx={styles.heading}>Failed case</h3>
+      <dl sx={styles.values}>
+        <dt sx={styles.label}>Input</dt>
+        <dd sx={styles.value}>{formatTestCaseJson(example.inputJson)}</dd>
+        <dt sx={styles.label}>Expected</dt>
+        <dd sx={styles.value}>{formatTestCaseJson(example.expectedOutputJson)}</dd>
+        <dt sx={styles.label}>Your output</dt>
+        <dd sx={[styles.value, styles.wrong, example.output.length === 0 && styles.empty]}>
+          {example.output.length > 0 ? example.output : "No output"}
+        </dd>
+      </dl>
     </section>
   );
 }

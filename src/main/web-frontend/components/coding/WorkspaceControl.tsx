@@ -8,6 +8,7 @@ type WorkspaceControlProps = {
   label?: string;
   description?: string;
   pressed?: boolean;
+  expanded?: boolean;
   controls?: string;
   appearance: StyleXStyles;
   title?: string;
@@ -20,6 +21,7 @@ export default function WorkspaceControl({
   label,
   description,
   pressed,
+  expanded,
   controls,
   appearance,
   title,
@@ -33,6 +35,7 @@ export default function WorkspaceControl({
       aria-disabled={disabled}
       aria-describedby={description}
       aria-pressed={pressed}
+      aria-expanded={expanded}
       aria-controls={controls}
       title={title}
       onClick={disabled ? undefined : onActivate}

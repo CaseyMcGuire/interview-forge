@@ -7,6 +7,7 @@ const problemSubmissionStatusQuery = graphql`
     problemSubmission(id: $id) {
       id
       status
+      verdict
       ...ProblemSubmissionResultPanel_problemSubmission
     }
   }

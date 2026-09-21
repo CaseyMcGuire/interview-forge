@@ -3,43 +3,31 @@ import {useSyncExternalStore, type ReactNode} from "react";
 import {Group, Panel, Separator} from "react-resizable-panels";
 
 type Props = {
-  problem: ReactNode;
+  /** The problem sidebar, or null when it is hidden. */
+  problem: ReactNode | null;
   editor: ReactNode;
-  actions: ReactNode;
-  results: ReactNode;
 };
 
 const narrowViewportQuery = "(max-width: 800px)";
 
 const styles = stylex.create({
-  workspace: {
+  body: {
     display: "flex",
-    flex: 1,
-    minHeight: 0,
-    margin: {
-      default: "0 20px 20px",
-      "@media (max-width: 600px)": "0 8px 8px"
-    },
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: "#43454a",
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#2b2d30",
-    boxShadow: "0 4px 20px #00000026"
-  },
-  stacked: {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr)",
-    gridTemplateRows: "auto 450px auto auto"
-  },
-  group: {
+    flexGrow: 1,
     minWidth: 0,
     minHeight: 0
   },
-  column: {
-    display: "grid",
-    gridTemplateRows: "minmax(0, 1fr) 254px",
+  stacked: {
+    flexDirection: "column"
+  },
+  group: {
+    flexGrow: 1,
+    minWidth: 0,
+    minHeight: 0
+  },
+  panel: {
+    display: "flex",
+    flexDirection: "column",
     minWidth: 0,
     minHeight: 0
   },
@@ -48,11 +36,17 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#25262a",
-    color: "#9da0a8",
+    backgroundColor: "#1e1f22",
+    borderRightWidth: 1,
+    borderRightStyle: "solid",
+    borderRightColor: "#393b40",
+    color: {
+      default: "#6b6e76",
+      ":hover": "#9da0a8"
+    },
     outline: {
       default: "none",
-      ":focus-visible": "2px solid #9da0a8"
+      ":focus-visible": "2px solid #3574f0"
     },
     outlineOffset: -2
   },
@@ -65,27 +59,29 @@ const styles = stylex.create({
   }
 });
 
-export default function WorkspaceLayout(props: Props) {
+/** The problem sidebar and the editor column share a draggable divider; on narrow screens they stack. */
+export default function WorkspaceLayout({problem, editor}: Props) {
   const isNarrow = useSyncExternalStore(subscribeToViewportChanges, isNarrowViewport);
 
-  // Keep the existing reading order on mobile: problem, editor, actions, then results.
+  if (problem === null) {
+    return <div sx={styles.body}>{editor}</div>;
+  }
+
+  // Keep the reading order on mobile: problem first, then the editor and its tests.
   if (isNarrow) {
     return (
-      <div sx={[styles.workspace, styles.stacked]} role="main">
-        {props.problem}
-        {props.editor}
-        {props.actions}
-        {props.results}
+      <div sx={[styles.body, styles.stacked]}>
+        {problem}
+        {editor}
       </div>
     );
   }
 
   return (
-    <div sx={styles.workspace} role="main">
+    <div sx={styles.body}>
       <Group orientation="horizontal" {...stylex.props(styles.group)}>
-        <Panel defaultSize="43%" minSize="280px" {...stylex.props(styles.column)}>
-          {props.problem}
-          {props.actions}
+        <Panel defaultSize="26%" minSize="280px" maxSize="50%" {...stylex.props(styles.panel)}>
+          {problem}
         </Panel>
 
         <Separator
@@ -96,9 +92,8 @@ export default function WorkspaceLayout(props: Props) {
           <div sx={styles.grip} aria-hidden="true" />
         </Separator>
 
-        <Panel defaultSize="57%" minSize="320px" {...stylex.props(styles.column)}>
-          {props.editor}
-          {props.results}
+        <Panel defaultSize="74%" minSize="320px" {...stylex.props(styles.panel)}>
+          {editor}
         </Panel>
       </Group>
     </div>

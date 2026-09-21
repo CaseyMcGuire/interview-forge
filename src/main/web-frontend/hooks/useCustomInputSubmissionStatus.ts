@@ -7,7 +7,7 @@ const customInputSubmissionStatusQuery = graphql`
     customInputSubmission(id: $id) {
       id
       status
-      ...CustomInputSubmissionResultPanel_submission
+      ...TestPanel_submission
     }
   }
 `;

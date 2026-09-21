@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import {useId, useState} from "react";
+import {useState} from "react";
 import {useSearchParams} from "react-router";
 import useSubmitSolution from "hooks/useSubmitSolution";
 import useProblemSubmissionStatus from "hooks/useProblemSubmissionStatus";
@@ -7,26 +7,21 @@ import useEnqueueCustomInputSubmission from "hooks/useEnqueueCustomInputSubmissi
 import useCustomInputSubmissionStatus from "hooks/useCustomInputSubmissionStatus";
 import EditorPanel from "./EditorPanel";
 import ProblemPanel from "./ProblemPanel";
-import ProblemSubmissionActions from "./ProblemSubmissionActions";
-import ProblemSubmissionResultPanel from "./ProblemSubmissionResultPanel";
-import CustomInputEditor, {type CustomInputDraft} from "./CustomInputEditor";
-import CustomInputSubmissionResultPanel from "./CustomInputSubmissionResultPanel";
-import Control from "./WorkspaceControl";
+import ProblemSubmissionResultPanel, {verdictLabel} from "./ProblemSubmissionResultPanel";
+import TestPanel, {type WorkspaceNotice} from "./TestPanel";
+import type {SubmissionChip, WorkspacePanel} from "./TestPanelHeader";
+import type {CustomInputDraft} from "./testCaseRows";
 import WorkspaceLayout from "./WorkspaceLayout";
+import WorkspaceStatusBar from "./WorkspaceStatusBar";
+import WorkspaceToolbar from "./WorkspaceToolbar";
 import type {CodingProblem} from "./codingProblemTypes";
 
 type Props = {
   problem: CodingProblem;
 };
 
-const workspacePanels = [
-  {id: "inputs", label: "Test inputs"},
-  {id: "results", label: "Test results"},
-  {id: "submission", label: "Submission"}
-] as const;
-
-type WorkspacePanel = typeof workspacePanels[number]["id"];
 const maxCustomTestCases = 20;
+const fontSizes = [12, 14, 16, 18];
 
 function readDraft(draftKey: string, starterCode: string) {
   try {
@@ -36,49 +31,47 @@ function readDraft(draftKey: string, starterCode: string) {
   }
 }
 
+function readPanel(value: string | null): WorkspacePanel | null {
+  return value === "tests" || value === "submission" ? value : null;
+}
+
+function describeSubmissionChip(status: ReturnType<typeof useProblemSubmissionStatus>): SubmissionChip {
+  const submission = status.problemSubmission;
+
+  if (submission?.status === "FINISHED") {
+    return {label: verdictLabel(submission.verdict), tone: submission.verdict === "ACCEPTED" ? "passed" : "failed"};
+  }
+
+  if (submission || status.isLoading) {
+    return {label: "Submission", tone: "pending"};
+  }
+
+  return {label: "Submission", tone: "none"};
+}
+
 const styles = stylex.create({
-  testPanel: {
-    minWidth: 0,
+  workspace: {
+    flexGrow: 1,
     minHeight: 0,
     display: "flex",
-    flexDirection: "column",
-    borderTop: "1px solid #43454a"
+    flexDirection: "column"
   },
-  panelNavigation: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 6,
-    padding: "8px 12px",
-    borderBottom: "1px solid #393b40",
-    flexShrink: 0
-  },
-  panelControl: {
-    padding: "4px 10px",
-    borderRadius: 4,
-    color: "#9da0a8",
-    fontSize: 12,
-    cursor: "pointer",
-    outline: {
-      default: "none",
-      ":focus-visible": "2px solid #3574f0"
+  editorColumn: {
+    flexGrow: 1,
+    minWidth: 0,
+    minHeight: {
+      default: 0,
+      "@media (max-width: 800px)": 450
     },
-    outlineOffset: 2
-  },
-  selectedPanel: {
-    backgroundColor: "#2e436e",
-    color: "#b5ceff"
-  },
-  panelBody: {
     display: "flex",
-    flexDirection: "column",
-    flex: 1,
-    minHeight: 0
+    flexDirection: "column"
   },
   unavailableEditor: {
+    flexGrow: 1,
     display: "grid",
     placeItems: "center",
     padding: 24,
-    backgroundColor: "#1e1f22",
+    backgroundColor: "#2b2b2b",
     color: "#9da0a8"
   }
 });
@@ -91,13 +84,17 @@ export default function CodingWorkspace(props: Props) {
   const [draft, setDraft] = useState(() => (
     configuration && draftKey ? readDraft(draftKey, configuration.starterCode) : null
   ));
+  const [problemOpen, setProblemOpen] = useState(true);
+  const [testsOpen, setTestsOpen] = useState(true);
+  const [fontSize, setFontSize] = useState(14);
+  const [wordWrap, setWordWrap] = useState(false);
+  const [cursor, setCursor] = useState<{line: number; column: number} | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const problemSubmissionId = searchParams.get("submission") || null;
   const customSubmissionId = searchParams.get("customSubmission") || null;
-  const panelId = useId();
-  const selectedPanel = workspacePanels.find(panel => panel.id === searchParams.get("panel"));
-  const activePanel = selectedPanel?.id ?? (customSubmissionId ? "results" : problemSubmissionId ? "submission" : "inputs");
+  const activePanel = readPanel(searchParams.get("panel"))
+    ?? (customSubmissionId ? "tests" : problemSubmissionId ? "submission" : "tests");
   const [customInputs, setCustomInputs] = useState<CustomInputDraft[]>(() => {
     const examples = problem.examples.slice(0, maxCustomTestCases).map(example => ({
       id: example.id,
@@ -111,8 +108,11 @@ export default function CodingWorkspace(props: Props) {
   const problemSubmissionRequest = useSubmitSolution(showProblemSubmission);
   const customSubmissionStatus = useCustomInputSubmissionStatus(customSubmissionId);
   const customSubmissionRequest = useEnqueueCustomInputSubmission(showCustomInputSubmission);
-  const submitDisabled = !configuration || !draft || problemSubmissionStatus.isUnresolved;
-  const runDisabled = !configuration || !draft || customSubmissionStatus.isUnresolved;
+  const editorAvailable = Boolean(configuration && draft);
+  const submitDisabled = !editorAvailable || problemSubmissionStatus.isUnresolved
+    || problemSubmissionRequest.isSubmitting || problemSubmissionStatus.isPending;
+  const runDisabled = !editorAvailable || customSubmissionStatus.isUnresolved
+    || customSubmissionRequest.isEnqueuing || customSubmissionStatus.isPending;
   const inputErrors: Record<string, string> = {};
 
   customInputs.forEach((testCase, index) => {
@@ -122,6 +122,16 @@ export default function CodingWorkspace(props: Props) {
       inputErrors[testCase.id] = error;
     }
   });
+
+  const notices: WorkspaceNotice[] = [];
+
+  if (customSubmissionRequest.error) {
+    notices.push({id: "tests", message: customSubmissionRequest.error, requiresSignIn: customSubmissionRequest.requiresSignIn});
+  }
+
+  if (problemSubmissionRequest.error) {
+    notices.push({id: "submission", message: problemSubmissionRequest.error, requiresSignIn: problemSubmissionRequest.requiresSignIn});
+  }
 
   function selectPanel(panel: WorkspacePanel) {
     setSearchParams(previous => {
@@ -144,25 +154,27 @@ export default function CodingWorkspace(props: Props) {
     setSearchParams(previous => {
       const updated = new URLSearchParams(previous);
       updated.set("customSubmission", id);
-      updated.set("panel", "results");
+      updated.set("panel", "tests");
       return updated;
     }, {replace: true, preventScrollReset: true});
   }
 
   function submitSolution() {
-    if (submitDisabled || problemSubmissionStatus.isPending || problemSubmissionRequest.isSubmitting) {
+    if (!configuration || !draft || submitDisabled) {
       return;
     }
 
+    setTestsOpen(true);
     problemSubmissionRequest.submitSolution(configuration.id, draft.source);
   }
 
   function runTests() {
-    if (runDisabled || customSubmissionStatus.isPending || customSubmissionRequest.isEnqueuing) {
+    if (!configuration || !draft || runDisabled) {
       return;
     }
 
-    selectPanel("inputs");
+    setTestsOpen(true);
+    selectPanel("tests");
     customSubmissionRequest.enqueueCustomInputSubmission(
       configuration.id,
       draft.source,
@@ -194,83 +206,79 @@ export default function CodingWorkspace(props: Props) {
   }
 
   return (
-    <WorkspaceLayout
-      problem={<ProblemPanel problem={problem} />}
-      editor={configuration && draft ? (
-        <EditorPanel
-          languageKey={configuration.language.key}
-          languageName={configuration.language.displayName}
-          source={draft.source}
-          starterCode={configuration.starterCode}
-          onSourceChange={updateSource}
-        />
-      ) : (
-        <div sx={styles.unavailableEditor} role="region" aria-label="Code editor">
-          No starter code is available for this problem.
-        </div>
-      )}
-      actions={
-        <ProblemSubmissionActions
-          storageAvailable={draft?.available}
-          onSubmit={submitSolution}
-          disabled={submitDisabled}
-          isSubmitting={problemSubmissionRequest.isSubmitting}
-          isPending={problemSubmissionStatus.isPending}
-          error={problemSubmissionRequest.error}
-          requiresSignIn={problemSubmissionRequest.requiresSignIn}
-          onRunTests={runTests}
-          runDisabled={runDisabled}
-          isEnqueuingTests={customSubmissionRequest.isEnqueuing}
-          areTestsPending={customSubmissionStatus.isPending}
-          runError={customSubmissionRequest.error}
-          runRequiresSignIn={customSubmissionRequest.requiresSignIn}
-        />
-      }
-      results={
-        <div sx={styles.testPanel}>
-          <div sx={styles.panelNavigation} role="group" aria-label="Workspace panels">
-            {workspacePanels.map(panel => (
-              <Control
-                key={panel.id}
-                appearance={[styles.panelControl, activePanel === panel.id && styles.selectedPanel]}
-                pressed={activePanel === panel.id}
-                controls={panelId}
-                onActivate={() => selectPanel(panel.id)}
-              >
-                {panel.label}
-              </Control>
-            ))}
-          </div>
-
-          <div id={panelId} sx={styles.panelBody}>
-            {activePanel === "inputs" && (
-              <CustomInputEditor
-                cases={customInputs}
-                maxCases={maxCustomTestCases}
-                onChange={updateCustomInputs}
-                disabled={customSubmissionRequest.isEnqueuing}
-                errors={inputErrors}
+    <div sx={styles.workspace} role="main">
+      <WorkspaceToolbar
+        title={problem.title}
+        problemOpen={problemOpen}
+        onToggleProblem={() => setProblemOpen(!problemOpen)}
+        editorAvailable={editorAvailable}
+        fontSize={fontSize}
+        onCycleFontSize={() => setFontSize(fontSizes[(fontSizes.indexOf(fontSize) + 1) % fontSizes.length])}
+        wordWrap={wordWrap}
+        onToggleWordWrap={() => setWordWrap(!wordWrap)}
+        resetDisabled={!configuration || !draft || draft.source === configuration.starterCode}
+        onReset={() => configuration && updateSource(configuration.starterCode)}
+        onRunTests={runTests}
+        runDisabled={runDisabled}
+        isEnqueuingTests={customSubmissionRequest.isEnqueuing}
+        areTestsPending={customSubmissionStatus.isPending}
+        onSubmit={submitSolution}
+        submitDisabled={submitDisabled}
+        isSubmitting={problemSubmissionRequest.isSubmitting}
+        isPending={problemSubmissionStatus.isPending}
+      />
+      <WorkspaceLayout
+        problem={problemOpen ? <ProblemPanel problem={problem} /> : null}
+        editor={
+          <div sx={styles.editorColumn}>
+            {configuration && draft ? (
+              <EditorPanel
+                languageKey={configuration.language.key}
+                languageName={configuration.language.displayName}
+                source={draft.source}
+                fontSize={fontSize}
+                wordWrap={wordWrap}
+                onSourceChange={updateSource}
+                onCursorChange={(line, column) => setCursor({line, column})}
               />
+            ) : (
+              <div sx={styles.unavailableEditor} role="region" aria-label="Code editor">
+                No starter code is available for this problem.
+              </div>
             )}
-            {activePanel === "results" && (
-              <CustomInputSubmissionResultPanel
-                submission={customSubmissionStatus.submission}
-                isLoading={customSubmissionStatus.isLoading}
-                error={customSubmissionStatus.error}
-                onRetry={customSubmissionStatus.retryCustomInputSubmissionStatus}
-              />
-            )}
-            {activePanel === "submission" && (
+            <TestPanel
+              key={customSubmissionId ?? "not-run"}
+              panel={activePanel}
+              onSelectPanel={selectPanel}
+              expanded={testsOpen}
+              onToggleExpanded={() => setTestsOpen(!testsOpen)}
+              cases={customInputs}
+              maxCases={maxCustomTestCases}
+              onCasesChange={updateCustomInputs}
+              disabled={customSubmissionRequest.isEnqueuing}
+              errors={inputErrors}
+              submission={customSubmissionStatus.submission}
+              isLoading={customSubmissionStatus.isLoading}
+              error={customSubmissionStatus.error}
+              onRetry={customSubmissionStatus.retryCustomInputSubmissionStatus}
+              submissionChip={describeSubmissionChip(problemSubmissionStatus)}
+              notices={notices}
+            >
               <ProblemSubmissionResultPanel
                 problemSubmission={problemSubmissionStatus.problemSubmission}
                 isLoading={problemSubmissionStatus.isLoading}
                 error={problemSubmissionStatus.error}
                 onRetry={problemSubmissionStatus.retryProblemSubmissionStatus}
               />
-            )}
+            </TestPanel>
           </div>
-        </div>
-      }
-    />
+        }
+      />
+      <WorkspaceStatusBar
+        storageAvailable={draft?.available}
+        cursor={cursor}
+        languageName={configuration?.language.displayName}
+      />
+    </div>
   );
 }

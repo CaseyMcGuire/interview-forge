@@ -15,7 +15,7 @@ const styles = stylex.create({
     minHeight: 640,
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#2b2d30",
+    backgroundColor: "#1e1f22",
     colorScheme: "dark",
     color: "#dfe1e5",
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -63,11 +63,13 @@ export default function ProblemPage() {
 
   return (
     <div sx={styles.page}>
-      <WorkspaceHeader />
       {problem ? (
         <CodingWorkspace key={problem.id} problem={problem} />
       ) : (
-        <div sx={styles.unavailable} role="main">Problem not found.</div>
+        <>
+          <WorkspaceHeader />
+          <div sx={styles.unavailable} role="main">Problem not found.</div>
+        </>
       )}
     </div>
   );

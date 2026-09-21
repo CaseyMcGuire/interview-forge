@@ -1,5 +1,4 @@
 import * as stylex from "@stylexjs/stylex";
-import {useId} from "react";
 import {graphql, useFragment} from "react-relay";
 import type {
   ProblemSubmissionResultPanel_problemSubmission$data,
@@ -48,85 +47,55 @@ const verdictSummaries: Partial<Record<ProblemSubmissionVerdict, {label: string;
   }
 };
 
+/** Short verdict wording shared with the workspace strip. */
+export function verdictLabel(verdict: ProblemSubmissionVerdict): string {
+  return verdictSummaries[verdict]?.label ?? "Finished";
+}
+
 const styles = stylex.create({
   panel: {
-    borderTop: "1px solid #43454a",
-    minWidth: 0,
-    minHeight: 0,
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
+    gap: 12,
+    padding: "14px 16px 16px"
   },
-  heading: {
+  verdictRow: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: "8px 12px",
-    minHeight: 45,
-    padding: "8px 22px",
-    borderBottom: "1px solid #393b40",
-    flexShrink: 0
+    gap: "6px 10px"
   },
-  title: {
-    display: "flex",
-    alignItems: "center",
-    gap: 9,
-    margin: 0,
-    fontSize: 12,
-    fontWeight: 600
-  },
-  badge: {
-    fontSize: 11,
-    padding: "2px 7px",
-    borderRadius: 4,
-    backgroundColor: "#393b40",
-    color: "#bcbec4"
+  verdict: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#dfe1e5"
   },
   pending: {
-    backgroundColor: "#2e436e",
     color: "#b5ceff"
   },
   accepted: {
-    backgroundColor: "#294436",
     color: "#89cc8e"
   },
   failed: {
-    backgroundColor: "#4b3034",
     color: "#f2a6a6"
-  },
-  body: {
-    padding: "16px 22px",
-    overflowY: "auto",
-    scrollbarWidth: "thin",
-    scrollbarColor: "#4e5157 transparent"
-  },
-  message: {
-    margin: 0,
-    color: "#bcbec4",
-    fontSize: 12,
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere"
   },
   statistics: {
     display: "flex",
     flexWrap: "wrap",
-    gap: "8px 24px",
-    margin: "12px 0 0",
-    fontSize: 12
-  },
-  statistic: {
-    display: "flex",
-    gap: 6
-  },
-  statisticLabel: {
-    color: "#9da0a8"
-  },
-  statisticValue: {
-    margin: 0,
+    gap: "4px 14px",
+    fontSize: 12,
+    color: "#9da0a8",
     fontVariantNumeric: "tabular-nums"
   },
+  message: {
+    margin: 0,
+    fontSize: 12.5,
+    lineHeight: 1.5,
+    color: "#bcbec4",
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere"
+  },
   error: {
-    marginTop: 12,
     color: "#f2a6a6",
     fontSize: 12,
     overflowWrap: "anywhere"
@@ -204,67 +173,53 @@ export default function ProblemSubmissionResultPanel(props: Props) {
     }
   `, props.problemSubmission);
 
-  const headingId = useId();
   const summary = describeProblemSubmission(problemSubmission, isLoading, Boolean(error));
   const isPending = problemSubmission?.status === "QUEUED" || problemSubmission?.status === "RUNNING";
   const isFinished = problemSubmission?.status === "FINISHED";
   const isAccepted = problemSubmission?.verdict === "ACCEPTED";
 
   return (
-    <section sx={styles.panel} aria-labelledby={headingId}>
-      <div sx={styles.heading}>
-        <h2 id={headingId} sx={styles.title}>
-          <Icon name="terminal" /> Submission
-        </h2>
+    <section sx={styles.panel} aria-label="Submission">
+      <div sx={styles.verdictRow}>
+        {isFinished && <Icon name={isAccepted ? "passed" : "failed"} size={18} />}
         <span role="status" sx={[
-          styles.badge,
+          styles.verdict,
           isPending && styles.pending,
           isFinished && isAccepted && styles.accepted,
           isFinished && !isAccepted && styles.failed
         ]}>
           {summary.label}
         </span>
-      </div>
-
-      <div sx={styles.body}>
-        <p sx={styles.message}>{summary.message}</p>
-
         {isFinished && (
-          <dl sx={styles.statistics}>
+          <span sx={styles.statistics}>
             {problemSubmission.totalCases > 0 && (
-              <div sx={styles.statistic}>
-                <dt sx={styles.statisticLabel}>Passed</dt>
-                <dd sx={styles.statisticValue}>{problemSubmission.passedCases} / {problemSubmission.totalCases} cases</dd>
-              </div>
+              <span>{problemSubmission.passedCases} of {problemSubmission.totalCases} hidden cases passed</span>
             )}
-            {problemSubmission.runtimeMs != null && (
-              <div sx={styles.statistic}>
-                <dt sx={styles.statisticLabel}>Runtime</dt>
-                <dd sx={styles.statisticValue}>{problemSubmission.runtimeMs} ms</dd>
-              </div>
-            )}
-          </dl>
-        )}
-
-        {error && (
-          <div sx={styles.error}>
-            <div role="alert">{error}</div>
-            {onRetry && (
-              <Control
-                appearance={[styles.retry, isLoading && styles.disabled]}
-                disabled={isLoading}
-                onActivate={onRetry}
-              >
-                {isLoading ? "Checking status…" : "Retry status check"}
-              </Control>
-            )}
-          </div>
-        )}
-
-        {isFinished && problemSubmission.failedExample && (
-          <ProblemSubmissionFailedExample example={problemSubmission.failedExample} />
+            {problemSubmission.runtimeMs != null && <span>{problemSubmission.runtimeMs} ms</span>}
+          </span>
         )}
       </div>
+
+      <p sx={styles.message}>{summary.message}</p>
+
+      {error && (
+        <div sx={styles.error}>
+          <div role="alert">{error}</div>
+          {onRetry && (
+            <Control
+              appearance={[styles.retry, isLoading && styles.disabled]}
+              disabled={isLoading}
+              onActivate={onRetry}
+            >
+              {isLoading ? "Checking status…" : "Retry status check"}
+            </Control>
+          )}
+        </div>
+      )}
+
+      {isFinished && problemSubmission.failedExample && (
+        <ProblemSubmissionFailedExample example={problemSubmission.failedExample} />
+      )}
     </section>
   );
 }
