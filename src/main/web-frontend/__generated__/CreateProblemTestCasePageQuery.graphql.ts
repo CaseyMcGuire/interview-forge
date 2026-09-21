@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<13222fb9948ee37027b9f914231b2421>>
+ * @generated SignedSource<<b6daff932680d00ab44a90cd8e91d184>>
  * @lightSyntaxTransform
  */
 
@@ -9,20 +9,20 @@
 
 import { ConcreteRequest } from 'relay-runtime';
 import { FragmentRefs } from "relay-runtime";
-export type CreateProblemHiddenTestCasePageQuery$variables = {
+export type CreateProblemTestCasePageQuery$variables = {
   slug: string;
 };
-export type CreateProblemHiddenTestCasePageQuery$data = {
+export type CreateProblemTestCasePageQuery$data = {
   readonly problem: {
     readonly id: string;
     readonly slug: string;
     readonly title: string;
-    readonly " $fragmentSpreads": FragmentRefs<"ProblemHiddenTestCaseCreationForm_problem">;
+    readonly " $fragmentSpreads": FragmentRefs<"ProblemTestCaseCreationForm_problem">;
   } | null | undefined;
 };
-export type CreateProblemHiddenTestCasePageQuery = {
-  response: CreateProblemHiddenTestCasePageQuery$data;
-  variables: CreateProblemHiddenTestCasePageQuery$variables;
+export type CreateProblemTestCasePageQuery = {
+  response: CreateProblemTestCasePageQuery$data;
+  variables: CreateProblemTestCasePageQuery$variables;
 };
 
 const node: ConcreteRequest = (function(){
@@ -68,7 +68,7 @@ return {
     "metadata": {
       "throwOnFieldError": true
     },
-    "name": "CreateProblemHiddenTestCasePageQuery",
+    "name": "CreateProblemTestCasePageQuery",
     "selections": [
       {
         "alias": null,
@@ -84,7 +84,7 @@ return {
           {
             "args": null,
             "kind": "FragmentSpread",
-            "name": "ProblemHiddenTestCaseCreationForm_problem"
+            "name": "ProblemTestCaseCreationForm_problem"
           }
         ],
         "storageKey": null
@@ -97,7 +97,7 @@ return {
   "operation": {
     "argumentDefinitions": (v0/*:: as any*/),
     "kind": "Operation",
-    "name": "CreateProblemHiddenTestCasePageQuery",
+    "name": "CreateProblemTestCasePageQuery",
     "selections": [
       {
         "alias": null,
@@ -147,16 +147,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "65fc441e291711869c222afb09fa1df2",
+    "cacheID": "8ace0f3c2f90150f1a4a33183b03a5fc",
     "id": null,
     "metadata": {},
-    "name": "CreateProblemHiddenTestCasePageQuery",
+    "name": "CreateProblemTestCasePageQuery",
     "operationKind": "query",
-    "text": "query CreateProblemHiddenTestCasePageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    ...ProblemHiddenTestCaseCreationForm_problem\n  }\n}\n\nfragment ProblemHiddenTestCaseCreationForm_problem on Problem {\n  id\n  languageConfigurations {\n    id\n    language {\n      displayName\n      id\n    }\n  }\n}\n"
+    "text": "query CreateProblemTestCasePageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    ...ProblemTestCaseCreationForm_problem\n  }\n}\n\nfragment ProblemTestCaseCreationForm_problem on Problem {\n  id\n  languageConfigurations {\n    id\n    language {\n      displayName\n      id\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "81ed2b5e256e21c813b1d63085590e8c";
+(node as any).hash = "77be66b267bc6b02ffc65a383ba5688a";
 
 export default node;

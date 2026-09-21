@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<e1ac277fe7497e1dc34e454548d3edbb>>
+ * @generated SignedSource<<73b5aec106dee04e9e938afa1b354ab2>>
  * @lightSyntaxTransform
  */
 
@@ -9,36 +9,26 @@
 
 import { ReaderFragment } from 'relay-runtime';
 import { FragmentRefs } from "relay-runtime";
-export type ProblemHiddenTestCaseCreationForm_problem$data = {
-  readonly id: string;
+export type ProblemTestCaseEditForm_problem$data = {
   readonly languageConfigurations: ReadonlyArray<{
     readonly id: string;
     readonly language: {
       readonly displayName: string;
     };
   }>;
-  readonly " $fragmentType": "ProblemHiddenTestCaseCreationForm_problem";
+  readonly " $fragmentType": "ProblemTestCaseEditForm_problem";
 };
-export type ProblemHiddenTestCaseCreationForm_problem$key = {
-  readonly " $data"?: ProblemHiddenTestCaseCreationForm_problem$data;
-  readonly " $fragmentSpreads": FragmentRefs<"ProblemHiddenTestCaseCreationForm_problem">;
+export type ProblemTestCaseEditForm_problem$key = {
+  readonly " $data"?: ProblemTestCaseEditForm_problem$data;
+  readonly " $fragmentSpreads": FragmentRefs<"ProblemTestCaseEditForm_problem">;
 };
 
-const node: ReaderFragment = (function(){
-var v0 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "id",
-  "storageKey": null
-};
-return {
+const node: ReaderFragment = {
   "argumentDefinitions": [],
   "kind": "Fragment",
   "metadata": null,
-  "name": "ProblemHiddenTestCaseCreationForm_problem",
+  "name": "ProblemTestCaseEditForm_problem",
   "selections": [
-    (v0/*:: as any*/),
     {
       "alias": null,
       "args": null,
@@ -47,7 +37,13 @@ return {
       "name": "languageConfigurations",
       "plural": true,
       "selections": [
-        (v0/*:: as any*/),
+        {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "id",
+          "storageKey": null
+        },
         {
           "alias": null,
           "args": null,
@@ -73,8 +69,7 @@ return {
   "type": "Problem",
   "abstractKey": null
 };
-})();
 
-(node as any).hash = "838b9f981d765b343bed51217b9102f2";
+(node as any).hash = "1daa0340a7c90de74eddc0ff51c738d8";
 
 export default node;

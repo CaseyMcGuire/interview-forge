@@ -3,7 +3,9 @@ import HomePage from "pages/HomePage";
 import ProblemPage from "pages/ProblemPage";
 import ProblemsPage from "pages/ProblemsPage";
 import CreateProblemPage from "pages/CreateProblemPage";
-import CreateProblemHiddenTestCasePage, {CreateProblemHiddenTestCasePageError} from "pages/CreateProblemHiddenTestCasePage";
+import CreateProblemTestCasePage, {CreateProblemTestCasePageError} from "pages/CreateProblemTestCasePage";
+import ProblemTestCasesPage, {ProblemTestCasesPageError} from "pages/ProblemTestCasesPage";
+import EditProblemTestCasePage, {EditProblemTestCasePageError} from "pages/EditProblemTestCasePage";
 import EditProblemPage, {EditProblemPageError} from "pages/EditProblemPage";
 import {createRelayEnvironment, RelayRoot} from "@spa-kit/react-relay";
 import {renderComponent} from "@spa-kit/react";
@@ -41,10 +43,22 @@ const routes: RouteObject[] = [
     errorElement: <EditProblemPageError />
   },
   {
-    id: AppRoutes.CreateProblemHiddenTestCase.routeId,
-    path: AppRoutes.CreateProblemHiddenTestCase.path,
-    element: <CreateProblemHiddenTestCasePage />,
-    errorElement: <CreateProblemHiddenTestCasePageError />
+    id: AppRoutes.CreateProblemTestCase.routeId,
+    path: AppRoutes.CreateProblemTestCase.path,
+    element: <CreateProblemTestCasePage />,
+    errorElement: <CreateProblemTestCasePageError />
+  },
+  {
+    id: AppRoutes.ProblemTestCases.routeId,
+    path: AppRoutes.ProblemTestCases.path,
+    element: <ProblemTestCasesPage />,
+    errorElement: <ProblemTestCasesPageError />
+  },
+  {
+    id: AppRoutes.EditProblemTestCase.routeId,
+    path: AppRoutes.EditProblemTestCase.path,
+    element: <EditProblemTestCasePage />,
+    errorElement: <EditProblemTestCasePageError />
   },
   {
     id: AppRoutes.Problem.routeId,

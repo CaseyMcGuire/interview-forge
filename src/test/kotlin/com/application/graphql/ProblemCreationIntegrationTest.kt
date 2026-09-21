@@ -350,7 +350,9 @@ class ProblemCreationIntegrationTest {
     val routes = listOf(
       "/problem/create" to "CreateProblem",
       "/problem/two-sum/edit" to "EditProblem",
-      "/problem/two-sum/tests/create" to "CreateProblemHiddenTestCase",
+      "/problem/two-sum/test/create" to "CreateProblemTestCase",
+      "/problem/two-sum/tests" to "ProblemTestCases",
+      "/problem/two-sum/test/test-case-id/edit" to "EditProblemTestCase",
     )
 
     for ((path, routeId) in routes) {
@@ -366,6 +368,10 @@ class ProblemCreationIntegrationTest {
 
       if (routeId != "CreateProblem") {
         decisionRequest.param("parameters.slug", "two-sum")
+      }
+
+      if (routeId == "EditProblemTestCase") {
+        decisionRequest.param("parameters.id", "test-case-id")
       }
 
       session?.let { decisionRequest.session(it) }

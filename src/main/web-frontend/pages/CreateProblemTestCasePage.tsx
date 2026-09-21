@@ -2,9 +2,9 @@ import {Suspense} from "react";
 import {Link, useParams} from "react-router";
 import {graphql, useLazyLoadQuery} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
-import type {CreateProblemHiddenTestCasePageQuery} from "__generated__/CreateProblemHiddenTestCasePageQuery.graphql";
+import type {CreateProblemTestCasePageQuery} from "__generated__/CreateProblemTestCasePageQuery.graphql";
 import PageLayout from "components/PageLayout";
-import ProblemHiddenTestCaseCreationForm from "components/problems/ProblemHiddenTestCaseCreationForm";
+import ProblemTestCaseCreationForm from "components/problems/ProblemTestCaseCreationForm";
 import {AppRoutes} from "routes/AppRoutes";
 
 type Props = {
@@ -41,14 +41,14 @@ const styles = stylex.create({
   }
 });
 
-function CreateProblemHiddenTestCaseContent(props: Props) {
-  const {problem} = useLazyLoadQuery<CreateProblemHiddenTestCasePageQuery>(graphql`
-    query CreateProblemHiddenTestCasePageQuery($slug: String!) @throwOnFieldError {
+function CreateProblemTestCaseContent(props: Props) {
+  const {problem} = useLazyLoadQuery<CreateProblemTestCasePageQuery>(graphql`
+    query CreateProblemTestCasePageQuery($slug: String!) @throwOnFieldError {
       problem(slug: $slug) {
         id
         slug
         title
-        ...ProblemHiddenTestCaseCreationForm_problem
+        ...ProblemTestCaseCreationForm_problem
       }
     }
   `, {slug: props.slug}, {fetchPolicy: "network-only"});
@@ -59,28 +59,28 @@ function CreateProblemHiddenTestCaseContent(props: Props) {
 
   return (
     <div sx={styles.sections}>
-      <Link {...stylex.props(styles.link)} to={AppRoutes.EditProblem({slug: problem.slug})}>
-        Back to edit problem
+      <Link {...stylex.props(styles.link)} to={AppRoutes.ProblemTestCases({slug: problem.slug})}>
+        Back to tests
       </Link>
 
       <h2 sx={styles.problemTitle}>{problem.title}</h2>
 
-      <ProblemHiddenTestCaseCreationForm key={problem.id} problem={problem} />
+      <ProblemTestCaseCreationForm key={problem.id} problem={problem} />
     </div>
   );
 }
 
-export default function CreateProblemHiddenTestCasePage() {
+export default function CreateProblemTestCasePage() {
   const {slug} = useParams<"slug">();
 
   return (
-    <PageLayout title="Add hidden test case">
+    <PageLayout title="Add test case">
       <div sx={styles.content} role="main">
-        <div sx={styles.title} role="heading" aria-level={1}>Add hidden test case</div>
+        <div sx={styles.title} role="heading" aria-level={1}>Add test case</div>
 
         <Suspense fallback={<div role="status">Loading problem…</div>}>
           {slug
-            ? <CreateProblemHiddenTestCaseContent key={slug} slug={slug} />
+            ? <CreateProblemTestCaseContent key={slug} slug={slug} />
             : <div role="status">Problem not found.</div>}
         </Suspense>
       </div>
@@ -88,9 +88,9 @@ export default function CreateProblemHiddenTestCasePage() {
   );
 }
 
-export function CreateProblemHiddenTestCasePageError() {
+export function CreateProblemTestCasePageError() {
   return (
-    <PageLayout title="Add hidden test case">
+    <PageLayout title="Add test case">
       <div sx={styles.content} role="main">
         <div sx={styles.sections}>
           <div role="alert">The problem could not be loaded. Reload the page to try again.</div>

@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<90084f3353e97a73176e054176272d79>>
+ * @generated SignedSource<<459de8789eb889e5c21a0c7d62ea4db5>>
  * @lightSyntaxTransform
  */
 
@@ -14,10 +14,10 @@ export type CreateProblemHiddenTestCaseInput = {
   inputJson: string;
   problemId: string;
 };
-export type ProblemHiddenTestCaseCreationFormMutation$variables = {
+export type ProblemTestCaseCreationFormMutation$variables = {
   input: CreateProblemHiddenTestCaseInput;
 };
-export type ProblemHiddenTestCaseCreationFormMutation$data = {
+export type ProblemTestCaseCreationFormMutation$data = {
   readonly createProblemHiddenTestCase: {
     readonly __typename: "CreateProblemHiddenTestCaseSuccess";
     readonly problem: {
@@ -42,9 +42,9 @@ export type ProblemHiddenTestCaseCreationFormMutation$data = {
     readonly __typename: "%other";
   };
 };
-export type ProblemHiddenTestCaseCreationFormMutation = {
-  response: ProblemHiddenTestCaseCreationFormMutation$data;
-  variables: ProblemHiddenTestCaseCreationFormMutation$variables;
+export type ProblemTestCaseCreationFormMutation = {
+  response: ProblemTestCaseCreationFormMutation$data;
+  variables: ProblemTestCaseCreationFormMutation$variables;
 };
 
 const node: ConcreteRequest = (function(){
@@ -160,7 +160,7 @@ return {
     "argumentDefinitions": (v0/*:: as any*/),
     "kind": "Fragment",
     "metadata": null,
-    "name": "ProblemHiddenTestCaseCreationFormMutation",
+    "name": "ProblemTestCaseCreationFormMutation",
     "selections": (v3/*:: as any*/),
     "type": "Mutation",
     "abstractKey": null
@@ -169,20 +169,20 @@ return {
   "operation": {
     "argumentDefinitions": (v0/*:: as any*/),
     "kind": "Operation",
-    "name": "ProblemHiddenTestCaseCreationFormMutation",
+    "name": "ProblemTestCaseCreationFormMutation",
     "selections": (v3/*:: as any*/)
   },
   "params": {
-    "cacheID": "7e6b91819acf5477cb3db9ba1b6848ed",
+    "cacheID": "f155078169d7352e6cf392efcdfbfbfa",
     "id": null,
     "metadata": {},
-    "name": "ProblemHiddenTestCaseCreationFormMutation",
+    "name": "ProblemTestCaseCreationFormMutation",
     "operationKind": "mutation",
-    "text": "mutation ProblemHiddenTestCaseCreationFormMutation(\n  $input: CreateProblemHiddenTestCaseInput!\n) {\n  createProblemHiddenTestCase(input: $input) {\n    __typename\n    ... on CreateProblemHiddenTestCaseSuccess {\n      problem {\n        id\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        field\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
+    "text": "mutation ProblemTestCaseCreationFormMutation(\n  $input: CreateProblemHiddenTestCaseInput!\n) {\n  createProblemHiddenTestCase(input: $input) {\n    __typename\n    ... on CreateProblemHiddenTestCaseSuccess {\n      problem {\n        id\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        field\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "d6f383ac6e71acceacc5b230a676bf56";
+(node as any).hash = "00e2c296acfd227066850690211998a6";
 
 export default node;

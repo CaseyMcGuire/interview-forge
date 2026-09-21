@@ -100,9 +100,9 @@ function EditProblemContent({slug}: {slug: string}) {
         </div>
       </ProblemEditSection>
 
-      <ProblemEditSection title="Hidden test cases">
-        <Link {...stylex.props(styles.link)} to={AppRoutes.CreateProblemHiddenTestCase({slug: problem.slug})}>
-          Add hidden test case
+      <ProblemEditSection title="Test cases">
+        <Link {...stylex.props(styles.link)} to={AppRoutes.ProblemTestCases({slug: problem.slug})}>
+          Manage test cases
         </Link>
       </ProblemEditSection>
     </div>
