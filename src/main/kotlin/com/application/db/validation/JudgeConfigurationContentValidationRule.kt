@@ -19,6 +19,12 @@ class JudgeConfigurationContentValidationRule : JudgeConfigurationCreateValidati
         field = "testDriverCode",
       )
 
+    item.referenceSolutionCode?.isBlank() == true || (item.referenceSolutionCode?.length ?: 0) > 50_000 ->
+      ValidationDecision.Invalid(
+        "Reference solution code must be nonblank and at most 50,000 characters",
+        field = "referenceSolutionCode",
+      )
+
     (item.checkerSource?.length ?: 0) > 50_000 ->
       ValidationDecision.Invalid("Checker code must be at most 50,000 characters", field = "checkerSource")
 

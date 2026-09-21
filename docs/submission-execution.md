@@ -22,7 +22,9 @@ Custom-run admission, owner polling, and result storage are reviewed and committ
 Stage 10 adds asynchronous reference preparation and shared grading and is reviewed and committed.
 Expiration cleanup and frontend components are reviewed and committed.
 Stage 13 connects Run Tests to enqueueing and polling; its implementation is reviewed and committed.
-Authenticated browser validation remains outstanding.
+Authenticated browser validation confirmed Submit, Run Tests, and result recovery after refresh.
+Run Tests exposed missing reference-solution wiring in the judge API; the fix is reviewed,
+committed, and verified against the restarted app.
 
 ## Submission naming review
 
@@ -126,7 +128,8 @@ and the two queue producers into separate reviews:
 - [x] **11. Expiration cleanup:** Delete expired custom input submissions and their cases after execution finishes.
 - [x] **12. Frontend components:** Custom-input editing and per-case result views.
 - [ ] **13. Frontend integration:** Connect enqueue/polling and validate complete flows.
-  Implementation reviewed and committed; authenticated end-to-end browser validation remains outstanding.
+  Frontend implementation reviewed and committed; Submit, Run Tests, and refresh verified in the live app.
+  The reference-solution API fix is reviewed and committed; live validation-error and expiration checks remain outstanding.
 
 Stage 5 adds `GradingJob`, `GradingCase`, its status enum and two inverse edges,
 the policy and validator, policy registration, migration V15, and `GradingJobIntegrationTest`.
@@ -496,6 +499,26 @@ covered sequential polling, completion, retention, network and GraphQL field err
 retry, missing results, idle IDs, ID changes, late responses, and unmount cleanup. This does not
 replace the authenticated end-to-end validation still outstanding above. No test or preview
 files were added to the application.
+
+Authenticated browser validation on September 20, 2026 created Two Sum's missing judge
+configuration through the admin API. A correct solution moved through Queued and Running
+to Accepted (2/2 cases, 197 ms), and the result survived refresh. The original editor draft
+and test inputs were restored afterward; the judge configuration and accepted submission
+remain in the local database.
+
+Run Tests remained unavailable because the judge API accepted `referenceSolutionCode` but
+did not pass it through the resolver, persist it, or return it from the GraphQL mapper.
+The fix connects create/update/read and applies the documented content limits in the existing
+EntKt validator. Omitted updates preserve the reference code; explicit null clears it.
+`JudgeConfigurationIntegrationTest` and `ProblemMutationPrivacyTest` pass all 12 tests,
+including reference-code persistence, updates, clearing, validation, and admin-only reads.
+These corrective changes are reviewed and committed. After the backend restarted, a read confirmed
+that Two Sum's reference solution was still null. Saving it through the corrected update API
+resolved admission. Run Tests advanced through Queued and Running to Wrong answer (0/2 tests,
+194 ms) for the unchanged starter code, which returns an empty array. Both cases displayed the
+reference-generated expected outputs and the submitted code's outputs, and the result survived
+refresh. Authenticated validation-error feedback and actual expiration remain unverified in the
+live UI.
 
 ## API contract
 

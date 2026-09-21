@@ -246,6 +246,7 @@ class ProblemDataFetcher(
     val configuration = problemService.createJudgeConfiguration(
       problemLanguageId = problemContentId(input.problemLanguageId, ProblemLanguage::class, "problemLanguageId"),
       testDriverCode = input.testDriverCode,
+      referenceSolutionCode = input.referenceSolutionCode,
       checkerSource = input.checkerSource,
       timeLimitMs = input.timeLimitMs,
       memoryLimitMb = input.memoryLimitMb,
@@ -273,8 +274,14 @@ class ProblemDataFetcher(
     @InputArgument input: UpdateJudgeConfigurationInput,
     environment: DataFetchingEnvironment,
   ): UpdateJudgeConfigurationResult = try {
-    // Checkers can be cleared, so only this field needs to distinguish null from omission.
+    // Reference solutions and checkers can be cleared, so distinguish null from omission.
     val inputFields = environment.getArgument<Map<String, Any?>>("input").orEmpty()
+    val referenceSolutionCode = if (inputFields.containsKey("referenceSolutionCode")) {
+      FieldUpdate.Set(input.referenceSolutionCode)
+    } else {
+      FieldUpdate.Unchanged
+    }
+
     val checkerSource = if (inputFields.containsKey("checkerSource")) {
       FieldUpdate.Set(input.checkerSource)
     } else {
@@ -284,6 +291,7 @@ class ProblemDataFetcher(
     val judge = problemService.updateJudgeConfiguration(
       id = problemContentId(input.id, JudgeConfiguration::class),
       testDriverCode = input.testDriverCode,
+      referenceSolutionCode = referenceSolutionCode,
       checkerSource = checkerSource,
       timeLimitMs = input.timeLimitMs,
       memoryLimitMb = input.memoryLimitMb,
@@ -415,6 +423,7 @@ class ProblemDataFetcher(
   private fun toGraphqlJudgeConfiguration(judge: JudgeConfigurationEntity): JudgeConfiguration = JudgeConfiguration(
     id = globalIdUtil.toGlobalId(JudgeConfiguration::class, judge.id),
     testDriverCode = judge.testDriverCode,
+    referenceSolutionCode = judge.referenceSolutionCode,
     checkerSource = judge.checkerSource,
     timeLimitMs = judge.timeLimitMs,
     memoryLimitMb = judge.memoryLimitMb,

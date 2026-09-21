@@ -72,6 +72,7 @@ class JudgeConfigurationIntegrationTest {
 
   private val validSettings = mapOf(
     "testDriverCode" to "fun main() = judge()",
+    "referenceSolutionCode" to "fun solve(input: String) = input",
     "timeLimitMs" to 1000,
     "memoryLimitMb" to 256,
   )
@@ -106,6 +107,7 @@ class JudgeConfigurationIntegrationTest {
     assertEquals(configurationId, language["id"].asString())
     val judge = language["judgeConfiguration"]
     assertEquals("fun main() = judge()", judge["testDriverCode"].asString())
+    assertEquals(validSettings["referenceSolutionCode"], judge["referenceSolutionCode"].asString())
     assertTrue(judge["checkerSource"].isNull)
     assertEquals(1000, judge["timeLimitMs"].asInt())
     assertEquals(256, judge["memoryLimitMb"].asInt())
@@ -113,6 +115,7 @@ class JudgeConfigurationIntegrationTest {
     val stored = storedJudge(configuration.id)!!
     assertEquals(globalIdUtil.toGlobalId(GraphqlJudgeConfiguration::class, stored.id), judge["id"].asString())
     assertEquals("fun main() = judge()", stored.testDriverCode)
+    assertEquals(validSettings["referenceSolutionCode"], stored.referenceSolutionCode)
     assertNull(stored.checkerSource)
     assertEquals(1000, stored.timeLimitMs)
     assertEquals(256, stored.memoryLimitMb)
@@ -143,7 +146,7 @@ class JudgeConfigurationIntegrationTest {
     assertEquals(created.testDriverCode, stored.testDriverCode)
     assertEquals(created.problemLanguageId, stored.problemLanguageId)
 
-    // Explicit null clears the checker, so it is the one field excluded from this no-op check.
+    // Explicit null clears reference code and the checker, so exclude them from this no-op check.
     assertSuccess(updateJudge(judgeId), "UpdateJudgeConfigurationSuccess")
     assertSuccess(updateJudge(judgeId, mapOf(
       "testDriverCode" to null,
@@ -154,9 +157,37 @@ class JudgeConfigurationIntegrationTest {
   }
 
   @Test
+  fun `reference solutions can be omitted replaced and explicitly cleared`() {
+    val result = createJudge(mapOf("referenceSolutionCode" to null))
+    assertSuccess(result, "CreateJudgeConfigurationSuccess")
+    assertTrue(result["problemLanguage"]["judgeConfiguration"]["referenceSolutionCode"].isNull)
+    val created = storedJudge(configuration.id)!!
+    assertNull(created.referenceSolutionCode)
+    val judgeId = judgeGlobalId(created)
+
+    val referenceCode = "fun solve(input: String) = input.reversed()"
+    val updated = updateJudge(judgeId, mapOf("referenceSolutionCode" to referenceCode))
+    assertSuccess(updated, "UpdateJudgeConfigurationSuccess")
+    assertEquals(referenceCode, updated["judgeConfiguration"]["referenceSolutionCode"].asString())
+    assertEquals(referenceCode, storedJudge(configuration.id)!!.referenceSolutionCode)
+
+    val unchanged = updateJudge(judgeId, mapOf("timeLimitMs" to 2500))
+    assertSuccess(unchanged, "UpdateJudgeConfigurationSuccess")
+    assertEquals(referenceCode, unchanged["judgeConfiguration"]["referenceSolutionCode"].asString())
+    assertEquals(referenceCode, storedJudge(configuration.id)!!.referenceSolutionCode)
+
+    val cleared = updateJudge(judgeId, mapOf("referenceSolutionCode" to null))
+    assertSuccess(cleared, "UpdateJudgeConfigurationSuccess")
+    assertTrue(cleared["judgeConfiguration"]["referenceSolutionCode"].isNull)
+    assertNull(storedJudge(configuration.id)!!.referenceSolutionCode)
+  }
+
+  @Test
   fun `invalid settings report field errors and reject the whole mutation`() {
     assertValidation(createJudge(mapOf("testDriverCode" to " ")), "testDriverCode")
     assertValidation(createJudge(mapOf("testDriverCode" to "x".repeat(50_001))), "testDriverCode")
+    assertValidation(createJudge(mapOf("referenceSolutionCode" to " ")), "referenceSolutionCode")
+    assertValidation(createJudge(mapOf("referenceSolutionCode" to "x".repeat(50_001))), "referenceSolutionCode")
     assertValidation(createJudge(mapOf("checkerSource" to "x".repeat(50_001))), "checkerSource")
     assertValidation(createJudge(mapOf("checkerSource" to "fun check() = true")), "checkerSource")
     assertValidation(createJudge(mapOf("timeLimitMs" to 0)), "timeLimitMs")
@@ -175,6 +206,8 @@ class JudgeConfigurationIntegrationTest {
     val judgeId = judgeGlobalId(created)
 
     assertValidation(updateJudge(judgeId, mapOf("testDriverCode" to "x".repeat(50_001))), "testDriverCode")
+    assertValidation(updateJudge(judgeId, mapOf("referenceSolutionCode" to " ")), "referenceSolutionCode")
+    assertValidation(updateJudge(judgeId, mapOf("referenceSolutionCode" to "x".repeat(50_001))), "referenceSolutionCode")
     assertValidation(updateJudge(judgeId, mapOf("checkerSource" to "fun check() = true")), "checkerSource")
     assertValidation(updateJudge(judgeId, mapOf("timeLimitMs" to 0)), "timeLimitMs")
     assertValidation(updateJudge(judgeId, mapOf("memoryLimitMb" to 8_193)), "memoryLimitMb")
@@ -267,6 +300,7 @@ class JudgeConfigurationIntegrationTest {
     val adminView = readProblem(adminSession)["languageConfigurations"].associateBy { it["id"].asString() }
     val judge = adminView.getValue(configurationId)["judgeConfiguration"]
     assertEquals("fun main() = judge()", judge["testDriverCode"].asString())
+    assertEquals(validSettings["referenceSolutionCode"], judge["referenceSolutionCode"].asString())
     assertEquals(1000, judge["timeLimitMs"].asInt())
     assertTrue(adminView.getValue(otherConfigurationId)["judgeConfiguration"].isNull)
 
@@ -275,6 +309,7 @@ class JudgeConfigurationIntegrationTest {
       assertEquals(2, view["languageConfigurations"].size())
       assertTrue(view["languageConfigurations"].all { it["judgeConfiguration"].isNull }, view.toString())
       assertFalse(view.toString().contains("fun main() = judge()"))
+      assertFalse(view.toString().contains(validSettings["referenceSolutionCode"] as String))
     }
 
     entClient.users.update(adminId) { role = UserRole.USER }.save(fixtureContext).getOrThrow()
@@ -400,7 +435,7 @@ class JudgeConfigurationIntegrationTest {
     return user.id to (result.request.session as MockHttpSession)
   }
 
-  private val judgeFields = "id testDriverCode checkerSource timeLimitMs memoryLimitMb"
+  private val judgeFields = "id testDriverCode referenceSolutionCode checkerSource timeLimitMs memoryLimitMb"
 
   private fun createJudge(
     fields: Map<String, Any?> = emptyMap(),

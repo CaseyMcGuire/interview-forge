@@ -251,6 +251,7 @@ class ProblemService(
     checkerSource: String?,
     timeLimitMs: Int,
     memoryLimitMb: Int,
+    referenceSolutionCode: String? = null,
   ): ProblemLanguage? {
     val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
 
@@ -270,6 +271,7 @@ class ProblemService(
       tx.judgeConfigurations.create {
         this.problemLanguageId = problemLanguageId
         this.testDriverCode = testDriverCode
+        this.referenceSolutionCode = referenceSolutionCode
         this.checkerSource = checkerSource
         this.timeLimitMs = timeLimitMs
         this.memoryLimitMb = memoryLimitMb
@@ -282,13 +284,14 @@ class ProblemService(
     }.getOrThrow()
   }
 
-  /** Null parameters leave the existing values unchanged; the checker can be cleared explicitly. */
+  /** Null parameters leave values unchanged; reference code and checkers can be cleared explicitly. */
   fun updateJudgeConfiguration(
     id: Long,
     testDriverCode: String? = null,
     checkerSource: FieldUpdate<String?> = FieldUpdate.Unchanged,
     timeLimitMs: Int? = null,
     memoryLimitMb: Int? = null,
+    referenceSolutionCode: FieldUpdate<String?> = FieldUpdate.Unchanged,
   ): JudgeConfiguration? {
     val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
 
@@ -302,6 +305,10 @@ class ProblemService(
 
       tx.judgeConfigurations.update(id) {
         testDriverCode?.let { this.testDriverCode = it }
+        if (referenceSolutionCode is FieldUpdate.Set) {
+          this.referenceSolutionCode = referenceSolutionCode.value
+        }
+
         if (checkerSource is FieldUpdate.Set) {
           this.checkerSource = checkerSource.value
         }
