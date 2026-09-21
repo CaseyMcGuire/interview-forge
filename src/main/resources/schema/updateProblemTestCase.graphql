@@ -1,0 +1,32 @@
+extend type Mutation {
+  """Updates a hidden test on a published, unarchived problem. Admins only."""
+  updateProblemTestCase(input: UpdateProblemTestCaseInput!): UpdateProblemTestCaseResult!
+}
+
+union UpdateProblemTestCaseResult =
+    UpdateProblemTestCaseSuccess
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
+
+type UpdateProblemTestCaseSuccess {
+  testCase: ProblemTestCase!
+}
+
+"""Replaces the hidden test's content while preserving its position."""
+input UpdateProblemTestCaseInput {
+  """ID returned by ProblemTestCase.id."""
+  id: ID!
+
+  """Serialized JSON input, at most 20,000 characters when compactly serialized."""
+  inputJson: String!
+
+  """
+  Serialized JSON expectation, at most 20,000 characters when compactly serialized.
+  The string "null" is a valid expected value.
+  """
+  expectedOutputJson: String!
+
+  """Optional Markdown explanation, at most 10,000 characters. Omit or pass null to clear."""
+  explanationMarkdown: String
+}
