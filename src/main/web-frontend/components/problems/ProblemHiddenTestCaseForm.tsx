@@ -1,6 +1,8 @@
+import {useId} from "react";
 import * as stylex from "@stylexjs/stylex";
 import Control from "components/coding/WorkspaceControl";
 import ProblemCreationField from "./ProblemCreationField";
+import ProblemEditFeedback from "./ProblemEditFeedback";
 
 export type ProblemHiddenTestCaseDraft = {
   inputJson: string;
@@ -12,6 +14,13 @@ type Props = {
   draft: ProblemHiddenTestCaseDraft;
   onChange: (draft: ProblemHiddenTestCaseDraft) => void;
   onSubmit: () => void;
+  languages: readonly {id: string; displayName: string}[];
+  problemLanguageId: string;
+  onLanguageChange: (id: string) => void;
+  onGenerateExpectedOutput: () => void;
+  isGenerating: boolean;
+  generated: boolean;
+  generationErrors: readonly string[];
   isSaving: boolean;
   errors: readonly string[];
   saved: boolean;
@@ -27,13 +36,32 @@ const styles = stylex.create({
     color: "#9da0a8",
     lineHeight: 1.6
   },
-  columns: {
-    display: "grid",
-    gridTemplateColumns: {
-      default: "1fr 1fr",
-      "@media (max-width: 600px)": "1fr"
-    },
-    gap: 18
+  generation: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "flex-end",
+    gap: 12
+  },
+  language: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8
+  },
+  label: {
+    fontWeight: 600
+  },
+  select: {
+    backgroundColor: "#2b2d30",
+    color: "#dfe1e5",
+    border: "1px solid #4e5157",
+    borderRadius: 5,
+    padding: "10px 12px",
+    fontSize: 14
+  },
+  generate: {
+    borderColor: "#4e5157",
+    backgroundColor: "#2b2d30",
+    color: "#dfe1e5"
   },
   actions: {
     paddingTop: 18,
@@ -63,36 +91,69 @@ const styles = stylex.create({
 
 export default function ProblemHiddenTestCaseForm(props: Props) {
   const {draft, onChange, onSubmit, isSaving, errors, saved} = props;
-  const submitDisabled = isSaving ||
+  const languageSelectId = useId();
+  const submitDisabled = isSaving || props.isGenerating || !props.generated ||
     !draft.inputJson.trim() ||
     !draft.expectedOutputJson.trim();
+  const generateDisabled = isSaving || props.isGenerating ||
+    !props.problemLanguageId || !draft.inputJson.trim();
 
   return (
-    <div sx={styles.form} aria-busy={isSaving}>
+    <div sx={styles.form} aria-busy={isSaving || props.isGenerating}>
       <div sx={styles.description}>
         Hidden test cases are not shown to people solving the problem.
       </div>
 
-      <div sx={styles.columns}>
-        <ProblemCreationField
-          label="Hidden test input (JSON)"
-          value={draft.inputJson}
-          onChange={(inputJson) => onChange({...draft, inputJson})}
-          rows={4}
-          maxLength={20_000}
-          disabled={isSaving}
-        />
+      <ProblemCreationField
+        label="Hidden test input (JSON)"
+        value={draft.inputJson}
+        onChange={(inputJson) => onChange({...draft, inputJson})}
+        rows={4}
+        maxLength={20_000}
+        disabled={isSaving}
+      />
 
-        <ProblemCreationField
-          label="Hidden test expected output (JSON)"
-          value={draft.expectedOutputJson}
-          onChange={(expectedOutputJson) => onChange({...draft, expectedOutputJson})}
-          hint="The JSON value null is allowed."
-          rows={4}
-          maxLength={20_000}
-          disabled={isSaving}
-        />
+      <div sx={styles.generation}>
+        <div sx={styles.language}>
+          <label htmlFor={languageSelectId} sx={styles.label}>Reference solution language</label>
+          <select
+            id={languageSelectId}
+            sx={styles.select}
+            value={props.problemLanguageId}
+            disabled={isSaving || props.languages.length === 0}
+            onChange={event => props.onLanguageChange(event.target.value)}
+          >
+            {props.languages.length === 0 && <option value="">No languages configured</option>}
+            {props.languages.map(language => (
+              <option key={language.id} value={language.id}>{language.displayName}</option>
+            ))}
+          </select>
+        </div>
+
+        <Control
+          appearance={[styles.control, styles.generate, generateDisabled && styles.disabled]}
+          disabled={generateDisabled}
+          onActivate={props.onGenerateExpectedOutput}
+        >
+          {props.isGenerating ? "Generating…" : "Generate expected output"}
+        </Control>
       </div>
+
+      <ProblemEditFeedback errors={props.generationErrors} saved={false} />
+
+      {props.generated && (
+        <div sx={styles.status} role="status">Expected output generated. Review it before adding the test case.</div>
+      )}
+
+      <ProblemCreationField
+        label="Hidden test expected output (JSON)"
+        value={draft.expectedOutputJson}
+        readOnly
+        hint="Generated from the reference solution using the input above."
+        rows={4}
+        maxLength={20_000}
+        disabled
+      />
 
       <ProblemCreationField
         label="Hidden test explanation (optional Markdown)"

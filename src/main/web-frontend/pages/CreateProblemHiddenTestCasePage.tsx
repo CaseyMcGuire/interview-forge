@@ -48,6 +48,7 @@ function CreateProblemHiddenTestCaseContent(props: Props) {
         id
         slug
         title
+        ...ProblemHiddenTestCaseCreationForm_problem
       }
     }
   `, {slug: props.slug}, {fetchPolicy: "network-only"});
@@ -58,13 +59,13 @@ function CreateProblemHiddenTestCaseContent(props: Props) {
 
   return (
     <div sx={styles.sections}>
-      <Link sx={styles.link} to={AppRoutes.EditProblem({slug: problem.slug})}>
+      <Link {...stylex.props(styles.link)} to={AppRoutes.EditProblem({slug: problem.slug})}>
         Back to edit problem
       </Link>
 
       <h2 sx={styles.problemTitle}>{problem.title}</h2>
 
-      <ProblemHiddenTestCaseCreationForm key={problem.id} problemId={problem.id} />
+      <ProblemHiddenTestCaseCreationForm key={problem.id} problem={problem} />
     </div>
   );
 }
@@ -94,7 +95,7 @@ export function CreateProblemHiddenTestCasePageError() {
         <div sx={styles.sections}>
           <div role="alert">The problem could not be loaded. Reload the page to try again.</div>
 
-          <Link sx={styles.link} to={AppRoutes.Problems()}>Back to problems</Link>
+          <Link {...stylex.props(styles.link)} to={AppRoutes.Problems()}>Back to problems</Link>
         </div>
       </div>
     </PageLayout>

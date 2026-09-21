@@ -4,7 +4,6 @@ import * as stylex from "@stylexjs/stylex";
 type Props = {
   label: string;
   value: string;
-  onChange: (value: string) => void;
   hint?: string;
   rows?: number;
   maxLength?: number;
@@ -12,7 +11,10 @@ type Props = {
   min?: number;
   max?: number;
   disabled: boolean;
-};
+} & (
+  | {readOnly: true; onChange?: never}
+  | {readOnly?: false; onChange: (value: string) => void}
+);
 
 const styles = stylex.create({
   field: {
@@ -51,6 +53,7 @@ export default function ProblemCreationField({
   label,
   value,
   onChange,
+  readOnly = false,
   hint,
   rows,
   maxLength,
@@ -63,7 +66,8 @@ export default function ProblemCreationField({
 
   const props = {
     value,
-    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(event.target.value),
+    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange?.(event.target.value),
+    readOnly,
     "aria-labelledby": id,
     "aria-describedby": hint ? `${id}-hint` : undefined,
     maxLength,

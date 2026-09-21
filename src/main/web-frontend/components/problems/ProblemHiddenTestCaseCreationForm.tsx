@@ -1,10 +1,12 @@
 import {useState} from "react";
-import {graphql, useMutation} from "react-relay";
+import {graphql, useFragment, useMutation} from "react-relay";
 import type {ProblemHiddenTestCaseCreationFormMutation} from "__generated__/ProblemHiddenTestCaseCreationFormMutation.graphql";
+import type {ProblemHiddenTestCaseCreationForm_problem$key} from "__generated__/ProblemHiddenTestCaseCreationForm_problem.graphql";
+import useGenerateTestCaseExpectedOutput from "hooks/useGenerateTestCaseExpectedOutput";
 import ProblemHiddenTestCaseForm, {type ProblemHiddenTestCaseDraft} from "./ProblemHiddenTestCaseForm";
 
 type Props = {
-  problemId: string;
+  problem: ProblemHiddenTestCaseCreationForm_problem$key;
 };
 
 const emptyDraft: ProblemHiddenTestCaseDraft = {
@@ -21,9 +23,25 @@ const fieldLabels: Record<string, string> = {
 };
 
 export default function ProblemHiddenTestCaseCreationForm(props: Props) {
+  const problem = useFragment(graphql`
+    fragment ProblemHiddenTestCaseCreationForm_problem on Problem {
+      id
+      languageConfigurations {
+        id
+        language {
+          displayName
+        }
+      }
+    }
+  `, props.problem);
+
   const [draft, setDraft] = useState<ProblemHiddenTestCaseDraft>(emptyDraft);
+  const [problemLanguageId, setProblemLanguageId] = useState(problem.languageConfigurations[0]?.id ?? "");
   const [errors, setErrors] = useState<readonly string[]>([]);
   const [saved, setSaved] = useState(false);
+  const generation = useGenerateTestCaseExpectedOutput(expectedOutputJson => {
+    setDraft(currentDraft => ({...currentDraft, expectedOutputJson}));
+  });
 
   const [commit, isSaving] = useMutation<ProblemHiddenTestCaseCreationFormMutation>(graphql`
     mutation ProblemHiddenTestCaseCreationFormMutation($input: CreateProblemHiddenTestCaseInput!) {
@@ -52,7 +70,7 @@ export default function ProblemHiddenTestCaseCreationForm(props: Props) {
   `);
 
   function save() {
-    if (isSaving || !draft.inputJson.trim() || !draft.expectedOutputJson.trim()) {
+    if (isSaving || generation.isGenerating || !generation.generated || !draft.inputJson.trim() || !draft.expectedOutputJson.trim()) {
       return;
     }
 
@@ -62,7 +80,7 @@ export default function ProblemHiddenTestCaseCreationForm(props: Props) {
     commit({
       variables: {
         input: {
-          problemId: props.problemId,
+          problemId: problem.id,
           inputJson: draft.inputJson,
           expectedOutputJson: draft.expectedOutputJson,
           explanationMarkdown: draft.explanationMarkdown || null
@@ -79,6 +97,7 @@ export default function ProblemHiddenTestCaseCreationForm(props: Props) {
 
         switch (result.__typename) {
           case "CreateProblemHiddenTestCaseSuccess":
+            generation.resetGeneration();
             setDraft(emptyDraft);
             setSaved(true);
             break;
@@ -108,9 +127,33 @@ export default function ProblemHiddenTestCaseCreationForm(props: Props) {
   }
 
   function changeDraft(updated: ProblemHiddenTestCaseDraft) {
-    setDraft(updated);
+    const inputChanged = updated.inputJson !== draft.inputJson;
+    if (inputChanged) {
+      generation.resetGeneration();
+    }
+
+    setDraft(inputChanged ? {...updated, expectedOutputJson: ""} : updated);
     setErrors([]);
     setSaved(false);
+  }
+
+  function changeLanguage(id: string) {
+    generation.resetGeneration();
+    setProblemLanguageId(id);
+    setDraft(currentDraft => ({...currentDraft, expectedOutputJson: ""}));
+    setErrors([]);
+    setSaved(false);
+  }
+
+  function generateExpectedOutput() {
+    if (isSaving || generation.isGenerating || !problemLanguageId || !draft.inputJson.trim()) {
+      return;
+    }
+
+    setErrors([]);
+    setSaved(false);
+    setDraft(currentDraft => ({...currentDraft, expectedOutputJson: ""}));
+    generation.generateExpectedOutput(problemLanguageId, draft.inputJson);
   }
 
   return (
@@ -118,6 +161,16 @@ export default function ProblemHiddenTestCaseCreationForm(props: Props) {
       draft={draft}
       onChange={changeDraft}
       onSubmit={save}
+      languages={problem.languageConfigurations.map(configuration => ({
+        id: configuration.id,
+        displayName: configuration.language.displayName
+      }))}
+      problemLanguageId={problemLanguageId}
+      onLanguageChange={changeLanguage}
+      onGenerateExpectedOutput={generateExpectedOutput}
+      isGenerating={generation.isGenerating}
+      generated={generation.generated}
+      generationErrors={generation.errors}
       isSaving={isSaving}
       errors={errors}
       saved={saved}

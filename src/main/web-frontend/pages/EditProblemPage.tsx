@@ -101,7 +101,7 @@ function EditProblemContent({slug}: {slug: string}) {
       </ProblemEditSection>
 
       <ProblemEditSection title="Hidden test cases">
-        <Link sx={styles.link} to={AppRoutes.CreateProblemHiddenTestCase({slug: problem.slug})}>
+        <Link {...stylex.props(styles.link)} to={AppRoutes.CreateProblemHiddenTestCase({slug: problem.slug})}>
           Add hidden test case
         </Link>
       </ProblemEditSection>
