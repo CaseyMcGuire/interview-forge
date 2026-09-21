@@ -69,6 +69,12 @@ If you make client-side changes and want to see them without restarting the serv
 ```
 Vite watches the client-side directories and rebuilds the bundles in `build`. Each rebuild runs the TypeScript 7 compiler to report type errors. Refresh the page to see changes.
 
+### Add problems with an LLM
+
+The application exposes an authenticated MCP server at `http://localhost:8080/mcp` for
+creating problems, configuring reference solutions, managing tests, and verifying submissions.
+See [MCP setup and authoring](docs/mcp.md) for credentials, client configuration, and a complete example.
+
 ---
 Whenever you change a client-side GraphQL query supported by Relay, you must rebuild the Relay models. In order to do so, run the following: 
 

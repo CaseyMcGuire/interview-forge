@@ -1,0 +1,23 @@
+{
+  "slug": "mcp-echo-integer",
+  "title": "Echo an integer",
+  "statementMarkdown": "Return the supplied integer unchanged. The input is a JSON integer between -10000000000000000 and 10000000000000000, inclusive. Return one JSON integer.",
+  "difficulty": "EASY",
+  "languageConfigurations": [
+    {
+      "languageKey": "kotlin",
+      "starterCode": "class Solution {\n  fun echo(value: Long): Long = TODO()\n}\n",
+      "testDriverCode": "fun main() {\n  val input = System.`in`.bufferedReader().readText().trim().toLong()\n  print(Solution().echo(input))\n}\n",
+      "referenceSolutionCode": "class Solution {\n  fun echo(value: Long): Long = value\n}\n",
+      "timeLimitMs": 1000,
+      "memoryLimitMb": 256
+    }
+  ],
+  "publicExamples": [
+    {
+      "inputJson": "1",
+      "expectedOutputJson": "1",
+      "explanationMarkdown": "Return the input unchanged."
+    }
+  ]
+}

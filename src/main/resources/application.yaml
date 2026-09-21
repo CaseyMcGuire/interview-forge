@@ -8,9 +8,15 @@ spring:
         # The WebMVC sync server executes on the request thread, preserving Spring Security.
         type: SYNC
         instructions: >-
-          Inspect available languages and search for an existing problem before adding content.
-          Problem slugs are stable identifiers. JSON inputs and expectations are serialized strings
-          so large numbers retain their exact values.
+          Use list_languages and search_problems before create_problem. Inspect with get_problem before editing.
+          Inputs and expectations are serialized JSON strings; preserve exact number text.
+          Generate answers with generate_expected_output, then save them with add_test_cases.
+          Verify the stored reference with enqueue_problem_submission and poll get_problem_submission
+          until FINISHED; ACCEPTED means all saved tests passed.
+          Kotlin drivers need a top-level main in the default package, must read one JSON value from stdin
+          and print one JSON value, and compile with only the Kotlin/JDK standard libraries.
+          Poll about once per second. Creation publishes immediately. Repeating creation or batch-add calls
+          can fail or duplicate data, so inspect current content before retrying an uncertain write.
         capabilities:
           resource: false
           prompt: false
