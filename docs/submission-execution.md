@@ -20,7 +20,8 @@ custom-Run limit of twenty cases does not apply to official submissions.
 
 Custom-run admission, owner polling, and result storage are reviewed and committed.
 Stage 10 adds asynchronous reference preparation and shared grading and is reviewed and committed.
-Expiration cleanup is reviewed and committed. Frontend components and integration remain later work.
+Expiration cleanup and frontend components are reviewed and committed;
+connecting Run Tests to the enqueue/polling flow remains stage 13.
 
 ## Submission naming review
 
@@ -122,7 +123,7 @@ and the two queue producers into separate reviews:
 - [x] **10a. Submission naming:** Rename the models, API, services, and callers to `ProblemSubmission`
   and `CustomInputSubmission`; migrate existing database names and regenerate artifacts.
 - [x] **11. Expiration cleanup:** Delete expired custom input submissions and their cases after execution finishes.
-- [ ] **12. Frontend components:** Custom-input editing and per-case result views.
+- [x] **12. Frontend components:** Custom-input editing and per-case result views.
 - [ ] **13. Frontend integration:** Connect enqueue/polling and validate complete flows.
 
 Stage 5 adds `GradingJob`, `GradingCase`, its status enum and two inverse edges,
@@ -397,6 +398,44 @@ Cleanup now belongs to `CustomInputSubmissionService`; its scheduler delegates t
 service. After this consolidation, all 19 tests passed with
 `./gradlew test --tests com.application.execution.CustomInputSubmissionCleanupIntegrationTest --tests com.application.execution.CustomInputSubmissionCleanupSchedulerTest --tests com.application.graphql.CustomInputSubmissionIntegrationTest`.
 No full-project test suite or browser checks were run.
+
+## Custom input frontend components
+
+Stage 12 adds three components under `src/main/web-frontend/components/coding/`:
+
+- `CustomInputEditor.tsx` is controlled by its parent. It edits raw JSON drafts, uses
+  stable draft IDs, adds/removes cases, respects a supplied case limit and disabled state,
+  and displays errors associated with draft IDs. Expected outputs are not editable.
+- `CustomInputSubmissionResultPanel.tsx` reads its own Relay fragment and displays idle,
+  loading, queued, running, finished, and error states. Finished results include the
+  passed count, submitted code runtime, and every case. Retry is a callback for the
+  integration stage.
+- `CustomInputSubmissionCaseResult.tsx` owns the case fragment. Each expandable row shows
+  the input, expected output, actual output, outcome, and any public error message.
+  Failed and unexecuted cases start expanded. Raw serialized values preserve numeric
+  distinctions and large integers; unavailable expectations differ from JSON `null`.
+
+Both result fragments have generated Relay artifacts. `CodingWorkspace.tsx` mounts them
+below the code editor with Test inputs, Test results, and Submission controls. Input drafts
+start from the problem's real examples and stay in memory while switching panels. The
+editor currently allows up to 20 inputs. Opening an existing submission URL or submitting
+a solution selects the existing Submission panel. Test results shows its empty state;
+stage 13 connects Run Tests to enqueueing and polling. No API, backend, route, or dependency changes were needed.
+The saved stash contains no frontend component work to reapply and remains unchanged.
+
+Validation: `./gradlew buildRelay`, `npm run build` (including TypeScript checking), and
+`git diff --check` passed. An isolated browser preview exercised editing, keyboard
+activation, maximum/last-case limits, disabled inputs, validation messages, queued/running
+states, compilation/reference failures, unknown values, loading/error states, retry,
+and a 390px layout. It also confirmed raw large integers, `1.0`, JSON null, missing
+expectations, invalid output, and a zero-millisecond runtime render distinctly. Browser
+console checks found no errors. The temporary preview source/query were removed and its
+server stopped. The build still reports the existing Relay/Babel deprecation and bundle
+size warnings. Real enqueue/polling flows remain unverified until stage 13.
+
+The live workspace mount passed `./gradlew buildFrontend` and `./gradlew processResources`.
+Browser checks on `/problem/two-sum` confirmed real example inputs and switching between
+all three panels. The running app serves the rebuilt assets; no server restart is needed.
 
 ## API contract
 
