@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import {useState} from "react";
 import {useSearchParams} from "react-router";
+import {AppRoutes} from "routes/AppRoutes";
 import useSubmitSolution from "hooks/useSubmitSolution";
 import useProblemSubmissionStatus from "hooks/useProblemSubmissionStatus";
 import useEnqueueCustomInputSubmission from "hooks/useEnqueueCustomInputSubmission";
@@ -209,6 +210,7 @@ export default function CodingWorkspace(props: Props) {
     <div sx={styles.workspace} role="main">
       <WorkspaceToolbar
         title={problem.title}
+        editProblemUrl={problem.canEdit ? AppRoutes.EditProblem({slug: problem.slug}) : null}
         problemOpen={problemOpen}
         onToggleProblem={() => setProblemOpen(!problemOpen)}
         editorAvailable={editorAvailable}

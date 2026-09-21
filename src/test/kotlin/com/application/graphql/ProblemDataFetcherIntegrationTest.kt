@@ -8,6 +8,8 @@ import com.application.ent.TestCase
 import com.application.schema.ProblemCheckerKind
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TestCaseVisibility
+import com.application.schema.UserRole
+import com.application.security.UserIdPrincipal
 import com.netflix.graphql.dgs.DgsQueryExecutor
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
@@ -24,6 +26,8 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -235,6 +239,28 @@ class ProblemDataFetcherIntegrationTest {
   }
 
   @Test
+  fun `only current admins can edit a problem`() {
+    val problem = createProblem()
+    assertEquals(false, fetchProblem(problem.slug)?.get("canEdit"))
+
+    SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken.authenticated(
+      UserIdPrincipal(problem.createdByUserId), null, emptyList(),
+    )
+
+    try {
+      assertEquals(false, fetchProblem(problem.slug)?.get("canEdit"))
+
+      entClient.users.update(problem.createdByUserId) { role = UserRole.ADMIN }.save(fixtureContext).getOrThrow()
+      assertEquals(true, fetchProblem(problem.slug)?.get("canEdit"))
+
+      entClient.users.update(problem.createdByUserId) { role = UserRole.USER }.save(fixtureContext).getOrThrow()
+      assertEquals(false, fetchProblem(problem.slug)?.get("canEdit"))
+    } finally {
+      SecurityContextHolder.clearContext()
+    }
+  }
+
+  @Test
   fun `returns null without errors for missing draft archived and future problems`() {
     assertNull(fetchProblem("missing-${UUID.randomUUID()}"))
     val unavailable = listOf(
@@ -400,7 +426,7 @@ class ProblemDataFetcherIntegrationTest {
     private val PROBLEM_QUERY = """
       query ViewProblem(${'$'}slug: String!) {
         problem(slug: ${'$'}slug) {
-          id slug title statementMarkdown difficulty
+          id slug title statementMarkdown difficulty canEdit
           languageConfigurations {
             id starterCode
             language { id key displayName }

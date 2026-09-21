@@ -1,9 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
+import {Link} from "react-router";
 import Control from "./WorkspaceControl";
 import Icon from "./WorkspaceIcon";
 
 type Props = {
   title: string;
+  editProblemUrl: string | null;
   problemOpen: boolean;
   onToggleProblem: () => void;
   editorAvailable: boolean;
@@ -144,6 +146,11 @@ const styles = stylex.create({
     backgroundColor: "#2b2d30",
     color: "#dfe1e5"
   },
+  editLink: {
+    padding: "0 10px",
+    textDecoration: "none",
+    flexShrink: 0
+  },
   submitButton: {
     marginLeft: 4,
     borderColor: "#3574f0",
@@ -158,7 +165,7 @@ const styles = stylex.create({
 
 /** Single top bar: brand, problem identity, editor tools, and the run and submit actions. */
 export default function WorkspaceToolbar(props: Props) {
-  const {title, problemOpen, onToggleProblem, editorAvailable} = props;
+  const {title, editProblemUrl, problemOpen, onToggleProblem, editorAvailable} = props;
   const {fontSize, onCycleFontSize, wordWrap, onToggleWordWrap, resetDisabled, onReset} = props;
   const {onRunTests, runDisabled, isEnqueuingTests, areTestsPending} = props;
   const {onSubmit, submitDisabled, isSubmitting, isPending} = props;
@@ -184,6 +191,15 @@ export default function WorkspaceToolbar(props: Props) {
         <Icon name="panel" />
       </Control>
       <span sx={styles.title}>{title}</span>
+      {editProblemUrl && (
+        <Link
+          {...stylex.props(styles.action, styles.runButton, styles.editLink)}
+          to={editProblemUrl}
+          aria-label="Edit problem"
+        >
+          Edit
+        </Link>
+      )}
       <span sx={styles.spacer} />
       <div sx={styles.tools}>
         <Control

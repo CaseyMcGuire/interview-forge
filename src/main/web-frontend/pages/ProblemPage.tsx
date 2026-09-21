@@ -39,6 +39,7 @@ export default function ProblemPage() {
         title
         statementMarkdown
         difficulty
+        canEdit
         languageConfigurations {
           id
           starterCode

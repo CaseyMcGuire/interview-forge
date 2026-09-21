@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<13549f79c27b6b89e82eeb4b2357fc3b>>
+ * @generated SignedSource<<d0fe2ac7d881829ac0a239f16c7cb023>>
  * @lightSyntaxTransform
  */
 
@@ -14,6 +14,7 @@ export type ProblemPageQuery$variables = {
 };
 export type ProblemPageQuery$data = {
   readonly problem: {
+    readonly canEdit: boolean;
     readonly difficulty: ProblemDifficulty;
     readonly examples: ReadonlyArray<{
       readonly expectedOutputJson: string;
@@ -99,6 +100,13 @@ v2 = [
         "args": null,
         "kind": "ScalarField",
         "name": "difficulty",
+        "storageKey": null
+      },
+      {
+        "alias": null,
+        "args": null,
+        "kind": "ScalarField",
+        "name": "canEdit",
         "storageKey": null
       },
       {
@@ -210,16 +218,16 @@ return {
     "selections": (v2/*:: as any*/)
   },
   "params": {
-    "cacheID": "4c755533a9ea9737116d3dd213deaf19",
+    "cacheID": "8a0ff2de3ec0f1f796f569044f2da751",
     "id": null,
     "metadata": {},
     "name": "ProblemPageQuery",
     "operationKind": "query",
-    "text": "query ProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    statementMarkdown\n    difficulty\n    languageConfigurations {\n      id\n      starterCode\n      language {\n        id\n        key\n        displayName\n      }\n    }\n    examples {\n      id\n      position\n      inputJson\n      expectedOutputJson\n      explanationMarkdown\n    }\n  }\n}\n"
+    "text": "query ProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    statementMarkdown\n    difficulty\n    canEdit\n    languageConfigurations {\n      id\n      starterCode\n      language {\n        id\n        key\n        displayName\n      }\n    }\n    examples {\n      id\n      position\n      inputJson\n      expectedOutputJson\n      explanationMarkdown\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "6188ef3cd9e0e7de2a8c3f5d6032ec61";
+(node as any).hash = "6f8c9aaa366fb57dc2cd932d8c0f1e69";
 
 export default node;

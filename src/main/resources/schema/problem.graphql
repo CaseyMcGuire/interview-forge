@@ -61,6 +61,9 @@ type Problem {
   """Difficulty displayed in the problem view and catalog."""
   difficulty: ProblemDifficulty!
 
+  """Whether the current viewer can edit this problem."""
+  canEdit: Boolean!
+
   """Starter-code configurations for enabled languages, ordered by language key."""
   languageConfigurations: [ProblemLanguage!]!
 

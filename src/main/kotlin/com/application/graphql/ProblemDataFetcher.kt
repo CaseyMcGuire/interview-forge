@@ -447,6 +447,7 @@ class ProblemDataFetcher(
       title = problem.title,
       statementMarkdown = problem.statementMarkdown,
       difficulty = ProblemDifficulty.valueOf(problem.difficulty.name),
+      canEdit = problemService.canEditProblems(),
       languageConfigurations = problem.edges.languageConfigurations.requireLoaded()
         .map(::toGraphqlProblemLanguage)
         .sortedBy { it.language.key },

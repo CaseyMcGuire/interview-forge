@@ -43,6 +43,8 @@ class ProblemService(
     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS, DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
     .build()
 
+  fun canEditProblems(): Boolean = currentUser.get()?.role == UserRole.ADMIN
+
   fun findEnabledLanguages(): List<Language> = entClient.languages.query {
     where(Language.enabled eq true)
     orderBy(Language.key.asc())
