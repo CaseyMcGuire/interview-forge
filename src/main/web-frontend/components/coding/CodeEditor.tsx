@@ -19,10 +19,10 @@ type CodeEditorProps = {
   onCursorChange: (line: number, column: number) => void;
 };
 
-// Kotlin Playground uses CodeMirror's Darcula theme; adapt its palette to CodeMirror 6.
-// https://github.com/codemirror/codemirror5/blob/master/theme/darcula.css
+// Kotlin Playground's dark surface and Darcula syntax colors, adapted to CodeMirror 6.
+// https://play.kotlinlang.org/
 const editorTheme = EditorView.theme({
-  "&": {height: "100%", backgroundColor: "#2b2b2b", color: "#a9b7c6"},
+  "&": {height: "100%", backgroundColor: "#1b1b1b", color: "#a9b7c6"},
   "&.cm-focused": {outline: "none"},
   ".cm-scroller": {
     fontFamily: "Menlo, Consolas, monospace",
@@ -31,10 +31,9 @@ const editorTheme = EditorView.theme({
   },
   ".cm-content": {padding: "12px 0", caretColor: "#a9b7c6"},
   ".cm-line": {padding: "0 24px 0 12px"},
-  ".cm-gutters": {backgroundColor: "#313335", color: "#606366", border: "none"},
+  ".cm-gutters": {backgroundColor: "#1b1b1b", color: "#606366", border: "none"},
   ".cm-lineNumbers .cm-gutterElement": {minWidth: "40px", padding: "0 12px"},
-  ".cm-activeLine, .cm-activeLineGutter": {backgroundColor: "#323232"},
-  ".cm-activeLineGutter": {color: "#a9b7c6"},
+  ".cm-activeLine, .cm-activeLineGutter": {backgroundColor: "transparent"},
   ".cm-cursor, .cm-dropCursor": {borderLeftColor: "#a9b7c6"},
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
     backgroundColor: "#214283 !important",
@@ -45,14 +44,14 @@ const editorTheme = EditorView.theme({
   ".cm-searchMatch": {backgroundColor: "rgba(61, 115, 59, 0.7)", color: "#ffffff"},
   ".cm-searchMatch.cm-searchMatch-selected": {backgroundColor: "#3b514d", outline: "1px solid #a9b7c6"},
   ".cm-panels": {backgroundColor: "#313335", color: "#a9b7c6"},
-  ".cm-textfield": {backgroundColor: "#2b2b2b", color: "#a9b7c6", borderColor: "#606366"},
+  ".cm-textfield": {backgroundColor: "#1b1b1b", color: "#a9b7c6", borderColor: "#606366"},
   ".cm-button": {backgroundImage: "none", backgroundColor: "#3b3e3f", color: "#a9b7c6"},
   ".cm-tooltip": {backgroundColor: "#3b3e3f", color: "#9c9e9e", border: "1px solid #606366"},
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": {backgroundColor: "#494d4e", color: "#9c9e9e"},
 }, {dark: true});
 
 const editorHighlighting = HighlightStyle.define([
-  {tag: tags.keyword, color: "#cc7832", fontWeight: "600"},
+  {tag: tags.keyword, color: "#cc7832", fontWeight: "700"},
   {tag: [tags.bool, tags.null, tags.atom], color: "#cc7832"},
   {tag: [tags.typeName, tags.className], color: "#aabbcc", fontWeight: "bold"},
   {tag: [tags.variableName, tags.operator, tags.bracket], color: "#a9b7c6"},

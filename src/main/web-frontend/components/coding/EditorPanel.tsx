@@ -18,7 +18,7 @@ const styles = stylex.create({
     minHeight: 0,
     display: "flex",
     flexDirection: "column",
-    backgroundColor: "#2b2b2b",
+    backgroundColor: "#1b1b1b",
     color: "#a9b7c6"
   },
   editor: {
