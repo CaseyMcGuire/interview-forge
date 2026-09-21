@@ -1,0 +1,39 @@
+extend type Mutation {
+  """
+  Runs the selected language's reference solution for one input and returns its expected output.
+  Does not save a test case. Admins only.
+  """
+  generateTestCaseExpectedOutput(input: GenerateTestCaseExpectedOutputInput!): GenerateTestCaseExpectedOutputResult!
+}
+
+union GenerateTestCaseExpectedOutputResult =
+    GenerateTestCaseExpectedOutputSuccess
+  | ProblemValidationFailure
+  | ProblemNotFound
+  | ProblemForbidden
+  | ExecutionUnavailable
+  | ReferenceSolutionFailed
+
+input GenerateTestCaseExpectedOutputInput {
+  """ID of the problem-language configuration whose reference solution should run."""
+  problemLanguageId: ID!
+
+  """
+  Serialized JSON input, at most 20,000 characters when compactly serialized.
+  The string "null" represents a JSON null value.
+  """
+  inputJson: String!
+}
+
+type GenerateTestCaseExpectedOutputSuccess {
+  """
+  Serialized JSON expectation, at most 20,000 characters when compactly serialized.
+  The string "null" is a valid expectation, not a missing value.
+  """
+  expectedOutputJson: String!
+}
+
+"""The reference solution failed to compile, execute, or produce a valid JSON answer within its limits."""
+type ReferenceSolutionFailed implements ProblemFailure {
+  message: String!
+}
