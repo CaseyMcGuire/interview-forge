@@ -12,6 +12,7 @@ import ProblemSubmissionResultPanel from "./ProblemSubmissionResultPanel";
 import CustomInputEditor, {type CustomInputDraft} from "./CustomInputEditor";
 import CustomInputSubmissionResultPanel from "./CustomInputSubmissionResultPanel";
 import Control from "./WorkspaceControl";
+import WorkspaceLayout from "./WorkspaceLayout";
 import type {CodingProblem} from "./codingProblemTypes";
 
 type Props = {
@@ -79,30 +80,6 @@ const styles = stylex.create({
     padding: 24,
     backgroundColor: "#1e1f22",
     color: "#9da0a8"
-  },
-  workspace: {
-    display: "grid",
-    gridTemplateColumns: {
-      default: "minmax(0, 0.43fr) minmax(0, 0.57fr)",
-      "@media (max-width: 800px)": "minmax(0, 1fr)"
-    },
-    gridTemplateRows: {
-      default: "minmax(0, 1fr) 254px",
-      "@media (max-width: 800px)": "auto 450px auto auto"
-    },
-    flex: 1,
-    minHeight: 0,
-    margin: {
-      default: "0 20px 20px",
-      "@media (max-width: 600px)": "0 8px 8px"
-    },
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: "#43454a",
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#2b2d30",
-    boxShadow: "0 4px 20px #00000026"
   }
 });
 
@@ -217,9 +194,9 @@ export default function CodingWorkspace(props: Props) {
   }
 
   return (
-    <div sx={styles.workspace} role="main">
-      <ProblemPanel problem={problem} />
-      {configuration && draft ? (
+    <WorkspaceLayout
+      problem={<ProblemPanel problem={problem} />}
+      editor={configuration && draft ? (
         <EditorPanel
           languageKey={configuration.language.key}
           languageName={configuration.language.displayName}
@@ -232,64 +209,68 @@ export default function CodingWorkspace(props: Props) {
           No starter code is available for this problem.
         </div>
       )}
-      <ProblemSubmissionActions
-        storageAvailable={draft?.available}
-        onSubmit={submitSolution}
-        disabled={submitDisabled}
-        isSubmitting={problemSubmissionRequest.isSubmitting}
-        isPending={problemSubmissionStatus.isPending}
-        error={problemSubmissionRequest.error}
-        requiresSignIn={problemSubmissionRequest.requiresSignIn}
-        onRunTests={runTests}
-        runDisabled={runDisabled}
-        isEnqueuingTests={customSubmissionRequest.isEnqueuing}
-        areTestsPending={customSubmissionStatus.isPending}
-        runError={customSubmissionRequest.error}
-        runRequiresSignIn={customSubmissionRequest.requiresSignIn}
-      />
-      <div sx={styles.testPanel}>
-        <div sx={styles.panelNavigation} role="group" aria-label="Workspace panels">
-          {workspacePanels.map(panel => (
-            <Control
-              key={panel.id}
-              appearance={[styles.panelControl, activePanel === panel.id && styles.selectedPanel]}
-              pressed={activePanel === panel.id}
-              controls={panelId}
-              onActivate={() => selectPanel(panel.id)}
-            >
-              {panel.label}
-            </Control>
-          ))}
-        </div>
+      actions={
+        <ProblemSubmissionActions
+          storageAvailable={draft?.available}
+          onSubmit={submitSolution}
+          disabled={submitDisabled}
+          isSubmitting={problemSubmissionRequest.isSubmitting}
+          isPending={problemSubmissionStatus.isPending}
+          error={problemSubmissionRequest.error}
+          requiresSignIn={problemSubmissionRequest.requiresSignIn}
+          onRunTests={runTests}
+          runDisabled={runDisabled}
+          isEnqueuingTests={customSubmissionRequest.isEnqueuing}
+          areTestsPending={customSubmissionStatus.isPending}
+          runError={customSubmissionRequest.error}
+          runRequiresSignIn={customSubmissionRequest.requiresSignIn}
+        />
+      }
+      results={
+        <div sx={styles.testPanel}>
+          <div sx={styles.panelNavigation} role="group" aria-label="Workspace panels">
+            {workspacePanels.map(panel => (
+              <Control
+                key={panel.id}
+                appearance={[styles.panelControl, activePanel === panel.id && styles.selectedPanel]}
+                pressed={activePanel === panel.id}
+                controls={panelId}
+                onActivate={() => selectPanel(panel.id)}
+              >
+                {panel.label}
+              </Control>
+            ))}
+          </div>
 
-        <div id={panelId} sx={styles.panelBody}>
-          {activePanel === "inputs" && (
-            <CustomInputEditor
-              cases={customInputs}
-              maxCases={maxCustomTestCases}
-              onChange={updateCustomInputs}
-              disabled={customSubmissionRequest.isEnqueuing}
-              errors={inputErrors}
-            />
-          )}
-          {activePanel === "results" && (
-            <CustomInputSubmissionResultPanel
-              submission={customSubmissionStatus.submission}
-              isLoading={customSubmissionStatus.isLoading}
-              error={customSubmissionStatus.error}
-              onRetry={customSubmissionStatus.retryCustomInputSubmissionStatus}
-            />
-          )}
-          {activePanel === "submission" && (
-            <ProblemSubmissionResultPanel
-              problemSubmission={problemSubmissionStatus.problemSubmission}
-              isLoading={problemSubmissionStatus.isLoading}
-              error={problemSubmissionStatus.error}
-              onRetry={problemSubmissionStatus.retryProblemSubmissionStatus}
-            />
-          )}
+          <div id={panelId} sx={styles.panelBody}>
+            {activePanel === "inputs" && (
+              <CustomInputEditor
+                cases={customInputs}
+                maxCases={maxCustomTestCases}
+                onChange={updateCustomInputs}
+                disabled={customSubmissionRequest.isEnqueuing}
+                errors={inputErrors}
+              />
+            )}
+            {activePanel === "results" && (
+              <CustomInputSubmissionResultPanel
+                submission={customSubmissionStatus.submission}
+                isLoading={customSubmissionStatus.isLoading}
+                error={customSubmissionStatus.error}
+                onRetry={customSubmissionStatus.retryCustomInputSubmissionStatus}
+              />
+            )}
+            {activePanel === "submission" && (
+              <ProblemSubmissionResultPanel
+                problemSubmission={problemSubmissionStatus.problemSubmission}
+                isLoading={problemSubmissionStatus.isLoading}
+                error={problemSubmissionStatus.error}
+                onRetry={problemSubmissionStatus.retryProblemSubmissionStatus}
+              />
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      }
+    />
   );
 }

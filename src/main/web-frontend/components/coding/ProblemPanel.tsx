@@ -14,13 +14,7 @@ const styles = stylex.create({
     minHeight: 0,
     minWidth: 0,
     display: "flex",
-    flexDirection: "column",
-    borderRightWidth: {
-      default: 1,
-      "@media (max-width: 800px)": 0
-    },
-    borderRightStyle: "solid",
-    borderRightColor: "#43454a"
+    flexDirection: "column"
   },
   panelHeading: {
     display: "flex",

@@ -25,12 +25,6 @@ const styles = stylex.create({
     borderTopWidth: 1,
     borderTopStyle: "solid",
     borderTopColor: "#43454a",
-    borderRightWidth: {
-      default: 1,
-      "@media (max-width: 800px)": 0
-    },
-    borderRightStyle: "solid",
-    borderRightColor: "#43454a",
     backgroundColor: "#2b2d30",
     padding: "25px 28px",
     display: "flex",
