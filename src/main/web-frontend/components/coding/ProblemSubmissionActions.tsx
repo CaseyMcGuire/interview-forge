@@ -12,6 +12,12 @@ type Props = {
   isPending?: boolean;
   error?: string | null;
   requiresSignIn?: boolean;
+  onRunTests?: () => void;
+  runDisabled?: boolean;
+  isEnqueuingTests?: boolean;
+  areTestsPending?: boolean;
+  runError?: string | null;
+  runRequiresSignIn?: boolean;
 };
 
 const styles = stylex.create({
@@ -106,19 +112,27 @@ const styles = stylex.create({
 
 export default function ProblemSubmissionActions(props: Props) {
   const {storageAvailable, onSubmit, disabled, isSubmitting, isPending, error, requiresSignIn} = props;
+  const {onRunTests, runDisabled, isEnqueuingTests, areTestsPending, runError, runRequiresSignIn} = props;
   const noteId = useId();
   const submitDisabled = disabled || !onSubmit || isSubmitting || isPending;
   const submitLabel = isSubmitting ? "Submitting…" : isPending ? "In progress" : "Submit";
+  const runTestsDisabled = runDisabled || !onRunTests || isEnqueuingTests || areTestsPending;
+  const runTestsLabel = isEnqueuingTests ? "Queueing tests…" : areTestsPending ? "Tests in progress" : "Run Tests";
+  const feedback = [
+    {id: "tests", message: runError, requiresSignIn: runRequiresSignIn},
+    {id: "submission", message: error, requiresSignIn}
+  ];
 
   return (
     <div sx={styles.controls} aria-label="Run and submit your solution">
       <div sx={styles.actionRow}>
         <Control
-          disabled
-          appearance={[styles.action, styles.runButton, styles.disabled]}
+          disabled={runTestsDisabled}
+          appearance={[styles.action, styles.runButton, runTestsDisabled && styles.disabled]}
           description={noteId}
+          onActivate={onRunTests}
         >
-          <Icon name="play" size={15} /> Run Tests
+          <Icon name="play" size={15} /> {runTestsLabel}
         </Control>
         <Control
           disabled={submitDisabled}
@@ -129,14 +143,14 @@ export default function ProblemSubmissionActions(props: Props) {
         </Control>
       </div>
       <div id={noteId} sx={styles.executionNote}>
-        Run Tests is not available yet.
+        Run Tests checks your inputs. Submit checks all of the problem’s tests.
       </div>
-      {error && (
-        <div>
-          <div role="alert" sx={styles.error}>{error}</div>
-          {requiresSignIn && <a href={AppRoutes.Login()} sx={styles.signIn}>Sign in to submit</a>}
+      {feedback.map(item => item.message && (
+        <div key={item.id}>
+          <div role="alert" sx={styles.error}>{item.message}</div>
+          {item.requiresSignIn && <a href={AppRoutes.Login()} sx={styles.signIn}>Sign in to continue</a>}
         </div>
-      )}
+      ))}
       {storageAvailable !== undefined && (
         <div role="status" sx={[styles.saveStatus, !storageAvailable && styles.saveError]}>
           <Icon name={storageAvailable ? "check" : "document"} size={14} />

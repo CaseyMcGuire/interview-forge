@@ -20,8 +20,9 @@ custom-Run limit of twenty cases does not apply to official submissions.
 
 Custom-run admission, owner polling, and result storage are reviewed and committed.
 Stage 10 adds asynchronous reference preparation and shared grading and is reviewed and committed.
-Expiration cleanup and frontend components are reviewed and committed;
-connecting Run Tests to the enqueue/polling flow remains stage 13.
+Expiration cleanup and frontend components are reviewed and committed.
+Stage 13 connects Run Tests to enqueueing and polling; its implementation is reviewed and committed.
+Authenticated browser validation remains outstanding.
 
 ## Submission naming review
 
@@ -125,6 +126,7 @@ and the two queue producers into separate reviews:
 - [x] **11. Expiration cleanup:** Delete expired custom input submissions and their cases after execution finishes.
 - [x] **12. Frontend components:** Custom-input editing and per-case result views.
 - [ ] **13. Frontend integration:** Connect enqueue/polling and validate complete flows.
+  Implementation reviewed and committed; authenticated end-to-end browser validation remains outstanding.
 
 Stage 5 adds `GradingJob`, `GradingCase`, its status enum and two inverse edges,
 the policy and validator, policy registration, migration V15, and `GradingJobIntegrationTest`.
@@ -436,6 +438,64 @@ size warnings. Real enqueue/polling flows remain unverified until stage 13.
 The live workspace mount passed `./gradlew buildFrontend` and `./gradlew processResources`.
 Browser checks on `/problem/two-sum` confirmed real example inputs and switching between
 all three panels. The running app serves the rebuilt assets; no server restart is needed.
+
+## Custom input frontend integration
+
+Stage 13 connects the existing components to the real API:
+
+- `hooks/useEnqueueCustomInputSubmission.ts` submits source code and serialized input strings
+  without parsing or normalizing JSON. It prevents duplicate in-flight requests, maps the
+  response union to feedback, and passes accepted IDs to the workspace. Admission requests
+  are never retried automatically because a lost response may still have created a submission.
+- `hooks/useSubmissionPolling.ts` shares the polling lifecycle between problem and custom input
+  submissions. `ahooks`' `useRequest` manages request state, retry, and a one-second delay after
+  each network-only request while queued or running, stopping on
+  completion, unavailability, or request failure, retaining Relay fragments, cancellation on ID
+  changes or unmount, and manual status retries. `useProblemSubmissionStatus.ts` and
+  `useCustomInputSubmissionStatus.ts` supply their queries, generated-type response selectors,
+  and messages. Custom result messages explain possible expiry. Their existing caller interfaces
+  are preserved, and module-level polling options prevent renders from restarting requests.
+- `CodingWorkspace.tsx` connects both hooks, navigation, field errors, and input editing.
+  `customSubmission` and the existing `submission` URL parameters retain independent result IDs;
+  `panel` preserves the selected view across refresh. Each action blocks duplicates while its
+  own request or execution is pending. Test inputs stay fixed during admission, and subsequent
+  edits clear validation errors so old array positions cannot label different drafts.
+- `ProblemSubmissionActions.tsx` enables Run Tests and shows its admission/progress feedback
+  separately from Submit. Passing custom tests does not alter the problem submission result.
+
+Generated files: Relay's `useEnqueueCustomInputSubmissionMutation.graphql.ts` and
+`useCustomInputSubmissionStatusQuery.graphql.ts`. No schema or backend changes were needed.
+Input drafts remain in memory, seeded from examples on refresh; persisted result inputs are
+read through the result fragments. The editable input limit remains 20, matching the default
+backend setting, and the backend validates the actual configured limit.
+
+Validation: `./gradlew buildRelay buildFrontend` passed, including TypeScript checking, followed
+by `./gradlew processResources` and `git diff --check`. Live browser checks on `/problem/two-sum`
+confirmed the authentication-required response, unavailable-result feedback and retry, independent
+result parameters, selected-panel recovery after refresh, and raw input preservation between
+panels (including `9007199254740993` and `1.0`). The browser reported no errors; it retains the
+existing router hydration-fallback warning. Builds retain the Relay/Babel and bundle-size warnings.
+
+The browser session was signed out. Successful admission, authenticated validation errors,
+queued/running/finished polling, and actual expiration after a completed run have not been
+verified end to end in the live UI. No preview source, fixture query, or test server was added.
+
+The shared polling extraction passed `./gradlew buildFrontend` (including TypeScript checking),
+`./gradlew processResources`, and `git diff --check`. Live browser checks confirmed each query's
+unavailable-result message and retry, plus idle panels without submission IDs. No browser errors
+were reported. The queries and fragments are unchanged by this extraction.
+
+The polling hook now uses `ahooks` with Relay's native `fetchQuery`, preserving
+`@throwOnFieldError` handling. A small effect retains displayed fragment data and unsubscribes
+from Relay when the selected ID changes or the caller unmounts. Request failures keep the last
+successful result visible; manual retry clears the error while fetching.
+
+Validation: `npm run typecheck` and `npm run build` passed. Ten temporary headless Chrome checks
+mounted the real shared hook with both generated queries and controlled Relay responses. They
+covered sequential polling, completion, retention, network and GraphQL field errors, manual
+retry, missing results, idle IDs, ID changes, late responses, and unmount cleanup. This does not
+replace the authenticated end-to-end validation still outstanding above. No test or preview
+files were added to the application.
 
 ## API contract
 
