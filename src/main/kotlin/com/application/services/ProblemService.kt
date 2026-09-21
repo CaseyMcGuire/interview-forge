@@ -68,32 +68,18 @@ class ProblemService(
         }.saveAndLoad(context).getOrThrow()
 
         input.languageConfigurations.forEach { configuration ->
-          tx.problemLanguages.create {
-            problemId = problem.id
-            languageId = languages.getValue(configuration.languageKey).id
-            starterCode = configuration.starterCode
-          }.save(context).getOrThrow()
+          val language = languages.getValue(configuration.languageKey)
+          createLanguageConfiguration(tx, problem.id, language.id, configuration, context)
         }
 
-        input.examples.forEachIndexed { index, example ->
-          tx.testCases.create {
-            problemId = problem.id
-            position = index
-            visibility = TestCaseVisibility.EXAMPLE
-            inputJson = parseExampleJson(example.inputJson, "Example ${index + 1} input")
-            expectedOutputJson = parseExampleJson(example.expectedOutputJson, "Example ${index + 1} expected output")
-            explanationMarkdown = example.explanationMarkdown?.takeIf { it.isNotBlank() }
-          }.save(context).getOrThrow()
-        }
+        createTestCases(tx, problem.id, input.examples, TestCaseVisibility.EXAMPLE, 0, context)
+        createTestCases(tx, problem.id, input.testCases, TestCaseVisibility.HIDDEN, input.examples.size, context)
 
-        tx.problems.query {
-          where(Problem.id eq problem.id)
-          loadPublicContent()
-        }.firstOrNull(context).getOrThrow() ?: error("Created problem could not be loaded")
+        tx.loadProblemContent(problem.id, context) ?: error("Created problem could not be loaded")
       }.getOrThrow()
     } catch (exception: EntConstraintViolationException) {
       if (exception.driverCode == "23505" && exception.constraint == "idx_problems_slug_unique") {
-        throw IllegalArgumentException("A problem with this slug already exists")
+        throw ProblemInputException("slug", "A problem with this slug already exists")
       }
       throw exception
     }
@@ -106,6 +92,61 @@ class ProblemService(
     require(languageKeys.distinct().size == languageKeys.size) { "Provide only one configuration per language" }
 
     require(input.examples.size in 1..20) { "Provide between 1 and 20 examples" }
+    require(input.testCases.size <= 100) { "Provide at most 100 test cases when creating a problem" }
+  }
+
+  private fun createLanguageConfiguration(
+    tx: EntTransactionClient,
+    problemId: Long,
+    languageId: Long,
+    input: CreateProblemLanguage,
+    context: ViewerContext,
+  ): ProblemLanguage {
+    val configuration = tx.problemLanguages.create {
+      this.problemId = problemId
+      this.languageId = languageId
+      starterCode = input.starterCode
+    }.saveAndLoad(context).getOrThrow()
+
+    input.judgeConfiguration?.let { createJudgeConfiguration(tx, configuration.id, it, context) }
+    return configuration
+  }
+
+  private fun createJudgeConfiguration(
+    tx: EntTransactionClient,
+    problemLanguageId: Long,
+    input: ProblemJudgeConfiguration,
+    context: ViewerContext,
+  ) {
+    tx.judgeConfigurations.create {
+      this.problemLanguageId = problemLanguageId
+      testDriverCode = input.testDriverCode
+      referenceSolutionCode = input.referenceSolutionCode
+      timeLimitMs = input.timeLimitMs
+      memoryLimitMb = input.memoryLimitMb
+    }.save(context).getOrThrow()
+  }
+
+  private fun createTestCases(
+    tx: EntTransactionClient,
+    problemId: Long,
+    cases: List<CreateProblemTestCase>,
+    visibility: TestCaseVisibility,
+    startPosition: Int,
+    context: ViewerContext,
+  ) {
+    val field = if (visibility == TestCaseVisibility.EXAMPLE) "publicExamples" else "testCases"
+
+    cases.forEachIndexed { index, testCase ->
+      tx.testCases.create {
+        this.problemId = problemId
+        position = startPosition + index
+        this.visibility = visibility
+        inputJson = parseTestCaseJson(testCase.inputJson, "$field[$index].inputJson")
+        expectedOutputJson = parseTestCaseJson(testCase.expectedOutputJson, "$field[$index].expectedOutputJson")
+        explanationMarkdown = testCase.explanationMarkdown?.takeIf { it.isNotBlank() }
+      }.save(context).getOrThrow()
+    }
   }
 
   private fun loadEnabledLanguages(
@@ -123,14 +164,6 @@ class ProblemService(
     }
 
     return languages
-  }
-
-  private fun parseExampleJson(value: String, label: String): JsonElement {
-    return try {
-      Json.parseToJsonElement(value)
-    } catch (_: IllegalArgumentException) {
-      throw IllegalArgumentException("$label must be valid JSON")
-    }
   }
 
   fun findPublicProblems(
@@ -246,6 +279,64 @@ class ProblemService(
         loadLanguage()
       }.firstOrNull(context).getOrThrow()
     }.getOrThrow()
+  }
+
+  /** Saves starter and judge code together, adding the language when it is not configured yet. */
+  fun configureProblemLanguage(
+    problemId: Long,
+    languageKey: String,
+    starterCode: String,
+    testDriverCode: String,
+    referenceSolutionCode: String,
+    timeLimitMs: Int,
+    memoryLimitMb: Int,
+  ): Problem? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val judge = ProblemJudgeConfiguration(testDriverCode, referenceSolutionCode, timeLimitMs, memoryLimitMb)
+
+    return entClient.withTransaction { tx ->
+      // Serialize additions for the same problem, including when this language has no row yet.
+      tx.problems.query { where(Problem.id eq problemId) }
+        .forUpdate().firstOrNull(context).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      val language = loadEnabledLanguages(tx, listOf(languageKey), context).getValue(languageKey)
+      val configuration = tx.problemLanguages.indexes.problemId(problemId).languageId(language.id)
+        .find(context).getOrThrow()
+
+      if (configuration == null) {
+        val input = CreateProblemLanguage(languageKey, starterCode, judge)
+        createLanguageConfiguration(tx, problemId, language.id, input, context)
+      } else {
+        tx.problemLanguages.update(configuration.id) {
+          this.starterCode = starterCode
+        }.save(context).getOrThrow()
+
+        saveJudgeConfiguration(tx, configuration.id, judge, context)
+      }
+
+      tx.loadProblemContent(problemId, context)
+    }.getOrThrow()
+  }
+
+  private fun saveJudgeConfiguration(
+    tx: EntTransactionClient,
+    problemLanguageId: Long,
+    input: ProblemJudgeConfiguration,
+    context: ViewerContext,
+  ) {
+    val existing = tx.judgeConfigurations.indexes.problemLanguageId(problemLanguageId).find(context).getOrThrow()
+    if (existing == null) {
+      createJudgeConfiguration(tx, problemLanguageId, input, context)
+      return
+    }
+
+    tx.judgeConfigurations.update(existing.id) {
+      testDriverCode = input.testDriverCode
+      referenceSolutionCode = input.referenceSolutionCode
+      timeLimitMs = input.timeLimitMs
+      memoryLimitMb = input.memoryLimitMb
+    }.save(context).getOrThrow()
   }
 
   /** Null when absent or when the judge's admin-only read policy denies the current viewer. */

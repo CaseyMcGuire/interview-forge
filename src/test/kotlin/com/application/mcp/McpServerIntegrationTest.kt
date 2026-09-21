@@ -120,7 +120,7 @@ class McpServerIntegrationTest {
   }
 
   @Test
-  fun `a client can initialize and discover exactly the read-only catalog tools`() {
+  fun `a client can initialize and distinguish catalog tools from authoring tools`() {
     val initialized = rpc("initialize", mapOf(
       "protocolVersion" to "2025-11-25",
       "capabilities" to emptyMap<String, Any>(),
@@ -131,12 +131,17 @@ class McpServerIntegrationTest {
     assertFalse(initialized["capabilities"].has("resources"))
 
     val tools = rpc("tools/list")["tools"].toList()
-    assertEquals(setOf("list_languages", "search_problems", "get_problem"), tools.map { it["name"].asString() }.toSet())
+    val catalogTools = setOf("list_languages", "search_problems", "get_problem")
+    val authoringTools = setOf("create_problem", "update_problem", "configure_problem_language")
+    assertEquals(catalogTools + authoringTools, tools.map { it["name"].asString() }.toSet())
     for (tool in tools) {
-      assertTrue(tool["annotations"]["readOnlyHint"].asBoolean())
+      val isCatalogTool = tool["name"].asString() in catalogTools
+      assertEquals(isCatalogTool, tool["annotations"]["readOnlyHint"].asBoolean())
       assertFalse(tool["annotations"]["openWorldHint"].asBoolean())
       assertEquals("object", tool["inputSchema"]["type"].asString())
-      assertEquals("object", tool["outputSchema"]["type"].asString())
+      if (isCatalogTool) {
+        assertEquals("object", tool["outputSchema"]["type"].asString())
+      }
     }
   }
 

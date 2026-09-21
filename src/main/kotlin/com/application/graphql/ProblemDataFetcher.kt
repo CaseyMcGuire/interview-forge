@@ -4,7 +4,7 @@ import com.application.services.ProblemService
 import com.application.services.ProblemCursor
 import com.application.services.CreateProblem
 import com.application.services.CreateProblemHiddenTestCase
-import com.application.services.CreateProblemExample
+import com.application.services.CreateProblemTestCase
 import com.application.services.CreateProblemLanguage
 import com.application.services.FieldUpdate
 import com.application.services.ProblemInputException
@@ -97,7 +97,7 @@ class ProblemDataFetcher(
           CreateProblemLanguage(it.languageKey, it.starterCode)
         },
         examples = input.examples.map {
-          CreateProblemExample(it.inputJson, it.expectedOutputJson, it.explanationMarkdown)
+          CreateProblemTestCase(it.inputJson, it.expectedOutputJson, it.explanationMarkdown)
         },
       ))
     } catch (exception: EntValidationException) {

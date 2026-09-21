@@ -8,15 +8,24 @@ data class CreateProblem(
   val statementMarkdown: String,
   val difficulty: ProblemDifficulty,
   val languageConfigurations: List<CreateProblemLanguage>,
-  val examples: List<CreateProblemExample>,
+  val examples: List<CreateProblemTestCase>,
+  val testCases: List<CreateProblemTestCase> = emptyList(),
 )
 
 data class CreateProblemLanguage(
   val languageKey: String,
   val starterCode: String,
+  val judgeConfiguration: ProblemJudgeConfiguration? = null,
 )
 
-data class CreateProblemExample(
+data class ProblemJudgeConfiguration(
+  val testDriverCode: String,
+  val referenceSolutionCode: String?,
+  val timeLimitMs: Int,
+  val memoryLimitMb: Int,
+)
+
+data class CreateProblemTestCase(
   val inputJson: String,
   val expectedOutputJson: String,
   val explanationMarkdown: String?,
