@@ -5,24 +5,21 @@ import com.application.schema.ProblemDifficulty
 import com.application.security.CurrentUser
 import com.application.services.CreateProblem
 import com.application.services.CreateProblemLanguage
-import com.application.services.CreateProblemTestCase
 import com.application.services.ProblemInputException
 import com.application.services.ProblemJudgeConfiguration
 import com.application.services.ProblemService
 import com.application.services.UpdateProblem
-import entkt.runtime.result.EntValidationException
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 @Component
 class ProblemAuthoringTools(
   private val problemService: ProblemService,
   private val currentUser: CurrentUser,
-  private val mapper: ObjectMapper,
+  private val results: McpToolResults,
 ) {
   @McpTool(
     name = "create_problem",
@@ -52,8 +49,8 @@ class ProblemAuthoringTools(
       statementMarkdown = statementMarkdown,
       difficulty = difficulty,
       languageConfigurations = languageConfigurations.map(::toLanguageConfiguration),
-      examples = publicExamples.map(::toTestCase),
-      testCases = testCases.orEmpty().map(::toTestCase),
+      examples = publicExamples.map { it.toCreateProblemTestCase() },
+      testCases = testCases.orEmpty().map { it.toCreateProblemTestCase() },
     ))
   }
 
@@ -103,26 +100,11 @@ class ProblemAuthoringTools(
   private fun requireProblem(slug: String): Problem = problemService.findPublicProblemBySlug(slug)
     ?: throw ProblemInputException("slug", "Problem is unavailable")
 
-  /** Preserve field errors as structured content while also marking the MCP call as failed. */
-  private fun reportProblemWrite(write: () -> Problem): CallToolResult {
+  private fun reportProblemWrite(write: () -> Problem): CallToolResult = results.withValidationErrors {
     currentUser.requireAdmin()
 
-    val result = try {
-      val problem = write()
-      ProblemWriteResult(problem = ProblemSummary(problem.slug, problem.title, problem.difficulty))
-    } catch (exception: EntValidationException) {
-      ProblemWriteResult(errors = exception.violations.map { ProblemWriteError(it.field, it.message) })
-    } catch (exception: ProblemInputException) {
-      ProblemWriteResult(errors = listOf(ProblemWriteError(exception.field, exception.message)))
-    } catch (exception: IllegalArgumentException) {
-      ProblemWriteResult(errors = listOf(ProblemWriteError(null, exception.message ?: "Invalid problem input")))
-    }
-
-    return CallToolResult.builder()
-      .structuredContent(result)
-      .addTextContent(mapper.writeValueAsString(result))
-      .isError(result.errors.isNotEmpty())
-      .build()
+    val problem = write()
+    results.success(ProblemWriteResult(ProblemSummary(problem.slug, problem.title, problem.difficulty)))
   }
 
   private fun toLanguageConfiguration(input: ProblemLanguageInput) = CreateProblemLanguage(
@@ -135,17 +117,9 @@ class ProblemAuthoringTools(
       memoryLimitMb = input.memoryLimitMb,
     ),
   )
-
-  private fun toTestCase(input: ProblemTestCaseInput) = CreateProblemTestCase(
-    inputJson = input.inputJson,
-    expectedOutputJson = input.expectedOutputJson,
-    explanationMarkdown = input.explanationMarkdown,
-  )
 }
 
 data class ProblemWriteResult(
   val problem: ProblemSummary? = null,
-  val errors: List<ProblemWriteError> = emptyList(),
+  val errors: List<McpToolError> = emptyList(),
 )
-
-data class ProblemWriteError(val field: String?, val message: String)

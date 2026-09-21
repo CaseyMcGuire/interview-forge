@@ -1,5 +1,6 @@
 package com.application.mcp
 
+import com.application.services.CreateProblemTestCase
 import org.springframework.ai.mcp.annotation.McpToolParam
 
 data class ProblemLanguageInput(
@@ -25,4 +26,10 @@ data class ProblemTestCaseInput(
   val expectedOutputJson: String,
   @field:McpToolParam(required = false, description = "Optional explanation, at most 10,000 characters.")
   val explanationMarkdown: String? = null,
+)
+
+internal fun ProblemTestCaseInput.toCreateProblemTestCase() = CreateProblemTestCase(
+  inputJson = inputJson,
+  expectedOutputJson = expectedOutputJson,
+  explanationMarkdown = explanationMarkdown,
 )

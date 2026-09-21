@@ -1,7 +1,6 @@
 package com.application.mcp
 
 import com.application.ent.ProblemLanguage
-import com.application.ent.TestCase
 import com.application.schema.ProblemDifficulty
 import com.application.security.CurrentUser
 import com.application.services.ProblemCursor
@@ -83,7 +82,7 @@ class ProblemCatalogTools(
     val configurations = problem.edges.languageConfigurations.requireLoaded()
       .map(::readLanguageConfiguration)
       .sortedBy { it.languageKey }
-    val examples = problem.edges.testCases.requireLoaded().map(::describeTestCase)
+    val examples = problem.edges.testCases.requireLoaded().map { it.toTestCaseDetails() }
     val testCases = problemService.findProblemTestCases(problem.id)
       ?: return ProblemLookupResult(null)
 
@@ -94,7 +93,7 @@ class ProblemCatalogTools(
       difficulty = problem.difficulty,
       languageConfigurations = configurations,
       publicExamples = examples,
-      testCases = testCases.map(::describeTestCase),
+      testCases = testCases.map { it.toTestCaseDetails() },
     ))
   }
 
@@ -116,14 +115,6 @@ class ProblemCatalogTools(
       },
     )
   }
-
-  private fun describeTestCase(testCase: TestCase): TestCaseDetails = TestCaseDetails(
-    id = testCase.id.toString(),
-    position = testCase.position,
-    inputJson = testCase.inputJson.toString(),
-    expectedOutputJson = testCase.expectedOutputJson.toString(),
-    explanationMarkdown = testCase.explanationMarkdown,
-  )
 
   private fun decodeCursor(value: String): ProblemCursor = try {
     ProblemCursor.decode(value)

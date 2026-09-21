@@ -1,5 +1,6 @@
 package com.application.mcp
 
+import com.application.ent.TestCase
 import com.application.schema.ProblemDifficulty
 
 data class LanguageCatalogResult(val languages: List<LanguageSummary>)
@@ -49,4 +50,12 @@ data class TestCaseDetails(
   val inputJson: String,
   val expectedOutputJson: String,
   val explanationMarkdown: String?,
+)
+
+internal fun TestCase.toTestCaseDetails() = TestCaseDetails(
+  id = id.toString(),
+  position = position,
+  inputJson = inputJson.toString(),
+  expectedOutputJson = expectedOutputJson.toString(),
+  explanationMarkdown = explanationMarkdown,
 )

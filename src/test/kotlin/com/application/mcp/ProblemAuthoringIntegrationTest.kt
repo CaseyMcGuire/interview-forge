@@ -195,6 +195,90 @@ class ProblemAuthoringIntegrationTest {
   }
 
   @Test
+  fun `test batches append in order and an invalid later case rolls back the entire batch`() {
+    val input = problemInput()
+    assertFalse(callTool("create_problem", input)["isError"].asBoolean())
+    val slug = input["slug"] as String
+
+    val added = callTool("add_test_cases", mapOf(
+      "slug" to slug,
+      "publicExamples" to listOf(case("1.0")),
+      "testCases" to listOf(case("9007199254740993"), case("null")),
+    ))
+    assertFalse(added["isError"].asBoolean(), added.toString())
+    assertEquals(3, added["structuredContent"]["publicExamples"][0]["position"].asInt())
+    val tests = added["structuredContent"]["testCases"].toList()
+    assertEquals(listOf(4, 5), tests.map { it["position"].asInt() })
+    assertEquals("9007199254740993", tests[0]["inputJson"].asString())
+    assertEquals("null", tests[1]["expectedOutputJson"].asString())
+
+    val before = inspectProblem(slug)
+    val invalid = callTool("add_test_cases", mapOf(
+      "slug" to slug,
+      "publicExamples" to listOf(case("2")),
+      "testCases" to listOf(case("3"), case("broken")),
+    ))
+    assertTrue(invalid["isError"].asBoolean())
+    assertEquals("testCases[1].inputJson", invalid["structuredContent"]["errors"][0]["field"].asString())
+    assertEquals(before, inspectProblem(slug))
+
+    for (arguments in listOf(
+      mapOf("slug" to slug),
+      mapOf("slug" to slug, "testCases" to List(101) { case("1") }),
+      mapOf("slug" to slug, "publicExamples" to List(21) { case("1") }),
+      mapOf("slug" to "missing", "testCases" to listOf(case("1"))),
+    )) {
+      assertTrue(callTool("add_test_cases", arguments)["isError"].asBoolean())
+    }
+    assertEquals(before, inspectProblem(slug))
+  }
+
+  @Test
+  fun `case updates support both visibilities and preserve identity and position`() {
+    val input = problemInput()
+    assertFalse(callTool("create_problem", input)["isError"].asBoolean())
+    val slug = input["slug"] as String
+    val problem = inspectProblem(slug)
+
+    for (field in listOf("publicExamples", "testCases")) {
+      val original = problem[field][0]
+      val id = original["id"].asString()
+      val updated = callTool("update_test_case", mapOf(
+        "testCaseId" to id,
+        "inputJson" to "1.0",
+        "expectedOutputJson" to "null",
+        "explanationMarkdown" to "Revised case",
+      ))
+      assertFalse(updated["isError"].asBoolean(), updated.toString())
+      val stored = inspectProblem(slug)[field][0]
+      assertEquals(id, stored["id"].asString())
+      assertEquals(original["position"], stored["position"])
+      assertEquals("1.0", stored["inputJson"].asString())
+      assertEquals("null", stored["expectedOutputJson"].asString())
+
+      val cleared = callTool("update_test_case", mapOf(
+        "testCaseId" to id, "inputJson" to "2", "expectedOutputJson" to "2",
+      ))
+      assertFalse(cleared["isError"].asBoolean())
+      assertTrue(inspectProblem(slug)[field][0]["explanationMarkdown"].isNull)
+
+      val invalid = callTool("update_test_case", mapOf(
+        "testCaseId" to id, "inputJson" to "3", "expectedOutputJson" to "1 2",
+      ))
+      assertTrue(invalid["isError"].asBoolean())
+      assertEquals("2", inspectProblem(slug)[field][0]["inputJson"].asString())
+    }
+
+    for (id in listOf("invalid", "0", Long.MAX_VALUE.toString())) {
+      val result = callTool("update_test_case", mapOf(
+        "testCaseId" to id, "inputJson" to "null", "expectedOutputJson" to "null",
+      ))
+      assertTrue(result["isError"].asBoolean())
+      assertEquals("testCaseId", result["structuredContent"]["errors"][0]["field"].asString())
+    }
+  }
+
+  @Test
   fun `an invalid token or revoked administrator cannot write content`() {
     val input = problemInput()
     val params = mapOf("name" to "create_problem", "arguments" to input)

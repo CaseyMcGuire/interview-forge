@@ -131,8 +131,11 @@ class McpServerIntegrationTest {
     assertFalse(initialized["capabilities"].has("resources"))
 
     val tools = rpc("tools/list")["tools"].toList()
-    val catalogTools = setOf("list_languages", "search_problems", "get_problem")
-    val authoringTools = setOf("create_problem", "update_problem", "configure_problem_language")
+    val catalogTools = setOf("list_languages", "search_problems", "get_problem", "get_problem_submission")
+    val authoringTools = setOf(
+      "create_problem", "update_problem", "configure_problem_language", "add_test_cases", "update_test_case",
+      "generate_expected_output", "enqueue_problem_submission",
+    )
     assertEquals(catalogTools + authoringTools, tools.map { it["name"].asString() }.toSet())
     for (tool in tools) {
       val isCatalogTool = tool["name"].asString() in catalogTools

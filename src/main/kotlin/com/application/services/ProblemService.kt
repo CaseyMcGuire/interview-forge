@@ -134,10 +134,10 @@ class ProblemService(
     visibility: TestCaseVisibility,
     startPosition: Int,
     context: ViewerContext,
-  ) {
+  ): List<TestCase> {
     val field = if (visibility == TestCaseVisibility.EXAMPLE) "publicExamples" else "testCases"
 
-    cases.forEachIndexed { index, testCase ->
+    return cases.mapIndexed { index, testCase ->
       tx.testCases.create {
         this.problemId = problemId
         position = startPosition + index
@@ -145,7 +145,7 @@ class ProblemService(
         inputJson = parseTestCaseJson(testCase.inputJson, "$field[$index].inputJson")
         expectedOutputJson = parseTestCaseJson(testCase.expectedOutputJson, "$field[$index].expectedOutputJson")
         explanationMarkdown = testCase.explanationMarkdown?.takeIf { it.isNotBlank() }
-      }.save(context).getOrThrow()
+      }.saveAndLoad(context).getOrThrow()
     }
   }
 
@@ -260,6 +260,39 @@ class ProblemService(
       }.save(context).getOrThrow()
 
       tx.loadProblemContent(input.problemId, context)
+    }.getOrThrow()
+  }
+
+  /** Appends the whole batch under a parent lock so concurrent writers cannot reuse positions. */
+  fun addProblemTestCases(
+    problemId: Long,
+    publicExamples: List<CreateProblemTestCase>,
+    testCases: List<CreateProblemTestCase>,
+  ): List<TestCase>? {
+    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val count = publicExamples.size.toLong() + testCases.size
+    require(count in 1..100) { "Provide between 1 and 100 cases per batch" }
+    require(publicExamples.size <= 20) { "Provide at most 20 public examples per batch" }
+
+    return entClient.withTransaction { tx ->
+      tx.problems.query { where(Problem.id eq problemId) }
+        .forUpdate().firstOrNull(context).visibleOrNull().getOrThrow()
+        ?: return@withTransaction null
+
+      val lastPosition = tx.testCases.indexes.problemId(problemId).query {
+        orderBy(TestCase.position.desc())
+      }.firstOrNull(context).getOrThrow()?.position ?: -1
+
+      if (lastPosition.toLong() + count > Int.MAX_VALUE) {
+        throw ProblemInputException("problemId", "This problem cannot accept more test cases")
+      }
+
+      val examples = createTestCases(tx, problemId, publicExamples, TestCaseVisibility.EXAMPLE, lastPosition + 1, context)
+      val tests = createTestCases(
+        tx, problemId, testCases, TestCaseVisibility.HIDDEN, lastPosition + 1 + publicExamples.size, context,
+      )
+
+      examples + tests
     }.getOrThrow()
   }
 
