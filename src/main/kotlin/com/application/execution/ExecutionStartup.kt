@@ -5,7 +5,7 @@ import com.application.services.CustomInputSubmissionService
 import com.application.services.GradingJobService
 import org.springframework.stereotype.Component
 
-/** Finishes startup recovery before either scheduler can claim work. One app instance may own execution. */
+/** Finishes startup recovery before requests or schedulers execute code. One app instance may own execution. */
 @Component
 class ExecutionStartup(
   private val gradingJobService: GradingJobService,
@@ -17,12 +17,11 @@ class ExecutionStartup(
   private var recovered = false
 
   /** Gates workers on startup recovery, retrying failures without repeating recovery after success. */
-  @Synchronized
-  fun workersReady(): Boolean {
-    if (!workerReadiness.isReady()) {
-      return false
-    }
+  fun workersReady(): Boolean = workerReadiness.isReady() && executionReady()
 
+  /** Shared by direct execution requests and workers so later recovery cannot delete active containers. */
+  @Synchronized
+  fun executionReady(): Boolean {
     if (properties.runtimes.values.none(executionService::isAvailable)) {
       return false
     }

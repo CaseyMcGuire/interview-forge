@@ -11,6 +11,7 @@ import com.application.security.ExecutionAccess
 import entkt.runtime.driver.IsolationLevel
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
+import entkt.runtime.result.visibleOrNull
 import org.springframework.stereotype.Service
 
 /** Prepares source files and commands using current language and judge configuration. */
@@ -25,43 +26,56 @@ class CodeExecutionSettingsService(
 
   fun loadSubmittedCodeSettings(problemLanguageId: Long, sourceCode: String): CodeExecutionSettings =
     entClient.withTransaction(IsolationLevel.RepeatableRead) { tx ->
-      val judge = loadJudgeConfiguration(tx, problemLanguageId)
+      val judge = findJudgeConfiguration(tx, problemLanguageId)
+        ?: error("Judge is unavailable")
+
       prepareExecutionSettings(tx, problemLanguageId, judge, sourceCode)
+        ?: error("Execution configuration is unavailable")
     }.getOrThrow()
 
   fun loadReferenceSolutionSettings(problemLanguageId: Long): CodeExecutionSettings =
+    findReferenceSolutionSettings(problemLanguageId) ?: error("Reference solution is unavailable")
+
+  /** Returns null when the problem, language, reference solution, or configured runtime is unavailable. */
+  fun findReferenceSolutionSettings(problemLanguageId: Long): CodeExecutionSettings? =
     entClient.withTransaction(IsolationLevel.RepeatableRead) { tx ->
-      val judge = loadJudgeConfiguration(tx, problemLanguageId)
+      val judge = findJudgeConfiguration(tx, problemLanguageId) ?: return@withTransaction null
       val sourceCode = judge.referenceSolutionCode?.takeIf { it.isNotBlank() }
-        ?: error("Reference solution is unavailable")
+        ?: return@withTransaction null
 
       prepareExecutionSettings(tx, problemLanguageId, judge, sourceCode)
     }.getOrThrow()
 
-  private fun loadJudgeConfiguration(tx: EntTransactionClient, problemLanguageId: Long): JudgeConfiguration =
+  private fun findJudgeConfiguration(tx: EntTransactionClient, problemLanguageId: Long): JudgeConfiguration? =
     tx.judgeConfigurations.indexes.problemLanguageId(problemLanguageId)
       .find(ExecutionAccess.context)
-      .getOrThrow() ?: error("Judge is unavailable")
+      .getOrThrow()
 
   private fun prepareExecutionSettings(
     tx: EntTransactionClient,
     problemLanguageId: Long,
     judge: JudgeConfiguration,
     sourceCode: String,
-  ): CodeExecutionSettings {
+  ): CodeExecutionSettings? {
     val configuration = tx.problemLanguages.findById(publicContext, problemLanguageId)
-      .getOrThrow() ?: error("Problem language is unavailable")
+      .visibleOrNull()
+      .getOrThrow() ?: return null
 
     val language = tx.languages.findById(publicContext, configuration.languageId)
-      .getOrThrow() ?: error("Language is unavailable")
+      .visibleOrNull()
+      .getOrThrow() ?: return null
 
     val problem = tx.problems.findById(publicContext, configuration.problemId)
-      .getOrThrow() ?: error("Problem is unavailable")
-    check(problem.checkerKind == ProblemCheckerKind.EXACT_JSON) { "Unsupported checker" }
+      .visibleOrNull()
+      .getOrThrow() ?: return null
 
-    val languageConfiguration = languageConfigurations[language.key] ?: error("Unsupported language")
+    if (problem.checkerKind != ProblemCheckerKind.EXACT_JSON) {
+      return null
+    }
+
+    val languageConfiguration = languageConfigurations[language.key] ?: return null
     val runtime = properties.runtimes[language.key]?.takeIf { it.isNotBlank() }
-      ?: error("Runtime is unavailable")
+      ?: return null
 
     return CodeExecutionSettings(
       runtime = runtime,

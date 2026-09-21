@@ -6,6 +6,7 @@ import com.application.services.GradingJobService
 import com.application.services.CustomInputSubmissionService
 import com.application.services.CodeExecutionSettingsService
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.mockito.Mockito.*
 import org.springframework.boot.availability.ApplicationAvailability
 import org.springframework.boot.availability.ReadinessState
@@ -150,6 +151,22 @@ class GradingSchedulerTest {
     verify(executor).cleanUpInterruptedExecutions()
     verify(gradingJobService).finishInterruptedGradingJobs()
     verify(customInputSubmissionService).finishInterruptedCustomPreparations()
+  }
+
+  @Test
+  fun `a direct execution request recovers before workers and recovery is not repeated`() {
+    val scheduler = createScheduler()
+    `when`(executor.isAvailable("runtime")).thenReturn(true)
+
+    assertTrue(startup.executionReady())
+    scheduler.runScheduledTask()
+
+    val order = inOrder(executor, gradingJobService, customInputSubmissionService)
+    order.verify(executor).cleanUpInterruptedExecutions()
+    order.verify(gradingJobService).finishInterruptedGradingJobs()
+    order.verify(customInputSubmissionService).finishInterruptedCustomPreparations()
+    order.verify(gradingJobService).claimNextQueuedGradingJob()
+    verify(executor, times(1)).cleanUpInterruptedExecutions()
   }
 
   private fun createScheduler(properties: ExecutionProperties = this.properties): GradingScheduler {
