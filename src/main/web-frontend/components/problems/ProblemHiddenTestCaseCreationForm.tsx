@@ -3,13 +3,13 @@ import {graphql, useFragment, useMutation} from "react-relay";
 import type {ProblemHiddenTestCaseCreationFormMutation} from "__generated__/ProblemHiddenTestCaseCreationFormMutation.graphql";
 import type {ProblemHiddenTestCaseCreationForm_problem$key} from "__generated__/ProblemHiddenTestCaseCreationForm_problem.graphql";
 import useGenerateTestCaseExpectedOutput from "hooks/useGenerateTestCaseExpectedOutput";
-import ProblemHiddenTestCaseForm, {type ProblemHiddenTestCaseDraft} from "./ProblemHiddenTestCaseForm";
+import ProblemTestCaseForm, {type ProblemTestCaseDraft} from "./ProblemTestCaseForm";
 
 type Props = {
   problem: ProblemHiddenTestCaseCreationForm_problem$key;
 };
 
-const emptyDraft: ProblemHiddenTestCaseDraft = {
+const emptyDraft: ProblemTestCaseDraft = {
   inputJson: "",
   expectedOutputJson: "",
   explanationMarkdown: ""
@@ -35,7 +35,7 @@ export default function ProblemHiddenTestCaseCreationForm(props: Props) {
     }
   `, props.problem);
 
-  const [draft, setDraft] = useState<ProblemHiddenTestCaseDraft>(emptyDraft);
+  const [draft, setDraft] = useState<ProblemTestCaseDraft>(emptyDraft);
   const [problemLanguageId, setProblemLanguageId] = useState(problem.languageConfigurations[0]?.id ?? "");
   const [errors, setErrors] = useState<readonly string[]>([]);
   const [saved, setSaved] = useState(false);
@@ -126,7 +126,7 @@ export default function ProblemHiddenTestCaseCreationForm(props: Props) {
     });
   }
 
-  function changeDraft(updated: ProblemHiddenTestCaseDraft) {
+  function changeDraft(updated: ProblemTestCaseDraft) {
     const inputChanged = updated.inputJson !== draft.inputJson;
     if (inputChanged) {
       generation.resetGeneration();
@@ -157,7 +157,8 @@ export default function ProblemHiddenTestCaseCreationForm(props: Props) {
   }
 
   return (
-    <ProblemHiddenTestCaseForm
+    <ProblemTestCaseForm
+      mode="create"
       draft={draft}
       onChange={changeDraft}
       onSubmit={save}

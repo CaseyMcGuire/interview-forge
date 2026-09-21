@@ -4,15 +4,16 @@ import Control from "components/coding/WorkspaceControl";
 import ProblemCreationField from "./ProblemCreationField";
 import ProblemEditFeedback from "./ProblemEditFeedback";
 
-export type ProblemHiddenTestCaseDraft = {
+export type ProblemTestCaseDraft = {
   inputJson: string;
   expectedOutputJson: string;
   explanationMarkdown: string;
 };
 
 type Props = {
-  draft: ProblemHiddenTestCaseDraft;
-  onChange: (draft: ProblemHiddenTestCaseDraft) => void;
+  mode: "create" | "edit";
+  draft: ProblemTestCaseDraft;
+  onChange: (draft: ProblemTestCaseDraft) => void;
   onSubmit: () => void;
   languages: readonly {id: string; displayName: string}[];
   problemLanguageId: string;
@@ -89,23 +90,26 @@ const styles = stylex.create({
   }
 });
 
-export default function ProblemHiddenTestCaseForm(props: Props) {
+export default function ProblemTestCaseForm(props: Props) {
   const {draft, onChange, onSubmit, isSaving, errors, saved} = props;
   const languageSelectId = useId();
-  const submitDisabled = isSaving || props.isGenerating || !props.generated ||
+  const submitDisabled = isSaving || props.isGenerating ||
     !draft.inputJson.trim() ||
     !draft.expectedOutputJson.trim();
   const generateDisabled = isSaving || props.isGenerating ||
     !props.problemLanguageId || !draft.inputJson.trim();
+  const isEditing = props.mode === "edit";
+  const submitLabel = isEditing ? "Save test case" : "Add test case";
+  const savingLabel = isEditing ? "Saving…" : "Adding…";
 
   return (
     <div sx={styles.form} aria-busy={isSaving || props.isGenerating}>
       <div sx={styles.description}>
-        Hidden test cases are not shown to people solving the problem.
+        Test cases are not shown to people solving the problem.
       </div>
 
       <ProblemCreationField
-        label="Hidden test input (JSON)"
+        label="Input (JSON)"
         value={draft.inputJson}
         onChange={(inputJson) => onChange({...draft, inputJson})}
         rows={4}
@@ -142,11 +146,11 @@ export default function ProblemHiddenTestCaseForm(props: Props) {
       <ProblemEditFeedback errors={props.generationErrors} saved={false} />
 
       {props.generated && (
-        <div sx={styles.status} role="status">Expected output generated. Review it before adding the test case.</div>
+        <div sx={styles.status} role="status">Expected output generated.</div>
       )}
 
       <ProblemCreationField
-        label="Hidden test expected output (JSON)"
+        label="Expected output (JSON)"
         value={draft.expectedOutputJson}
         readOnly
         hint="Generated from the reference solution using the input above."
@@ -156,7 +160,7 @@ export default function ProblemHiddenTestCaseForm(props: Props) {
       />
 
       <ProblemCreationField
-        label="Hidden test explanation (optional Markdown)"
+        label="Explanation (optional Markdown)"
         value={draft.explanationMarkdown}
         onChange={(explanationMarkdown) => onChange({...draft, explanationMarkdown})}
         rows={3}
@@ -171,7 +175,7 @@ export default function ProblemHiddenTestCaseForm(props: Props) {
       )}
 
       {saved && !isSaving && errors.length === 0 && (
-        <div sx={styles.status} role="status">Hidden test case added.</div>
+        <div sx={styles.status} role="status">{isEditing ? "Changes saved." : "Test case added."}</div>
       )}
 
       <div sx={styles.actions}>
@@ -183,7 +187,7 @@ export default function ProblemHiddenTestCaseForm(props: Props) {
           disabled={submitDisabled}
           onActivate={onSubmit}
         >
-          {isSaving ? "Adding…" : "Add hidden test case"}
+          {isSaving ? savingLabel : submitLabel}
         </Control>
       </div>
     </div>
