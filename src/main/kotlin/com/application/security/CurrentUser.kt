@@ -15,7 +15,11 @@ class CurrentUser(private val jdbcClient: JdbcClient) {
   fun get(): AuthenticatedUser? {
     val authentication = SecurityContextHolder.getContext().authentication ?: return null
     if (!authentication.isAuthenticated) return null
-    val userId = (authentication.principal as? UserDetailsImpl)?.user?.id ?: return null
+    val userId = when (val principal = authentication.principal) {
+      is UserDetailsImpl -> principal.user.id
+      is UserIdPrincipal -> principal.userId
+      else -> null
+    } ?: return null
 
     // Ent currently loads whole users, including credentials. Read only the permission
     // needed here; keep credential access and its privacy bypass confined to login.

@@ -1,9 +1,30 @@
 spring:
+  ai:
+    mcp:
+      server:
+        name: interview-forge
+        version: 1.0.0
+        protocol: STATELESS
+        # The WebMVC sync server executes on the request thread, preserving Spring Security.
+        type: SYNC
+        instructions: >-
+          Inspect available languages and search for an existing problem before adding content.
+          Problem slugs are stable identifiers. JSON inputs and expectations are serialized strings
+          so large numbers retain their exact values.
+        capabilities:
+          resource: false
+          prompt: false
+          completion: false
   task:
     scheduling:
       pool:
         # Preparation, grading, and expiration cleanup each have a thread available.
         size: 3
+
+# MCP accepts requests when both credentials are configured; partial configuration fails startup.
+mcp:
+  api-token: ${MCP_API_TOKEN:}
+  user-id: ${MCP_USER_ID:0}
 
 execution:
   runtimes:

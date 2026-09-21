@@ -86,6 +86,7 @@ dependencies {
   implementation("org.springframework.boot:spring-boot-starter-web")
   implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
   implementation("org.springframework.boot:spring-boot-starter-security")
+  implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc:2.0.1")
 
   implementation("com.netflix.graphql.dgs:dgs-starter")
 
