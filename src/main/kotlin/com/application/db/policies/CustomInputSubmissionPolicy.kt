@@ -17,6 +17,7 @@ class CustomInputSubmissionPolicy(
       load(AllowIfExecutionRule(), ownerReadRule)
       create(AllowIfExecutionRule())
       update(AllowIfExecutionRule())
+      delete(AllowIfExecutionRule())
     }
 
     validation {

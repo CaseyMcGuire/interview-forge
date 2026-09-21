@@ -20,6 +20,7 @@ data class ExecutionProperties(
   /** Retention from custom input submission creation; cleanup waits for execution to finish. */
   val customInputSubmissionLifetime: Duration = Duration.ofMinutes(5),
 
+  /** Enables scheduled preparation, grading, and expired custom input submission cleanup. */
   val workerEnabled: Boolean = true,
   val workspaceDirectory: String = "${System.getProperty("java.io.tmpdir")}/interview-forge-execution",
 ) {

@@ -6,8 +6,8 @@ import com.application.services.CodeExecutionSettingsService
 import com.application.services.CustomInputSubmissionService
 import kotlinx.serialization.json.JsonElement
 import org.slf4j.LoggerFactory
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 /** Prepares expected answers for queued custom input submissions and creates ready grading jobs. */
 @Component
@@ -15,28 +15,15 @@ class CustomInputSubmissionScheduler(
   private val customInputSubmissionService: CustomInputSubmissionService,
   private val settingsService: CodeExecutionSettingsService,
   private val executionService: CodeExecutionService,
-  private val startup: ExecutionStartup,
-) {
+  startup: ExecutionStartup,
+) : AbstractScheduler(Duration.ofSeconds(1), startup::workersReady) {
   private val logger = LoggerFactory.getLogger(javaClass)
   // Retain this claim if its final write fails; recovery must not touch the grading scheduler's work.
   private var unfinishedCustomInputSubmissionId: Long? = null
 
-  @Scheduled(fixedDelay = 1_000)
-  @Synchronized
-  fun prepareQueuedCustomInputSubmissions() {
-    try {
-      if (!startup.workersReady()) {
-        return
-      }
-
-      recoverPreviousPreparation()
-      prepareNextCustomInputSubmission()
-    } catch (interruption: InterruptedException) {
-      Thread.currentThread().interrupt()
-      throw interruption
-    } catch (exception: Exception) {
-      logger.error("Custom test suite scheduler could not complete its database or runtime operation", exception)
-    }
+  override fun executeTask() {
+    recoverPreviousPreparation()
+    prepareNextCustomInputSubmission()
   }
 
   private fun recoverPreviousPreparation() {

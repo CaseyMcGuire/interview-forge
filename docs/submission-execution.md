@@ -20,7 +20,7 @@ custom-Run limit of twenty cases does not apply to official submissions.
 
 Custom-run admission, owner polling, and result storage are reviewed and committed.
 Stage 10 adds asynchronous reference preparation and shared grading and is reviewed and committed.
-Expiration cleanup and frontend integration remain later stages.
+Expiration cleanup is reviewed and committed. Frontend components and integration remain later work.
 
 ## Submission naming review
 
@@ -121,7 +121,7 @@ and the two queue producers into separate reviews:
   results to custom storage and test preparation failures, recovery, and polling.
 - [x] **10a. Submission naming:** Rename the models, API, services, and callers to `ProblemSubmission`
   and `CustomInputSubmission`; migrate existing database names and regenerate artifacts.
-- [ ] **11. Expiration cleanup:** Delete expired custom input submissions and their cases after execution finishes.
+- [x] **11. Expiration cleanup:** Delete expired custom input submissions and their cases after execution finishes.
 - [ ] **12. Frontend components:** Custom-input editing and per-case result views.
 - [ ] **13. Frontend integration:** Connect enqueue/polling and validate complete flows.
 
@@ -262,14 +262,14 @@ to queued/running attempts across both official submissions and custom runs. Bot
 admission paths read those counts in the transaction that creates the attempt.
 
 `execution.max-custom-test-cases` defaults to 20. `execution.custom-input-submission-lifetime`
-defaults to 5 minutes and sets the run's expiration when it is created. Expiration is
-metadata until the cleanup stage is implemented; it does not make retained data unreadable.
+defaults to 5 minutes and sets the submission's expiration when it is created. Expiration
+does not cancel execution; finished submissions remain readable until cleanup deletes them.
 
 `customInputSubmission(id)` returns only the authenticated owner's attempt, including after
 problem archival. Run ownership governs the run and its cases. Ordinary viewers,
 including administrators, cannot read someone else's inputs/results or mutate execution
-state. Execution may create runs and cases, prepare expectations, and update runs;
-deletion remains disabled until the cleanup stage.
+state. Execution may create submissions and cases, prepare expectations, update submissions,
+and delete expired finished submissions. Their cases are deleted through the foreign key.
 
 Polling maps the retained result JSON to generated DGS types and returns each case in
 input order. SQL null expected output means unprepared; JSON null is returned as the
@@ -280,8 +280,9 @@ grading, and owner polling together.
 ## Custom reference preparation
 
 `CustomInputSubmissionScheduler` prepares queued custom runs. `GradingScheduler` independently
-processes ready grading jobs for both kinds of attempt. Scheduling uses two threads, and
-each scheduler processes one item at a time, so reference execution and grading can overlap.
+processes ready grading jobs for both kinds of attempt. Preparation and grading have separate
+scheduler threads; expiration cleanup has a third. Each scheduler processes one item or batch
+at a time, so reference execution, grading, and cleanup can overlap.
 Both queues use creation time and ID order. Reference execution and submitted execution each
 use a fresh sandbox that compiles once and runs its full list of inputs in one JVM.
 
@@ -308,7 +309,7 @@ After startup, each scheduler remembers only its own unfinished claim. If the fi
 fails, the next tick recovers that ID before claiming more work. Missing jobs and already-finished
 runs indicate that completion committed; custom runs with a grading job are prepared and must
 not be failed. Neither scheduler scans the other scheduler's active work during normal operation.
-Expiration does not cancel queued work; deletion remains stage 11.
+Expiration does not cancel queued work; cleanup selects only finished submissions.
 
 Stage 10 is reviewed and committed. No database schema or dependency changes are required.
 GraphQL timing descriptions now distinguish preparation from submitted execution; DGS and Relay
@@ -333,6 +334,68 @@ and concurrent preparation/grading without recovering live work:
 
 After review refinements, all 8 scheduler tests and `buildRelay` passed. The final helper
 extractions and explicit outcome mapping passed `compileTestKotlin` and `git diff --check`.
+No full-project test suite or browser checks were run.
+
+## Expiration cleanup
+
+Stage 11 is reviewed and committed. `CustomInputSubmissionCleanupScheduler` checks
+once per minute after application readiness while `execution.worker-enabled` is true.
+All three schedulers extend `AbstractScheduler`, which registers each task with Spring
+at its own fixed delay and handles readiness, non-overlapping runs, interruption, and
+unexpected failures. Concrete schedulers implement only `executeTask()`. Spring still
+owns the shared thread pool and cancels registered tasks during shutdown.
+
+The base class's `init` block rejects invalid intervals. Readiness is checked when a task
+runs, because bean construction precedes application readiness. Intentionally disabled
+workers and an application that is still starting do not cause startup failure.
+Grading and preparation use `ExecutionStartup.workersReady()`; cleanup uses
+`ScheduledWorkerReadiness.isReady()`. The shared check reads Spring Boot's
+`ApplicationAvailability` and the worker-enabled setting, with no ready-event listeners
+or copied flags. All three stop starting work when readiness becomes `REFUSING_TRAFFIC`.
+
+Cleanup does not use the Docker-dependent execution startup gate: deleting finished database
+records requires neither a configured runtime nor Docker availability. A failed batch is
+logged; the next scheduled tick tries again. Preparation, grading, and cleanup have three
+scheduler threads so long executions do not occupy cleanup's thread.
+
+`CustomInputSubmissionService.deleteExpiredCustomInputSubmissions` selects at most
+100 FINISHED submissions with `expiresAt <= cutoff`, using the existing expiration index
+and ordering by expiration then ID. Selection locks the rows, and EntKt's bulk deletion
+runs in the same transaction. The existing foreign key deletes the associated cases;
+the result array and source disappear with the parent. A failed deletion rolls back the
+whole batch, including cascaded case deletion.
+
+Queued submissions, reference preparations, and submissions awaiting or undergoing grading
+remain intact even after expiration. Problem submissions are never selected. Polling
+continues to return retained data until deletion, then returns null through the existing API.
+Only the internal execution identity receives delete access; owner and administrator
+delete restrictions remain unchanged.
+
+No schema migration or generated-artifact changes are needed. The preserved stash is
+unchanged; it contained no expiration cleanup implementation to reuse. Frontend component
+work remains the next review stage.
+
+The abstract scheduler refactor passed all 60 focused tests:
+
+```sh
+./gradlew test \
+  --tests com.application.execution.AbstractSchedulerTest \
+  --tests com.application.execution.GradingSchedulerTest \
+  --tests com.application.execution.CustomInputSubmissionSchedulerTest \
+  --tests com.application.execution.CustomInputSubmissionCleanupSchedulerTest \
+  --tests com.application.execution.ProblemSubmissionExecutionIntegrationTest \
+  --tests com.application.execution.CustomInputSubmissionExecutionIntegrationTest
+```
+
+Coverage includes task registration and intervals, validation during construction,
+readiness transitions, disabled workers, cleanup without a runtime, interruption,
+recovery, concurrent preparation and grading, and Docker execution. The preceding
+cleanup service and GraphQL validation also passed 16 tests covering expiration
+boundaries, retained active jobs, batch ordering, cascaded deletion, transaction
+rollback, and polling before and after deletion. `git diff --check` passed.
+Cleanup now belongs to `CustomInputSubmissionService`; its scheduler delegates to that
+service. After this consolidation, all 19 tests passed with
+`./gradlew test --tests com.application.execution.CustomInputSubmissionCleanupIntegrationTest --tests com.application.execution.CustomInputSubmissionCleanupSchedulerTest --tests com.application.graphql.CustomInputSubmissionIntegrationTest`.
 No full-project test suite or browser checks were run.
 
 ## API contract

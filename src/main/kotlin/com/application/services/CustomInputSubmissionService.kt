@@ -295,6 +295,33 @@ class CustomInputSubmissionService(
     }.save(ExecutionAccess.context).getOrThrow()
   }
 
+  /** Deletes one batch of finished submissions whose expiration is at or before [cutoff]. */
+  fun deleteExpiredCustomInputSubmissions(cutoff: Instant, batchSize: Int = 100): Int {
+    require(batchSize > 0) { "Cleanup batch size must be positive" }
+
+    return entClient.withTransaction { tx ->
+      val submissions = tx.customInputSubmissions.indexes.expiresAt { lte(cutoff) }.query {
+        where(CustomInputSubmission.status eq CustomInputSubmissionStatus.FINISHED)
+        orderBy(CustomInputSubmission.expiresAt.asc())
+        orderBy(CustomInputSubmission.id.asc())
+        limit(batchSize)
+      }
+        .forUpdate()
+        .all(ExecutionAccess.context)
+        .getOrThrow()
+
+      if (submissions.isEmpty()) {
+        return@withTransaction 0
+      }
+
+      // Keep selection and deletion in one transaction; the foreign key deletes each submission's cases.
+      tx.customInputSubmissions.deleteMany(
+        ExecutionAccess.context,
+        CustomInputSubmission.id `in` submissions.map { it.id },
+      ).getOrThrow()
+    }.getOrThrow()
+  }
+
   private fun lockRunningCustomInputSubmission(
     tx: EntTransactionClient,
     customInputSubmissionId: Long,

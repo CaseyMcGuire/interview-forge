@@ -2,8 +2,8 @@ spring:
   task:
     scheduling:
       pool:
-        # Reference preparation and grading can progress independently; each scheduler is sequential.
-        size: 2
+        # Preparation, grading, and expiration cleanup each have a thread available.
+        size: 3
 
 execution:
   runtimes:

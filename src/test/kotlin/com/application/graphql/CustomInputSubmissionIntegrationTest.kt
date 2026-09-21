@@ -4,6 +4,7 @@ import com.application.ent.CustomTestCase
 import com.application.ent.CustomInputSubmission
 import com.application.ent.EntClient
 import com.application.ent.Problem
+import com.application.execution.CustomInputSubmissionResult
 import com.application.execution.RuntimeAvailability
 import com.application.schema.CustomInputSubmissionOutcome
 import com.application.schema.CustomInputSubmissionStatus
@@ -360,9 +361,23 @@ class CustomInputSubmissionIntegrationTest {
       totalCases = 1
     }.saveAndLoad(fixtures).getOrThrow()
 
+    entClient.customTestCases.create {
+      customInputSubmissionId = run.id
+      position = 0
+      inputJson = JsonNull
+    }.save(fixtures).getOrThrow()
+
     val id = globalIdUtil.toGlobalId(GraphqlCustomInputSubmission::class, run.id)
     assertFalse(poll(id).isNull)
-    entClient.customInputSubmissions.deleteById(fixtures, run.id).getOrThrow()
+    assertEquals(0, customInputSubmissionService.deleteExpiredCustomInputSubmissions(Instant.now()))
+
+    customInputSubmissionService.claimNextQueuedCustomInputSubmission()
+    customInputSubmissionService.finishCustomInputSubmission(
+      run.id, CustomInputSubmissionResult(CustomInputSubmissionOutcome.INTERNAL_ERROR),
+    )
+
+    assertFalse(poll(id).isNull)
+    assertEquals(1, customInputSubmissionService.deleteExpiredCustomInputSubmissions(Instant.now()))
     assertTrue(poll(id).isNull)
   }
 

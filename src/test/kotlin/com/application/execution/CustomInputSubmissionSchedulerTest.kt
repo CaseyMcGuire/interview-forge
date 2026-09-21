@@ -18,7 +18,7 @@ class CustomInputSubmissionSchedulerTest {
   fun `preparation waits for shared startup recovery`() {
     `when`(startup.workersReady()).thenReturn(false)
 
-    scheduler.prepareQueuedCustomInputSubmissions()
+    scheduler.runScheduledTask()
 
     verifyNoInteractions(service, settingsService, executor)
   }
@@ -42,8 +42,8 @@ class CustomInputSubmissionSchedulerTest {
     doThrow(IllegalStateException("connection lost"))
       .`when`(service).saveExpectedOutputsAndEnqueueGradingJob(123L, inputs)
 
-    scheduler.prepareQueuedCustomInputSubmissions()
-    scheduler.prepareQueuedCustomInputSubmissions()
+    scheduler.runScheduledTask()
+    scheduler.runScheduledTask()
 
     val order = inOrder(service, executor)
     order.verify(service).claimNextQueuedCustomInputSubmission()

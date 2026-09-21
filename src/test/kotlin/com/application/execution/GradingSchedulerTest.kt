@@ -7,9 +7,12 @@ import com.application.services.CustomInputSubmissionService
 import com.application.services.CodeExecutionSettingsService
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
+import org.springframework.boot.availability.ApplicationAvailability
+import org.springframework.boot.availability.ReadinessState
 
 class GradingSchedulerTest {
   private lateinit var startup: ExecutionStartup
+  private val applicationAvailability = mock(ApplicationAvailability::class.java)
   private val gradingJobService = mock(GradingJobService::class.java)
   private val customInputSubmissionService = mock(CustomInputSubmissionService::class.java)
   private val settingsService = mock(CodeExecutionSettingsService::class.java)
@@ -20,11 +23,28 @@ class GradingSchedulerTest {
   private val properties = ExecutionProperties(runtimes = mapOf("kotlin" to "runtime"))
 
   @Test
+  fun `workers follow application readiness changes`() {
+    val scheduler = createScheduler()
+    `when`(executor.isAvailable("runtime")).thenReturn(true)
+    `when`(applicationAvailability.readinessState).thenReturn(ReadinessState.REFUSING_TRAFFIC)
+
+    scheduler.runScheduledTask()
+    verifyNoInteractions(gradingJobService, customInputSubmissionService, settingsService, codeGrader, executor)
+
+    `when`(applicationAvailability.readinessState).thenReturn(ReadinessState.ACCEPTING_TRAFFIC)
+    scheduler.runScheduledTask()
+    verify(gradingJobService).claimNextQueuedGradingJob()
+
+    `when`(applicationAvailability.readinessState).thenReturn(ReadinessState.REFUSING_TRAFFIC)
+    scheduler.runScheduledTask()
+    verify(gradingJobService, times(1)).claimNextQueuedGradingJob()
+  }
+
+  @Test
   fun `a disabled worker leaves the queue untouched`() {
     val scheduler = createScheduler(properties.copy(workerEnabled = false))
 
-    startup.onApplicationReady()
-    scheduler.processQueuedGradingJobs()
+    scheduler.runScheduledTask()
 
     verifyNoInteractions(gradingJobService, customInputSubmissionService, settingsService, codeGrader, executor)
   }
@@ -33,12 +53,11 @@ class GradingSchedulerTest {
   fun `queue processing resumes when the runtime becomes available`() {
     val scheduler = createScheduler()
     `when`(executor.isAvailable("runtime")).thenReturn(false, true)
-    startup.onApplicationReady()
 
-    scheduler.processQueuedGradingJobs()
+    scheduler.runScheduledTask()
     verifyNoInteractions(gradingJobService, customInputSubmissionService, settingsService, codeGrader)
 
-    scheduler.processQueuedGradingJobs()
+    scheduler.runScheduledTask()
     verify(gradingJobService).claimNextQueuedGradingJob()
     verifyNoInteractions(codeGrader)
   }
@@ -48,12 +67,11 @@ class GradingSchedulerTest {
     val scheduler = createScheduler()
     `when`(executor.isAvailable("runtime")).thenReturn(true)
     doThrow(IllegalStateException("cleanup failed")).doNothing().`when`(executor).cleanUpInterruptedExecutions()
-    startup.onApplicationReady()
 
-    scheduler.processQueuedGradingJobs()
+    scheduler.runScheduledTask()
     verifyNoInteractions(gradingJobService, customInputSubmissionService, settingsService, codeGrader)
 
-    scheduler.processQueuedGradingJobs()
+    scheduler.runScheduledTask()
 
     verify(executor, times(2)).cleanUpInterruptedExecutions()
     verify(gradingJobService).finishInterruptedGradingJobs()
@@ -74,9 +92,8 @@ class GradingSchedulerTest {
     `when`(job.sourceCode).thenReturn("source")
     `when`(settingsService.loadSubmittedCodeSettings(12L, "source")).thenReturn(settings)
     `when`(codeGrader.gradeCode("grading-job-123", "runtime", program, emptyList(), 1_000, 128)).thenReturn(result)
-    startup.onApplicationReady()
 
-    scheduler.processQueuedGradingJobs()
+    scheduler.runScheduledTask()
 
     val order = inOrder(executor, gradingJobService, customInputSubmissionService, settingsService, codeGrader)
     order.verify(executor).cleanUpInterruptedExecutions()
@@ -102,10 +119,9 @@ class GradingSchedulerTest {
     `when`(settingsService.loadSubmittedCodeSettings(12L, "source")).thenReturn(settings)
     `when`(codeGrader.gradeCode("grading-job-123", "runtime", program, emptyList(), 1_000, 128)).thenReturn(result)
     doThrow(IllegalStateException("connection lost")).`when`(gradingJobService).finishGradingJob(123L, result)
-    startup.onApplicationReady()
 
-    scheduler.processQueuedGradingJobs()
-    scheduler.processQueuedGradingJobs()
+    scheduler.runScheduledTask()
+    scheduler.runScheduledTask()
 
     verify(executor).cleanUpInterruptedExecutions()
     verify(gradingJobService).finishInterruptedGradingJobs()
@@ -119,12 +135,11 @@ class GradingSchedulerTest {
     val gradingScheduler = createScheduler()
     val customScheduler = CustomInputSubmissionScheduler(customInputSubmissionService, settingsService, executor, startup)
     `when`(executor.isAvailable("runtime")).thenReturn(true)
-    startup.onApplicationReady()
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     val order = inOrder(executor, gradingJobService, customInputSubmissionService)
     order.verify(executor).cleanUpInterruptedExecutions()
@@ -138,7 +153,9 @@ class GradingSchedulerTest {
   }
 
   private fun createScheduler(properties: ExecutionProperties = this.properties): GradingScheduler {
-    startup = ExecutionStartup(gradingJobService, customInputSubmissionService, executor, properties)
+    `when`(applicationAvailability.readinessState).thenReturn(ReadinessState.ACCEPTING_TRAFFIC)
+    val workerReadiness = ScheduledWorkerReadiness(applicationAvailability, properties)
+    startup = ExecutionStartup(gradingJobService, customInputSubmissionService, executor, properties, workerReadiness)
     return GradingScheduler(gradingJobService, settingsService, codeGrader, startup)
   }
 }

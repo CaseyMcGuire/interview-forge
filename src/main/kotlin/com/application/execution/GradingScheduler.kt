@@ -4,8 +4,8 @@ import com.application.ent.GradingJob
 import com.application.services.CodeExecutionSettingsService
 import com.application.services.GradingJobService
 import org.slf4j.LoggerFactory
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 /** Grades ready jobs for problem submissions and custom input submissions. */
 @Component
@@ -13,28 +13,15 @@ class GradingScheduler(
   private val gradingJobService: GradingJobService,
   private val settingsService: CodeExecutionSettingsService,
   private val codeGrader: CodeGrader,
-  private val startup: ExecutionStartup,
-) {
+  startup: ExecutionStartup,
+) : AbstractScheduler(Duration.ofSeconds(1), startup::workersReady) {
   private val logger = LoggerFactory.getLogger(javaClass)
   // Retain this claim if its final write fails, even when the commit outcome is unknown.
   private var unfinishedJobId: Long? = null
 
-  @Scheduled(fixedDelay = 1_000)
-  @Synchronized
-  fun processQueuedGradingJobs() {
-    try {
-      if (!startup.workersReady()) {
-        return
-      }
-
-      recoverPreviousJob()
-      gradeNextJob()
-    } catch (interruption: InterruptedException) {
-      Thread.currentThread().interrupt()
-      throw interruption
-    } catch (exception: Exception) {
-      logger.error("Grading scheduler could not complete its database or runtime operation", exception)
-    }
+  override fun executeTask() {
+    recoverPreviousJob()
+    gradeNextJob()
   }
 
   private fun recoverPreviousJob() {

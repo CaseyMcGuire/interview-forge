@@ -35,6 +35,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.availability.ApplicationAvailability
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
@@ -64,7 +65,9 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
+import org.springframework.scheduling.config.IntervalTask
 import javax.sql.DataSource
 import com.application.graphql.types.ProblemLanguage as GraphqlProblemLanguage
 
@@ -93,7 +96,9 @@ class CustomInputSubmissionExecutionIntegrationTest {
   @Autowired
   lateinit var dataSource: DataSource
 
-  private lateinit var startup: ExecutionStartup
+  @Autowired
+  lateinit var applicationAvailability: ApplicationAvailability
+
   private lateinit var gradingScheduler: GradingScheduler
   private lateinit var customScheduler: CustomInputSubmissionScheduler
   private lateinit var executor: TestCodeExecutionService
@@ -126,7 +131,6 @@ class CustomInputSubmissionExecutionIntegrationTest {
   fun setUp() {
     executor = TestCodeExecutionService()
     configureSchedulers(executor)
-    startup.onApplicationReady()
 
     entClient.withTransaction { tx ->
       tx.customInputSubmissions.deleteMany(fixtures).getOrThrow()
@@ -185,8 +189,8 @@ class CustomInputSubmissionExecutionIntegrationTest {
       outputs(inputs, listOf(JsonNull, JsonPrimitive(1), JsonPrimitive(2)))
     }
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     val result = poll(id)
     assertEquals("FINISHED", result["status"].asString())
@@ -227,8 +231,8 @@ class CustomInputSubmissionExecutionIntegrationTest {
       }
     }
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     val result = poll(id)
     assertEquals("REFERENCE_SOLUTION_FAILED", result["outcome"].asString())
@@ -245,8 +249,8 @@ class CustomInputSubmissionExecutionIntegrationTest {
     val id = enqueue()
     executor.submitted = { CodeExecutionResult.CompilationFailed }
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     val result = poll(id)
     assertEquals("COMPILE_ERROR", result["outcome"].asString())
@@ -266,8 +270,8 @@ class CustomInputSubmissionExecutionIntegrationTest {
       ))
     }
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     val result = poll(id)
     assertEquals("TIME_LIMIT_EXCEEDED", result["outcome"].asString())
@@ -285,8 +289,8 @@ class CustomInputSubmissionExecutionIntegrationTest {
     val ready = customInputSubmissionService.claimNextQueuedCustomInputSubmission()!!
     customInputSubmissionService.saveExpectedOutputsAndEnqueueGradingJob(ready.id, listOf(JsonNull, JsonPrimitive(1)))
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     assertEquals("INTERNAL_ERROR", poll(interruptedId)["outcome"].asString())
     assertTrue(poll(interruptedId)["caseResults"].all { it["testCase"]["expectedOutputJson"].isNull })
@@ -304,14 +308,14 @@ class CustomInputSubmissionExecutionIntegrationTest {
     gradingJobService.claimNextQueuedGradingJob()!!
     executor.cleanupFailure = IllegalStateException("Docker unavailable")
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
     assertEquals("RUNNING", poll(id)["status"].asString())
     assertEquals(GradingJobStatus.RUNNING, storedJobs().single().status)
 
     executor.cleanupFailure = null
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     assertEquals("INTERNAL_ERROR", poll(id)["outcome"].asString())
     assertTrue(poll(id)["caseResults"].all { it["outcome"].asString() == "NOT_RUN" })
@@ -325,7 +329,7 @@ class CustomInputSubmissionExecutionIntegrationTest {
     executor.reference = { throw InterruptedException("shutdown") }
 
     try {
-      assertThrows(InterruptedException::class.java) { customScheduler.prepareQueuedCustomInputSubmissions() }
+      assertThrows(InterruptedException::class.java) { customScheduler.runScheduledTask() }
       assertTrue(Thread.interrupted())
       assertEquals("INTERNAL_ERROR", poll(id)["outcome"].asString())
       assertTrue(storedJobs().isEmpty())
@@ -340,8 +344,8 @@ class CustomInputSubmissionExecutionIntegrationTest {
     val id = enqueue()
     entClient.judgeConfigurations.update(judgeId) { referenceSolutionCode = null }.save(fixtures).getOrThrow()
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     assertEquals("INTERNAL_ERROR", poll(id)["outcome"].asString())
     assertTrue(executor.calls.isEmpty())
@@ -385,8 +389,8 @@ class CustomInputSubmissionExecutionIntegrationTest {
     assertEquals(CustomInputSubmissionStatus.RUNNING, storedCustomInputSubmission(run.id).status)
     assertNull(storedCustomInputSubmission(run.id).caseResults)
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
     assertEquals("INTERNAL_ERROR", poll(id)["outcome"].asString())
     assertTrue(executor.calls.isEmpty())
   }
@@ -428,8 +432,8 @@ class CustomInputSubmissionExecutionIntegrationTest {
     assertTrue(poll(id)["caseResults"].isNull)
     assertEquals(GradingJobStatus.RUNNING, storedJobs().single().status)
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
     assertEquals("INTERNAL_ERROR", poll(id)["outcome"].asString())
     assertTrue(storedJobs().isEmpty())
     assertEquals(listOf("submitted"), executor.calls)
@@ -452,16 +456,16 @@ class CustomInputSubmissionExecutionIntegrationTest {
     }.save(fixtures).getOrThrow()
     val id = enqueue()
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     assertEquals(ProblemSubmissionVerdict.ACCEPTED, entClient.problemSubmissions.findById(fixtures, official.id).getOrThrow()!!.verdict)
     assertEquals("RUNNING", poll(id)["status"].asString())
     assertEquals(GradingJobStatus.QUEUED, storedJobs().single().status)
     assertEquals(listOf("reference", "submitted"), executor.calls)
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     assertEquals("PASSED", poll(id)["outcome"].asString())
     assertEquals(listOf("reference", "submitted", "submitted"), executor.calls)
@@ -473,10 +477,9 @@ class CustomInputSubmissionExecutionIntegrationTest {
   fun `Docker prepares reference answers then grades all custom inputs`() {
     val id = enqueue(source = "fun solve(input: String) = if (input == \"2\") \"0\" else input")
     configureSchedulers(dockerExecutor)
-    startup.onApplicationReady()
 
-    customScheduler.prepareQueuedCustomInputSubmissions()
-    gradingScheduler.processQueuedGradingJobs()
+    customScheduler.runScheduledTask()
+    gradingScheduler.runScheduledTask()
 
     val result = poll(id)
     assertEquals("WRONG_ANSWER", result["outcome"].asString())
@@ -489,8 +492,16 @@ class CustomInputSubmissionExecutionIntegrationTest {
   }
 
   @Test
+  fun `Spring registers preparation grading and cleanup at their own intervals`() {
+    val tasks = context.getBean(ScheduledAnnotationBeanPostProcessor::class.java).scheduledTasks
+    val intervals = tasks.map { (it.task as IntervalTask).intervalDuration.toMillis() }.sorted()
+
+    assertEquals(listOf(1_000L, 1_000L, 60_000L), intervals)
+  }
+
+  @Test
   fun `grading progresses while reference preparation is still running`() {
-    assertEquals(2, (context.getBean(TaskScheduler::class.java) as ThreadPoolTaskScheduler).scheduledThreadPoolExecutor.corePoolSize)
+    assertEquals(3, (context.getBean(TaskScheduler::class.java) as ThreadPoolTaskScheduler).scheduledThreadPoolExecutor.corePoolSize)
     val readyId = enqueue()
     val ready = customInputSubmissionService.claimNextQueuedCustomInputSubmission()!!
     customInputSubmissionService.saveExpectedOutputsAndEnqueueGradingJob(ready.id, cases(ready.id).map { it.inputJson })
@@ -504,11 +515,11 @@ class CustomInputSubmissionExecutionIntegrationTest {
     }
 
     Executors.newSingleThreadExecutor().use { worker ->
-      val preparation = worker.submit { customScheduler.prepareQueuedCustomInputSubmissions() }
+      val preparation = worker.submit { customScheduler.runScheduledTask() }
       try {
         assertTrue(referenceStarted.await(10, TimeUnit.SECONDS))
 
-        gradingScheduler.processQueuedGradingJobs()
+        gradingScheduler.runScheduledTask()
 
         assertEquals("PASSED", poll(readyId)["outcome"].asString())
         assertEquals("RUNNING", poll(preparingId)["status"].asString())
@@ -519,7 +530,7 @@ class CustomInputSubmissionExecutionIntegrationTest {
       preparation.get(10, TimeUnit.SECONDS)
     }
 
-    gradingScheduler.processQueuedGradingJobs()
+    gradingScheduler.runScheduledTask()
     assertEquals("PASSED", poll(preparingId)["outcome"].asString())
     assertEquals(listOf("reference", "submitted", "submitted"), executor.calls)
   }
@@ -527,7 +538,7 @@ class CustomInputSubmissionExecutionIntegrationTest {
   @Test
   fun `custom preparation progresses while another run is being graded`() {
     val gradingId = enqueue()
-    customScheduler.prepareQueuedCustomInputSubmissions()
+    customScheduler.runScheduledTask()
     val preparingId = enqueue()
     val gradingStarted = CountDownLatch(1)
     val releaseGrading = CountDownLatch(1)
@@ -538,11 +549,11 @@ class CustomInputSubmissionExecutionIntegrationTest {
     }
 
     Executors.newSingleThreadExecutor().use { worker ->
-      val grading = worker.submit { gradingScheduler.processQueuedGradingJobs() }
+      val grading = worker.submit { gradingScheduler.runScheduledTask() }
       try {
         assertTrue(gradingStarted.await(10, TimeUnit.SECONDS))
 
-        customScheduler.prepareQueuedCustomInputSubmissions()
+        customScheduler.runScheduledTask()
 
         assertEquals("RUNNING", poll(gradingId)["status"].asString())
         assertEquals("RUNNING", poll(preparingId)["status"].asString())
@@ -553,7 +564,7 @@ class CustomInputSubmissionExecutionIntegrationTest {
       grading.get(10, TimeUnit.SECONDS)
     }
 
-    gradingScheduler.processQueuedGradingJobs()
+    gradingScheduler.runScheduledTask()
     assertEquals("PASSED", poll(gradingId)["outcome"].asString())
     assertEquals("PASSED", poll(preparingId)["outcome"].asString())
     assertEquals(listOf("reference", "submitted", "reference", "submitted"), executor.calls)
@@ -628,9 +639,10 @@ class CustomInputSubmissionExecutionIntegrationTest {
   }
 
   private fun configureSchedulers(executor: CodeExecutionService) {
-    startup = ExecutionStartup(
-      gradingJobService, customInputSubmissionService, executor,
-      ExecutionProperties(runtimes = mapOf("kotlin" to DockerExecutionServiceTest.IMAGE)),
+    val properties = ExecutionProperties(runtimes = mapOf("kotlin" to DockerExecutionServiceTest.IMAGE))
+    val workerReadiness = ScheduledWorkerReadiness(applicationAvailability, properties)
+    val startup = ExecutionStartup(
+      gradingJobService, customInputSubmissionService, executor, properties, workerReadiness,
     )
     gradingScheduler = GradingScheduler(gradingJobService, settingsService, CodeGrader(executor), startup)
     customScheduler = CustomInputSubmissionScheduler(customInputSubmissionService, settingsService, executor, startup)
