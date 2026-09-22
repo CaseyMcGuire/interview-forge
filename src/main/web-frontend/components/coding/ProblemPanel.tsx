@@ -76,10 +76,6 @@ const styles = stylex.create({
     color: "#9da0a8"
   },
   exampleValues: {
-    display: "grid",
-    gridTemplateColumns: "52px minmax(0, 1fr)",
-    rowGap: 3,
-    columnGap: 10,
     margin: 0,
     padding: "9px 12px",
     backgroundColor: "#242528",
@@ -87,6 +83,18 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderColor: "#393b40",
     borderRadius: 6
+  },
+  exampleRow: {
+    display: "grid",
+    gridTemplateColumns: "52px minmax(0, 1fr)",
+    columnGap: 10
+  },
+  exampleOutput: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: "#393b40"
   },
   exampleLabel: {
     alignSelf: "start",
@@ -128,10 +136,14 @@ export default function ProblemPanel({problem}: ProblemPanelProps) {
           <div sx={styles.example} key={item.id}>
             <div sx={styles.exampleTitle}>Example {index + 1}</div>
             <dl sx={styles.exampleValues}>
-              <dt sx={styles.exampleLabel}>Input</dt>
-              <dd sx={styles.exampleValue}>{formatTestCaseJson(item.inputJson)}</dd>
-              <dt sx={styles.exampleLabel}>Output</dt>
-              <dd sx={styles.exampleValue}>{formatTestCaseJson(item.expectedOutputJson)}</dd>
+              <div sx={styles.exampleRow}>
+                <dt sx={styles.exampleLabel}>Input</dt>
+                <dd sx={styles.exampleValue}>{formatTestCaseJson(item.inputJson)}</dd>
+              </div>
+              <div sx={[styles.exampleRow, styles.exampleOutput]}>
+                <dt sx={styles.exampleLabel}>Output</dt>
+                <dd sx={styles.exampleValue}>{formatTestCaseJson(item.expectedOutputJson)}</dd>
+              </div>
             </dl>
             {item.explanationMarkdown && (
               <div sx={styles.exampleExplanation}><ProblemMarkdown>{item.explanationMarkdown}</ProblemMarkdown></div>
