@@ -67,6 +67,8 @@ import java.time.Instant
 import java.nio.file.Files
 import java.sql.SQLException
 import java.util.UUID
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 import com.application.graphql.types.ProblemLanguage as GraphqlProblemLanguage
 
@@ -206,6 +208,48 @@ class ProblemSubmissionExecutionIntegrationTest {
 
     assertThrows(IllegalStateException::class.java) { gradingJobService.finishGradingJob(job.id, result) }
     assertEquals(1, storedResults().size)
+  }
+
+  @Test
+  fun `claiming skips locked grading jobs and leaves them queued until their locks are released`() {
+    createCase(0, TestCaseVisibility.HIDDEN, 1)
+    val firstId = submit("first solution")
+    val firstJob = storedJobs().single()
+    val secondId = submit("second solution")
+
+    Executors.newSingleThreadExecutor().use { worker ->
+      entClient.withTransaction { tx ->
+        val lockedJob = tx.gradingJobs.query { where(GradingJob.id eq firstJob.id) }
+          .forUpdate()
+          .firstOrNull(fixtures)
+          .getOrThrow()!!
+
+        val claimed = worker.submit<GradingJob?> {
+          gradingJobService.claimNextQueuedGradingJob()
+        }.get(5, TimeUnit.SECONDS)!!
+
+        assertEquals("second solution", claimed.sourceCode)
+        assertEquals(GradingJobStatus.RUNNING, claimed.status)
+        assertNotNull(claimed.startedAt)
+        val submission = tx.problemSubmissions.findById(fixtures, claimed.problemSubmissionId!!).getOrThrow()!!
+        assertEquals(ProblemSubmissionStatus.RUNNING, submission.status)
+        assertEquals(claimed.startedAt, submission.startedAt)
+
+        val nextJob = worker.submit<GradingJob?> {
+          gradingJobService.claimNextQueuedGradingJob()
+        }.get(5, TimeUnit.SECONDS)
+
+        assertNull(nextJob)
+        val stillLocked = tx.gradingJobs.findById(fixtures, lockedJob.id).getOrThrow()!!
+        assertEquals(GradingJobStatus.QUEUED, stillLocked.status)
+        assertNull(stillLocked.startedAt)
+      }.getOrThrow()
+    }
+
+    assertEquals("QUEUED", poll(firstId)["status"].asString())
+    assertEquals("RUNNING", poll(secondId)["status"].asString())
+    assertEquals(firstJob.id, gradingJobService.claimNextQueuedGradingJob()!!.id)
+    assertEquals("RUNNING", poll(firstId)["status"].asString())
   }
 
   @Test

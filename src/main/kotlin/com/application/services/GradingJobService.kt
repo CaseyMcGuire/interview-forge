@@ -30,6 +30,7 @@ class GradingJobService(
       orderBy(GradingJob.id.asc())
     }
       .forUpdate()
+      .skipLocked()
       .firstOrNull(ExecutionAccess.context)
       .getOrThrow()
       ?: return@withTransaction null

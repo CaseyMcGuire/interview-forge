@@ -7,6 +7,7 @@ import com.application.security.CurrentUser
 import entkt.runtime.privacy.BatchPrivacyRule
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRuleContext
+import entkt.runtime.privacy.allowAll
 import entkt.runtime.rule.RuleBatch
 import entkt.runtime.rule.RuleDecisions
 import org.springframework.stereotype.Component
@@ -20,7 +21,7 @@ class AllowIfAvailableTestCaseReadRule(
     batch: RuleBatch<TestCase>,
   ): RuleDecisions<PrivacyDecision> {
     if (currentUser.isAdmin(context.viewerContext)) {
-      return batch.decideEach { PrivacyDecision.Allow }
+      return batch.allowAll()
     }
 
     val problemIds = publishedProblemIds(

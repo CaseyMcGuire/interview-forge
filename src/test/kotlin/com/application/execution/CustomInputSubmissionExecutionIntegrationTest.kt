@@ -282,6 +282,44 @@ class CustomInputSubmissionExecutionIntegrationTest {
   }
 
   @Test
+  fun `claiming skips locked custom submissions and leaves them queued until their locks are released`() {
+    val firstId = enqueue(source = "first solution")
+    val firstDatabaseId = globalIdUtil.fromGlobalIdOrNull(firstId)!!
+    val secondId = enqueue(source = "second solution")
+
+    Executors.newSingleThreadExecutor().use { worker ->
+      entClient.withTransaction { tx ->
+        val lockedSubmission = tx.customInputSubmissions.query { where(CustomInputSubmission.id eq firstDatabaseId) }
+          .forUpdate()
+          .firstOrNull(fixtures)
+          .getOrThrow()!!
+
+        val claimed = worker.submit<CustomInputSubmission?> {
+          customInputSubmissionService.claimNextQueuedCustomInputSubmission()
+        }.get(5, TimeUnit.SECONDS)!!
+
+        assertEquals("second solution", claimed.sourceCode)
+        assertEquals(CustomInputSubmissionStatus.RUNNING, claimed.status)
+        assertNotNull(claimed.startedAt)
+
+        val nextSubmission = worker.submit<CustomInputSubmission?> {
+          customInputSubmissionService.claimNextQueuedCustomInputSubmission()
+        }.get(5, TimeUnit.SECONDS)
+
+        assertNull(nextSubmission)
+        val stillLocked = tx.customInputSubmissions.findById(fixtures, lockedSubmission.id).getOrThrow()!!
+        assertEquals(CustomInputSubmissionStatus.QUEUED, stillLocked.status)
+        assertNull(stillLocked.startedAt)
+      }.getOrThrow()
+    }
+
+    assertEquals("QUEUED", poll(firstId)["status"].asString())
+    assertEquals("RUNNING", poll(secondId)["status"].asString())
+    assertEquals(firstDatabaseId, customInputSubmissionService.claimNextQueuedCustomInputSubmission()!!.id)
+    assertEquals("RUNNING", poll(firstId)["status"].asString())
+  }
+
+  @Test
   fun `recovery finishes interrupted preparations and preserves ready custom jobs`() {
     val interruptedId = enqueue()
     customInputSubmissionService.claimNextQueuedCustomInputSubmission()!!
