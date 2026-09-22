@@ -1,4 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
+import {Link} from "react-router";
+import {AppRoutes} from "routes/AppRoutes";
 import Icon from "./WorkspaceIcon";
 
 const styles = stylex.create({
@@ -20,7 +22,9 @@ const styles = stylex.create({
     gap: 10,
     fontWeight: 650,
     fontSize: 17,
-    letterSpacing: "-0.5px"
+    letterSpacing: "-0.5px",
+    color: "inherit",
+    textDecoration: "none"
   },
   brandMark: {
     display: "grid",
@@ -51,12 +55,12 @@ const styles = stylex.create({
 export default function WorkspaceHeader() {
   return (
     <div sx={styles.header}>
-      <div sx={styles.brand}>
+      <Link {...stylex.props(styles.brand)} to={AppRoutes.Problems()}>
         <span sx={styles.brandMark} aria-hidden="true">
           <Icon name="code" size={21} />
         </span>
         Interview Forge
-      </div>
+      </Link>
       <div sx={styles.headerContext}>
         <span sx={styles.contextLabel}>Coding practice</span>
       </div>

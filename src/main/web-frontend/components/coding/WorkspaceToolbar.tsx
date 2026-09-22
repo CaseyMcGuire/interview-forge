@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import {Link} from "react-router";
+import {AppRoutes} from "routes/AppRoutes";
 import Control from "./WorkspaceControl";
 import Icon from "./WorkspaceIcon";
 
@@ -48,7 +49,8 @@ const styles = stylex.create({
     fontWeight: 650,
     fontSize: 13,
     letterSpacing: "-0.2px",
-    color: "#dfe1e5"
+    color: "#dfe1e5",
+    textDecoration: "none"
   },
   brandName: {
     display: {
@@ -174,12 +176,12 @@ export default function WorkspaceToolbar(props: Props) {
 
   return (
     <div sx={styles.bar}>
-      <div sx={styles.brand}>
+      <Link {...stylex.props(styles.brand)} to={AppRoutes.Problems()} aria-label="Interview Forge">
         <span sx={styles.brandMark} aria-hidden="true">
           <Icon name="code" size={14} strokeWidth={2.25} />
         </span>
         <span sx={styles.brandName}>Interview Forge</span>
-      </div>
+      </Link>
       <span sx={styles.divider} />
       <Control
         appearance={[styles.toolButton, problemOpen && styles.toolPressed]}
