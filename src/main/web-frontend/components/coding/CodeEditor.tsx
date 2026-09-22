@@ -1,14 +1,19 @@
-import {useEffect, useRef} from "react";
+import {useEffect, useImperativeHandle, useRef, type Ref} from "react";
 import * as stylex from "@stylexjs/stylex";
 import {basicSetup} from "codemirror";
 import {Compartment, EditorState} from "@codemirror/state";
 import {EditorView, keymap} from "@codemirror/view";
 import {indentWithTab, isolateHistory} from "@codemirror/commands";
-import {HighlightStyle, indentUnit, StreamLanguage, syntaxHighlighting} from "@codemirror/language";
+import {HighlightStyle, indentRange, indentUnit, StreamLanguage, syntaxHighlighting} from "@codemirror/language";
 import {kotlin} from "@codemirror/legacy-modes/mode/clike";
 import {tags} from "@lezer/highlight";
 
+export type CodeEditorHandle = {
+  reformatCode: () => void;
+};
+
 type CodeEditorProps = {
+  ref?: Ref<CodeEditorHandle>;
   languageKey: string;
   label?: string;
   describedBy?: string;
@@ -73,16 +78,18 @@ const styles = stylex.create({
   },
 });
 
-export default function CodeEditor({
-  languageKey,
-  label = "Code editor",
-  describedBy = "editor-keyboard-help",
-  value,
-  fontSize,
-  wordWrap,
-  onChange,
-  onCursorChange,
-}: CodeEditorProps) {
+export default function CodeEditor(props: CodeEditorProps) {
+  const {
+    ref,
+    languageKey,
+    label = "Code editor",
+    describedBy = "editor-keyboard-help",
+    value,
+    fontSize,
+    wordWrap,
+    onChange,
+    onCursorChange,
+  } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const initialValue = useRef(value);
@@ -92,6 +99,21 @@ export default function CodeEditor({
   const wrapCompartment = useRef(new Compartment());
   const languageCompartment = useRef(new Compartment());
   const attributesCompartment = useRef(new Compartment());
+
+  useImperativeHandle(ref, () => ({
+    reformatCode() {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+
+      view.dispatch({
+        changes: indentRange(view.state, 0, view.state.doc.length),
+        annotations: isolateHistory.of("full"),
+      });
+      view.focus();
+    },
+  }), []);
 
   useEffect(() => {
     changeCallback.current = onChange;

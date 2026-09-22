@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import {useState} from "react";
+import {useRef, useState} from "react";
 import {useSearchParams} from "react-router";
 import {AppRoutes} from "routes/AppRoutes";
 import useSubmitSolution from "hooks/useSubmitSolution";
@@ -7,6 +7,7 @@ import useProblemSubmissionStatus from "hooks/useProblemSubmissionStatus";
 import useEnqueueCustomInputSubmission from "hooks/useEnqueueCustomInputSubmission";
 import useCustomInputSubmissionStatus from "hooks/useCustomInputSubmissionStatus";
 import EditorPanel from "./EditorPanel";
+import type {CodeEditorHandle} from "./CodeEditor";
 import ProblemPanel from "./ProblemPanel";
 import ProblemSubmissionResultPanel, {verdictLabel} from "./ProblemSubmissionResultPanel";
 import TestPanel, {type WorkspaceNotice} from "./TestPanel";
@@ -90,6 +91,7 @@ export default function CodingWorkspace(props: Props) {
   const [fontSize, setFontSize] = useState(14);
   const [wordWrap, setWordWrap] = useState(false);
   const [cursor, setCursor] = useState<{line: number; column: number} | null>(null);
+  const editorRef = useRef<CodeEditorHandle>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const problemSubmissionId = searchParams.get("submission") || null;
@@ -218,6 +220,7 @@ export default function CodingWorkspace(props: Props) {
         onCycleFontSize={() => setFontSize(fontSizes[(fontSizes.indexOf(fontSize) + 1) % fontSizes.length])}
         wordWrap={wordWrap}
         onToggleWordWrap={() => setWordWrap(!wordWrap)}
+        onReformat={() => editorRef.current?.reformatCode()}
         resetDisabled={!configuration || !draft || draft.source === configuration.starterCode}
         onReset={() => configuration && updateSource(configuration.starterCode)}
         onRunTests={runTests}
@@ -235,6 +238,7 @@ export default function CodingWorkspace(props: Props) {
           <div sx={styles.editorColumn}>
             {configuration && draft ? (
               <EditorPanel
+                ref={editorRef}
                 languageKey={configuration.language.key}
                 languageName={configuration.language.displayName}
                 source={draft.source}

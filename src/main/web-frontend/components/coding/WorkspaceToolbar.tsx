@@ -14,6 +14,7 @@ type Props = {
   onCycleFontSize: () => void;
   wordWrap: boolean;
   onToggleWordWrap: () => void;
+  onReformat: () => void;
   resetDisabled: boolean;
   onReset: () => void;
   onRunTests: () => void;
@@ -186,7 +187,8 @@ export default function WorkspaceToolbar(props: Props) {
       <Control
         appearance={[styles.toolButton, problemOpen && styles.toolPressed]}
         label={problemOpen ? "Hide problem" : "Show problem"}
-        title={problemOpen ? "Hide problem" : "Show problem"}
+        tooltip={problemOpen ? "Hide problem" : "Show problem"}
+        tooltipAlign="start"
         pressed={problemOpen}
         onActivate={onToggleProblem}
       >
@@ -207,7 +209,7 @@ export default function WorkspaceToolbar(props: Props) {
         <Control
           appearance={[styles.toolButton, styles.fontButton, !editorAvailable && styles.toolDisabled]}
           label={`Editor font size: ${fontSize} pixels. Activate to change size.`}
-          title="Cycle editor font size"
+          tooltip="Change editor font size"
           disabled={!editorAvailable}
           onActivate={onCycleFontSize}
         >
@@ -216,7 +218,7 @@ export default function WorkspaceToolbar(props: Props) {
         <Control
           appearance={[styles.toolButton, wordWrap && styles.toolPressed, !editorAvailable && styles.toolDisabled]}
           label="Word wrap"
-          title="Toggle word wrap"
+          tooltip={wordWrap ? "Turn off word wrap" : "Turn on word wrap"}
           pressed={wordWrap}
           disabled={!editorAvailable}
           onActivate={onToggleWordWrap}
@@ -224,9 +226,18 @@ export default function WorkspaceToolbar(props: Props) {
           <Icon name="wrap" />
         </Control>
         <Control
+          appearance={[styles.toolButton, !editorAvailable && styles.toolDisabled]}
+          label="Reformat code"
+          tooltip="Reformat code indentation. You can undo this change."
+          disabled={!editorAvailable}
+          onActivate={props.onReformat}
+        >
+          <Icon name="format" />
+        </Control>
+        <Control
           appearance={[styles.toolButton, resetDisabled && styles.toolDisabled]}
           label="Reset to starter code"
-          title="Reset to starter code (can be undone in the editor)"
+          tooltip="Reset to starter code. You can undo this change."
           disabled={resetDisabled}
           onActivate={onReset}
         >
@@ -235,7 +246,7 @@ export default function WorkspaceToolbar(props: Props) {
         <span sx={[styles.divider, styles.toolDivider]} />
         <Control
           appearance={[styles.action, styles.runButton, runDisabled && styles.actionDisabled]}
-          title="Run your code against your test inputs"
+          tooltip="Run your code against your test inputs"
           disabled={runDisabled}
           onActivate={onRunTests}
         >
@@ -243,7 +254,7 @@ export default function WorkspaceToolbar(props: Props) {
         </Control>
         <Control
           appearance={[styles.action, styles.submitButton, submitDisabled && styles.actionDisabled]}
-          title="Submit against all of the problem’s tests"
+          tooltip="Submit against all of the problem’s tests"
           disabled={submitDisabled}
           onActivate={onSubmit}
         >

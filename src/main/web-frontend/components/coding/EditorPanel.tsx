@@ -1,7 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
-import CodeEditor from "./CodeEditor";
+import type {Ref} from "react";
+import CodeEditor, {type CodeEditorHandle} from "./CodeEditor";
 
 type EditorPanelProps = {
+  ref?: Ref<CodeEditorHandle>;
   languageKey: string;
   languageName: string;
   source: string;
@@ -40,19 +42,14 @@ const styles = stylex.create({
 });
 
 /** The editor fills its column edge to edge; its tools live in the toolbar and its facts in the status bar. */
-export default function EditorPanel({
-  languageKey,
-  languageName,
-  source,
-  fontSize,
-  wordWrap,
-  onSourceChange,
-  onCursorChange,
-}: EditorPanelProps) {
+export default function EditorPanel(props: EditorPanelProps) {
+  const {ref, languageKey, languageName, source, fontSize, wordWrap, onSourceChange, onCursorChange} = props;
+
   return (
     <div sx={styles.editorPanel} role="region" aria-label={`${languageName} editor`}>
       <div sx={styles.editor}>
         <CodeEditor
+          ref={ref}
           languageKey={languageKey}
           label={`${languageName} code editor`}
           value={source}
@@ -63,7 +60,7 @@ export default function EditorPanel({
         />
       </div>
       <div id="editor-keyboard-help" sx={styles.screenReader}>
-        Tab indents code. Press Escape, then Tab to leave the editor. Use your platform’s undo shortcut to undo edits or a reset.
+        Tab indents code. Press Escape, then Tab to leave the editor. Use your platform’s undo shortcut to undo edits, reformatting, or a reset.
       </div>
     </div>
   );
