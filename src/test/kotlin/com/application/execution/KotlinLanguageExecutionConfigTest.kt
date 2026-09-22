@@ -29,7 +29,10 @@ class KotlinLanguageExecutionConfigTest {
 
     assertEquals(mapOf("Solution.kt" to solution, "TestDriver.kt" to driver), program.sourceFiles)
     assertEquals(
-      listOf("kotlinc", "Solution.kt", "TestDriver.kt", "-include-runtime", "-d", "submission.jar"),
+      listOf(
+        "kotlinc", "@/opt/interview-forge/compiler.args",
+        "Solution.kt", "TestDriver.kt", "-jvm-target", "21", "-include-runtime", "-d", "submission.jar",
+      ),
       program.compileCommand,
     )
   }

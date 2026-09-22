@@ -3,7 +3,7 @@ package com.application.execution
 import org.springframework.stereotype.Component
 
 /**
- * Prepares Kotlin/JVM programs for a runtime providing kotlinc and java on PATH.
+ * Prepares Kotlin/JVM programs for the bundled runtime, including its Jackson libraries.
  * The test driver must define a top-level main in the default package, without @file:JvmName.
  */
 @Component
@@ -21,8 +21,11 @@ class KotlinLanguageExecutionConfig : LanguageExecutionConfig {
 
     compileCommand = listOf(
       "kotlinc",
+      "@/opt/interview-forge/compiler.args",
       "Solution.kt",
       "TestDriver.kt",
+      "-jvm-target",
+      "21",
       "-include-runtime",
       "-d",
       "submission.jar",

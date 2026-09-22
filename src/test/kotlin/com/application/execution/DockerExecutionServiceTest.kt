@@ -83,6 +83,37 @@ class DockerExecutionServiceTest {
   }
 
   @Test
+  fun `drivers use Jackson to read and write Kotlin data classes across multiple cases`() {
+    val driver = """
+      import tools.jackson.module.kotlin.jacksonObjectMapper
+      import tools.jackson.module.kotlin.readValue
+
+      data class Input(val amount: Long, val labels: List<String>, val note: String?, val enabled: Boolean)
+
+      private val mapper = jacksonObjectMapper()
+
+      fun main() {
+        val input = mapper.readValue<Input>(System.`in`.bufferedReader().readText())
+        print(mapper.writeValueAsString(solve(input)))
+      }
+    """.trimIndent()
+    val inputs = listOf(
+      Json.parseToJsonElement("""{"amount":9007199254740993,"labels":["héllo 世界","quote\""],"note":null,"enabled":true}"""),
+      Json.parseToJsonElement("""{"amount":-42,"labels":[],"note":"another case","enabled":false}"""),
+    )
+    val program = KotlinLanguageExecutionConfig().prepare("fun solve(input: Input): Input = input", driver)
+
+    val result = executionService().executeCode("test-123", IMAGE, program, inputs, 2_000, 256)
+    val completed = assertInstanceOf(CodeExecutionResult.Completed::class.java, result, result.toString())
+
+    assertEquals(ProgramStatus.SUCCEEDED, completed.status)
+    assertTrue(completed.caseResults.all { it.status == ProgramStatus.SUCCEEDED }, completed.toString())
+    assertEquals(inputs, completed.caseResults.map { it.outputJson })
+
+    assertExecutionCleanedUp()
+  }
+
+  @Test
   fun `wrong answers do not stop later cases in the same JVM`() {
     val source = """
       var calls = 0

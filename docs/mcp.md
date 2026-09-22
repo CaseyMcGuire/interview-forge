@@ -134,8 +134,25 @@ The default queue allows two active attempts per user and 100 across the applica
 ## Kotlin driver contract
 
 The compiler receives `Solution.kt` (the submitted or reference code) and `TestDriver.kt`
-(the stored driver). Both compile with the Kotlin/JDK standard libraries; additional JSON
-libraries are not on the submission compiler's classpath.
+(the stored driver). Both can use the Kotlin/JDK standard libraries and Jackson 3, including
+its Kotlin module. Use Jackson for JSON parsing and serialization rather than writing a parser.
+Import from `tools.jackson`, for example:
+
+```kotlin
+import tools.jackson.module.kotlin.jacksonObjectMapper
+import tools.jackson.module.kotlin.readValue
+
+private val mapper = jacksonObjectMapper()
+
+fun main() {
+  val input = mapper.readValue<Long>(System.`in`.bufferedReader().readText())
+  print(mapper.writeValueAsString(Solution().echo(input)))
+}
+```
+
+Use typed inputs or `JsonNode` as appropriate; retain integers as `Long` or `BigInteger`
+instead of converting them through `Double`. Rebuild the runtime image after dependency
+changes so its compiler and execution classpaths stay in sync.
 
 The driver defines a top-level `main` in the default package without `@file:JvmName`.
 For each case it reads one JSON value from stdin, calls the solution, and prints exactly

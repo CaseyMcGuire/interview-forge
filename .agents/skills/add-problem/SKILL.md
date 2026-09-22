@@ -27,7 +27,7 @@ For each requested language, prepare:
 - A test driver that parses input, calls that interface, and serializes the result.
 - Execution limits appropriate to the stated constraints.
 
-Use an enabled language with a supported runtime. Kotlin is the current implemented runtime; do not infer runtime support solely from `list_languages`. For Kotlin, follow the guide's driver contract: `Solution.kt` and `TestDriver.kt`, a top-level `main` in the default package, and Kotlin/JDK standard libraries only. The driver reads one JSON value and prints one JSON value per invocation. Use stderr for diagnostics. All cases run in one JVM, so do not assume global state resets between cases.
+Use an enabled language with a supported runtime. Kotlin is the current implemented runtime; do not infer runtime support solely from `list_languages`. For Kotlin, follow the guide's driver contract: `Solution.kt` and `TestDriver.kt`, a top-level `main` in the default package, and the bundled Kotlin/JDK and Jackson 3 libraries (including `jackson-module-kotlin`). Use Jackson from `tools.jackson` for JSON parsing and serialization instead of writing a custom parser. The driver reads one JSON value and prints one JSON value per invocation. Use stderr for diagnostics. All cases run in one JVM, so do not assume global state resets between cases.
 
 Make the expected answer deterministic, including ordering when multiple answers could otherwise be valid. If the problem requires a custom checker, identify that limitation: the current authoring tools do not configure checker source. Do not silently change the problem's correctness rules to fit exact comparison.
 
