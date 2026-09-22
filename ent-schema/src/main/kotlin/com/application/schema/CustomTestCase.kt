@@ -14,16 +14,16 @@ class CustomTestCase : EntSchema("custom_test_cases", clientName = "customTestCa
     .inverse(CustomInputSubmission::cases)
     .onDelete(OnDelete.CASCADE)
 
-  /** Zero-based position in the submitted input list; results refer back to this case. */
   val position by int("position").immutable()
+    .comment("Zero-based position in the submitted input list; results refer back to this case.")
 
   val inputJson by json<JsonElement>("input_json").immutable()
 
-  /** SQL null means unprepared; JSON null is a prepared answer. Save all expectations together. */
   val expectedOutputJson by json<JsonElement>("expected_output_json").nullable()
+    .comment("SQL null means unprepared; JSON null is a prepared answer. Save all expectations together.")
 
   val timestamps = include(::Timestamps)
 
-  val bySubmissionAndPosition =
+  val bySubmissionAndPosition by
     index("uq_custom_test_cases_submission_position", customInputSubmission.fk, position).unique()
 }

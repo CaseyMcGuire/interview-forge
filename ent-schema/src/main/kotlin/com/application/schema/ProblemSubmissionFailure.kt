@@ -10,54 +10,54 @@ class ProblemSubmissionFailure : EntSchema("problem_submission_failures", client
   /** Database-generated identity for the retained failure. */
   override fun id() = EntId.long()
 
-  /** Each submission retains at most one failure; its snapshot cannot move between submissions. */
   val problemSubmission by belongsTo<ProblemSubmission>("problem_submission_id")
     .immutable()
     .unique()
     .inverse(ProblemSubmission::failedTestResult)
     .onDelete(OnDelete.RESTRICT)
+    .comment("Each submission retains at most one failure; its snapshot cannot move between submissions.")
 
-  /** Optional official-test provenance; deletion clears this reference while preserving the snapshot. */
   val testCase by belongsTo<TestCase>("test_case_id")
     .nullable()
     .onDelete(OnDelete.SET_NULL)
+    .comment("Optional official-test provenance; deletion clears this reference while preserving the snapshot.")
 
-  /** Original example/hidden/custom classification; later edits must not expose a formerly hidden case. */
   val source by enum<ProblemSubmissionTestSource>("source").immutable()
+    .comment("Original example/hidden/custom classification; later edits must not expose a formerly hidden case.")
 
-  /** Exact input selected for this run; grading and history must use this snapshot, not the current test. */
   val inputJson by json<JsonElement>("input_json").immutable().sensitive()
+    .comment("Exact input selected for this run; grading and history must use this snapshot, not the current test.")
 
-  /** Snapshotted expectation; SQL null means no custom expectation, while JSON null is an expected value. */
   val expectedOutputJson by json<JsonElement>("expected_output_json")
     .nullable()
     .immutable()
     .sensitive()
+    .comment("Snapshotted expectation; SQL null means no custom expectation, while JSON null is an expected value.")
 
-  /** The worker writes a terminal failure outcome when recording this row. */
   val outcome by enum<ProblemSubmissionTestOutcome>("outcome").default(ProblemSubmissionTestOutcome.PENDING)
+    .comment("The worker writes a terminal failure outcome when recording this row.")
 
-  /** Serialized return value; SQL null means no captured result, while JSON null is a returned value. */
   val actualOutputJson by json<JsonElement>("actual_output_json").nullable().sensitive()
+    .comment("Serialized return value; SQL null means no captured result, while JSON null is a returned value.")
 
-  /** Captured standard output; it can reveal hidden inputs and must follow the case's access restrictions. */
   val stdout by string("stdout").nullable().sensitive()
+    .comment("Captured standard output; it can reveal hidden inputs and must follow the case's access restrictions.")
 
-  /** Captured standard error; potentially contains private test or harness details. */
   val stderr by string("stderr").nullable().sensitive()
+    .comment("Captured standard error; potentially contains private test or harness details.")
 
-  /** Measured execution time for this case in milliseconds; null when it was not measured. */
   val runtimeMs by long("runtime_ms").nullable()
+    .comment("Measured execution time for this case in milliseconds; null when it was not measured.")
 
-  /** Peak measured memory for this case in megabytes; null when it was not measured. */
   val peakMemoryMb by int("peak_memory_mb").nullable()
+    .comment("Peak measured memory for this case in megabytes; null when it was not measured.")
 
-  /** Time the first failed case was retained, after execution. */
   val createdAt by instant("created_at").defaultNow().immutable()
+    .comment("Time the first failed case was retained, after execution.")
 
-  /** Time the outcome, captured output, or execution measurements were last updated. */
   val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
+    .comment("Time the outcome, captured output, or execution measurements were last updated.")
 
   /** Supports provenance lookup and clearing references when an official test is deleted. */
-  val byTestCase = index("idx_problem_submission_failures_test_case", testCase.fk)
+  val byTestCase by index("idx_problem_submission_failures_test_case", testCase.fk)
 }
