@@ -1,0 +1,3 @@
+interface:
+  display_name: "Add Problem"
+  short_description: "Add and verify Interview Forge problems through MCP"
