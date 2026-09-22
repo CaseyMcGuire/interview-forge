@@ -23,8 +23,8 @@ This is a project template I use for creating new web applications. It uses the 
 Install JDK 26. Gradle's checked-in daemon criteria and all modules use Java 26. The Gradle
 wrapper downloads Gradle 9.7.1, and the build downloads Node 26.8.2 and npm 12.0.2 automatically.
 
-EntKt is pinned in `gradle.properties` (`0.1.0-alpha.1`, its latest published release; no stable
-release is available yet). Its artifacts are available from Maven Central.
+EntKt is pinned to `0.1.0-alpha.3` in `gradle.properties`. Until that version is available on
+Maven Central, run `./gradlew publishToMavenLocal` from an EntKt checkout at that version.
 
 The spa-routing 0.3.0 Gradle plugin still needs to be installed in Maven local. From a
 spa-routing checkout at version `0.3.0`, run `./gradlew publishToMavenLocal`.

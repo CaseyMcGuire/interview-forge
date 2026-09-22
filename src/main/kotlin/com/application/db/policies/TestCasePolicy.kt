@@ -7,9 +7,7 @@ import com.application.db.policies.rules.AllowIfAdminDeleteRule
 import com.application.db.policies.rules.AllowIfExecutionRule
 import com.application.db.validation.TestCaseContentValidationRule
 import com.application.ent.TestCase
-import com.application.ent.TestCaseLoadBatchPrivacyRule
 import com.application.ent.TestCasePolicyScope
-import com.application.ent.TestCasePrivacyScope
 import entkt.runtime.privacy.EntityPolicy
 import org.springframework.stereotype.Component
 
@@ -33,9 +31,4 @@ class TestCasePolicy(
       updateDerivesFromCreate()
     }
   }
-}
-
-// EntKt's batch-rule overload currently accepts one rule at a time.
-private fun TestCasePrivacyScope.load(vararg rules: TestCaseLoadBatchPrivacyRule) {
-  rules.forEach { rule -> load(rule) }
 }

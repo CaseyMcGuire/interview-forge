@@ -10,18 +10,18 @@ class ProblemSubmission : EntSchema("problem_submissions", clientName = "problem
   override fun id() = EntId.long()
 
   /** Fixed owner of this retained attempt; future writes must derive it from the authenticated user. */
-  val user by belongsTo<User>("user")
+  val user by belongsTo<User>("user_id")
     .immutable()
     .onDelete(OnDelete.RESTRICT)
 
   /** Fixed problem for history filtering; must match the selected problem-language configuration. */
-  val problem by belongsTo<Problem>("problem")
+  val problem by belongsTo<Problem>("problem_id")
     .immutable()
     .inverse(Problem::problemSubmissions)
     .onDelete(OnDelete.RESTRICT)
 
   /** Fixed language configuration; its current harness and stencil may differ from those used here. */
-  val problemLanguage by belongsTo<ProblemLanguage>("problem_language")
+  val problemLanguage by belongsTo<ProblemLanguage>("problem_language_id")
     .immutable()
     .inverse(ProblemLanguage::problemSubmissions)
     .onDelete(OnDelete.RESTRICT)
@@ -38,10 +38,10 @@ class ProblemSubmission : EntSchema("problem_submissions", clientName = "problem
   val peakMemoryMb by int("peak_memory_mb").nullable()
 
   /** The first failed case, when known; hidden-case details remain private to execution. */
-  val failedTestResult by hasOne<ProblemSubmissionFailure>("failed_test_result")
+  val failedTestResult by hasOne<ProblemSubmissionFailure>()
 
   /** Present while the submitted source is waiting for grading or being graded. */
-  val gradingJob by hasOne<GradingJob>("grading_job")
+  val gradingJob by hasOne<GradingJob>()
 
   val timestamps = include(::Timestamps)
 

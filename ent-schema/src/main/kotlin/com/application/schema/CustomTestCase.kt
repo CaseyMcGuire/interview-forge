@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonElement
 class CustomTestCase : EntSchema("custom_test_cases", clientName = "customTestCases") {
   override fun id() = EntId.long()
 
-  val customInputSubmission by belongsTo<CustomInputSubmission>("custom_input_submission")
+  val customInputSubmission by belongsTo<CustomInputSubmission>("custom_input_submission_id")
     .immutable()
     .inverse(CustomInputSubmission::cases)
     .onDelete(OnDelete.CASCADE)

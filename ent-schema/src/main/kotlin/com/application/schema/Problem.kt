@@ -26,7 +26,7 @@ class Problem : EntSchema("problems", clientName = "problems") {
     .default(ProblemCheckerKind.EXACT_JSON)
 
   /** Original author of the shared catalog entry; attribution stays fixed while the problem exists. */
-  val createdByUser by belongsTo<User>("created_by_user")
+  val createdByUser by belongsTo<User>("created_by_user_id")
     .immutable()
     .onDelete(OnDelete.RESTRICT)
 
@@ -37,13 +37,13 @@ class Problem : EntSchema("problems", clientName = "problems") {
   val archivedAt by instant("archived_at").nullable()
 
   /** Starter-code configurations available for this problem's supported languages. */
-  val languageConfigurations by hasMany<ProblemLanguage>("language_configurations")
+  val languageConfigurations by hasMany<ProblemLanguage>()
 
   /** Official examples and hidden grading cases, shared across languages. */
-  val testCases by hasMany<TestCase>("test_cases")
+  val testCases by hasMany<TestCase>()
 
   /** Attempts by all users; future access policies must filter this history by the viewer. */
-  val problemSubmissions by hasMany<ProblemSubmission>("problem_submissions")
+  val problemSubmissions by hasMany<ProblemSubmission>()
 
   /** Time the catalog entry was created. */
   val createdAt by instant("created_at").defaultNow().immutable()

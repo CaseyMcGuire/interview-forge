@@ -10,17 +10,17 @@ class CustomInputSubmission : EntSchema("custom_input_submissions", clientName =
   override fun id() = EntId.long()
 
   /** Derived from the authenticated user when the run is created. */
-  val user by belongsTo<User>("user")
+  val user by belongsTo<User>("user_id")
     .immutable()
     .onDelete(OnDelete.RESTRICT)
 
   /** Determines the problem and language for reference preparation and grading. */
-  val problemLanguage by belongsTo<ProblemLanguage>("problem_language")
+  val problemLanguage by belongsTo<ProblemLanguage>("problem_language_id")
     .immutable()
     .inverse(ProblemLanguage::customInputSubmissions)
     .onDelete(OnDelete.RESTRICT)
 
-  val cases by hasMany<CustomTestCase>("cases")
+  val cases by hasMany<CustomTestCase>()
 
   /** Cleanup may delete the run and its cases after this time, once execution finishes. */
   val expiresAt by instant("expires_at").immutable()
@@ -37,7 +37,7 @@ class CustomInputSubmission : EntSchema("custom_input_submissions", clientName =
   val caseResults by json<JsonArray>("case_results").nullable()
 
   /** Created after reference outputs are prepared; removed when the result is saved. */
-  val gradingJob by hasOne<GradingJob>("grading_job")
+  val gradingJob by hasOne<GradingJob>()
 
   val timestamps = include(::Timestamps)
 

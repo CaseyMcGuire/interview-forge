@@ -18,7 +18,7 @@ class Language : EntSchema("languages", clientName = "languages") {
   val enabled by bool("enabled").default(true)
 
   /** Problems that provide starter code for this language. */
-  val problemConfigurations by hasMany<ProblemLanguage>("problem_configurations")
+  val problemConfigurations by hasMany<ProblemLanguage>()
 
   /** Time the language was added to the catalog. */
   val createdAt by instant("created_at").defaultNow().immutable()

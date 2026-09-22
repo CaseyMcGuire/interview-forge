@@ -10,7 +10,7 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   override fun id() = EntId.long()
 
   /** Fixed problem/language pair this configuration judges; each pair has at most one configuration. */
-  val problemLanguage by belongsTo<ProblemLanguage>("problem_language")
+  val problemLanguage by belongsTo<ProblemLanguage>("problem_language_id")
     .immutable()
     .unique()
     .inverse(ProblemLanguage::judgeConfiguration)

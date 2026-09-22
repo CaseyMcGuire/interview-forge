@@ -10,13 +10,13 @@ class ProblemLanguage : EntSchema("problem_languages", clientName = "problemLang
   override fun id() = EntId.long()
 
   /** Problem for which this language is supported; a configuration cannot be moved to another problem. */
-  val problem by belongsTo<Problem>("problem")
+  val problem by belongsTo<Problem>("problem_id")
     .immutable()
     .inverse(Problem::languageConfigurations)
     .onDelete(OnDelete.RESTRICT)
 
   /** Fixed language for the starter code and submissions; its runtime comes from application config. */
-  val language by belongsTo<Language>("language")
+  val language by belongsTo<Language>("language_id")
     .immutable()
     .inverse(Language::problemConfigurations)
     .onDelete(OnDelete.RESTRICT)
@@ -25,13 +25,13 @@ class ProblemLanguage : EntSchema("problem_languages", clientName = "problemLang
   val starterCode by string("starter_code")
 
   /** Optional during authoring; a usable language configuration must eventually have a private judge. */
-  val judgeConfiguration by hasOne<JudgeConfiguration>("judge_configuration")
+  val judgeConfiguration by hasOne<JudgeConfiguration>()
 
   /** All attempts using this configuration; each attempt retains its own submitted source. */
-  val problemSubmissions by hasMany<ProblemSubmission>("problem_submissions")
+  val problemSubmissions by hasMany<ProblemSubmission>()
 
   /** Custom attempts and their user-supplied inputs, retained until expiration cleanup. */
-  val customInputSubmissions by hasMany<CustomInputSubmission>("custom_input_submissions")
+  val customInputSubmissions by hasMany<CustomInputSubmission>()
 
   /** Time this language was added to the problem. */
   val createdAt by instant("created_at").defaultNow().immutable()

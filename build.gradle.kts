@@ -78,7 +78,7 @@ springBoot {
 
 repositories {
   mavenCentral()
-  // Also allow locally published spa-routing artifacts
+  // Also allow locally published EntKt and spa-routing artifacts.
   mavenLocal()
 }
 

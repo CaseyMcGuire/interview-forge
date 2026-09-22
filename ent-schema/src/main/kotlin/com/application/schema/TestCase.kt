@@ -11,7 +11,7 @@ class TestCase : EntSchema("test_cases", clientName = "testCases") {
   override fun id() = EntId.long()
 
   /** Fixed problem whose input contract and checking rules this official test follows. */
-  val problem by belongsTo<Problem>("problem")
+  val problem by belongsTo<Problem>("problem_id")
     .immutable()
     .inverse(Problem::testCases)
     .onDelete(OnDelete.RESTRICT)

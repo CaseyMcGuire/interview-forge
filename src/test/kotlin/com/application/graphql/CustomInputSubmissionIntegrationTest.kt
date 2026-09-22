@@ -240,12 +240,11 @@ class CustomInputSubmissionIntegrationTest {
     assertEquals("ExecutionUnavailable", enqueueCustomInputSubmission()["__typename"].asString())
     runtime.available = true
 
-    for (reference in listOf(null, "   ")) {
-      entClient.judgeConfigurations.update(judgeId) {
-        referenceSolutionCode = reference
-      }.save(fixtures).getOrThrow()
-      assertEquals("ExecutionUnavailable", enqueueCustomInputSubmission()["__typename"].asString())
-    }
+    // Missing references are stored as null; blank code is rejected when saving judge settings.
+    entClient.judgeConfigurations.update(judgeId) {
+      referenceSolutionCode = null
+    }.save(fixtures).getOrThrow()
+    assertEquals("ExecutionUnavailable", enqueueCustomInputSubmission()["__typename"].asString())
 
     entClient.problems.update(problem.id) { archivedAt = Instant.now() }.save(fixtures).getOrThrow()
     assertEquals("ProblemNotFound", enqueueCustomInputSubmission()["__typename"].asString())

@@ -11,14 +11,14 @@ class ProblemSubmissionFailure : EntSchema("problem_submission_failures", client
   override fun id() = EntId.long()
 
   /** Each submission retains at most one failure; its snapshot cannot move between submissions. */
-  val problemSubmission by belongsTo<ProblemSubmission>("problem_submission")
+  val problemSubmission by belongsTo<ProblemSubmission>("problem_submission_id")
     .immutable()
     .unique()
     .inverse(ProblemSubmission::failedTestResult)
     .onDelete(OnDelete.RESTRICT)
 
   /** Optional official-test provenance; deletion clears this reference while preserving the snapshot. */
-  val testCase by belongsTo<TestCase>("test_case")
+  val testCase by belongsTo<TestCase>("test_case_id")
     .nullable()
     .onDelete(OnDelete.SET_NULL)
 

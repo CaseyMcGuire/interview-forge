@@ -9,14 +9,14 @@ class GradingJob : EntSchema("grading_jobs", clientName = "gradingJobs") {
   override fun id() = EntId.long()
 
   /** Exactly one of problemSubmission and customInputSubmission identifies the result destination. */
-  val problemSubmission by belongsTo<ProblemSubmission>("problem_submission")
+  val problemSubmission by belongsTo<ProblemSubmission>("problem_submission_id")
     .nullable()
     .immutable()
     .unique()
     .inverse(ProblemSubmission::gradingJob)
     .onDelete(OnDelete.CASCADE)
 
-  val customInputSubmission by belongsTo<CustomInputSubmission>("custom_input_submission")
+  val customInputSubmission by belongsTo<CustomInputSubmission>("custom_input_submission_id")
     .nullable()
     .immutable()
     .unique()
@@ -24,7 +24,7 @@ class GradingJob : EntSchema("grading_jobs", clientName = "gradingJobs") {
     .onDelete(OnDelete.CASCADE)
 
   /** Selects the language and current judge configuration; the runtime stays in application config. */
-  val problemLanguage by belongsTo<ProblemLanguage>("problem_language")
+  val problemLanguage by belongsTo<ProblemLanguage>("problem_language_id")
     .immutable()
     .onDelete(OnDelete.RESTRICT)
 

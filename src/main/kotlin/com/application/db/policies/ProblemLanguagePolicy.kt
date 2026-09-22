@@ -27,7 +27,7 @@ class ProblemLanguagePolicy(
 
     validation {
       create(contentValidationRule, EnabledProblemLanguageValidationRule())
-      update({ context, item ->
+      update(ProblemLanguageUpdateValidationRule { context, item ->
         contentValidationRule.validate(context, item.candidate)
       })
     }
