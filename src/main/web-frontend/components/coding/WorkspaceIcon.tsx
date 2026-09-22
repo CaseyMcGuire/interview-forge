@@ -18,6 +18,7 @@ const iconPaths = {
   reset: <><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></>,
   check: <polyline points="20 6 9 17 4 12" />,
   close: <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>,
+  edit: <><path d="m16 3 5 5-12 12-6 1 1-6Z" /><line x1="13" y1="6" x2="18" y2="11" /></>,
   passed: <><circle cx="12" cy="12" r="10" /><polyline points="16 9 10.5 15 8 12.5" /></>,
   failed: <>
     <circle cx="12" cy="12" r="10" />

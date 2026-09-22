@@ -12,8 +12,8 @@ type Props = {
   removeDisabled: boolean;
   fieldError?: string;
   descriptionId: string;
-  onInputChange: (inputJson: string) => void;
   onOpenChange: (open: boolean) => void;
+  onEdit: () => void;
   onRemove: () => void;
 };
 
@@ -26,10 +26,7 @@ const monospace = '"SFMono-Regular", Consolas, monospace';
 const styles = stylex.create({
   row: {
     display: "flex",
-    alignItems: "center",
-    gap: 12,
-    minHeight: 40,
-    padding: "0 8px 0 16px",
+    flexDirection: "column",
     borderTopWidth: {
       default: 1,
       ":first-child": 0
@@ -38,34 +35,22 @@ const styles = stylex.create({
     borderTopColor: "#2a2b2f"
   },
   rowOpen: {
-    flexDirection: "column",
-    alignItems: "stretch",
-    gap: 0,
-    padding: 0,
     backgroundColor: "#222327"
   },
   rowMain: {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    minHeight: 44,
-    padding: "6px 8px 6px 16px"
+    minHeight: 40,
+    padding: "0 8px 0 16px"
   },
-  rowButton: {
+  summary: {
     display: "flex",
     alignItems: "center",
     gap: 12,
     flexGrow: 1,
     minWidth: 0,
-    minHeight: 40,
-    borderRadius: 4,
-    color: "inherit",
-    cursor: "pointer",
-    outline: {
-      default: "none",
-      ":focus-visible": "2px solid #3574f0"
-    },
-    outlineOffset: -2
+    minHeight: 40
   },
   iconButton: {
     display: "grid",
@@ -85,6 +70,11 @@ const styles = stylex.create({
       ":focus-visible": "2px solid #3574f0"
     },
     outlineOffset: 1
+  },
+  actions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 2
   },
   removeButton: {
     color: {
@@ -145,33 +135,6 @@ const styles = stylex.create({
   resultFailed: {
     fontWeight: 600,
     color: "#f2a6a6"
-  },
-  field: {
-    flexGrow: 1,
-    minWidth: 0,
-    boxSizing: "border-box",
-    margin: 0,
-    padding: "4px 10px",
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: {
-      default: "#4e5157",
-      ":focus": "#3574f0"
-    },
-    borderRadius: 5,
-    backgroundColor: "#16171a",
-    fontFamily: monospace,
-    fontSize: 13,
-    lineHeight: "18px",
-    color: "#dfe1e5",
-    resize: "none",
-    outline: "none"
-  },
-  fieldInvalid: {
-    borderColor: {
-      default: "#f2a6a6",
-      ":focus": "#f2a6a6"
-    }
   },
   details: {
     display: "grid",
@@ -238,73 +201,58 @@ function TestCaseOutcome(props: OutcomeProps) {
 
 export default function TestCaseRow(props: Props) {
   const {row, open, disabled, removeDisabled, fieldError} = props;
-  const fieldId = useId();
-  const errorId = `${fieldId}-error`;
+  const errorId = useId();
   const number = row.index + 1;
-  const removeControl = (
-    <Control
-      appearance={[styles.iconButton, styles.removeButton, removeDisabled && styles.disabled]}
-      label={`Remove test ${number}`}
-      disabled={removeDisabled}
-      onActivate={props.onRemove}
-    >
-      <Icon name="close" size={14} />
-    </Control>
-  );
+  const {result} = row;
+  // Serialized values render verbatim: parsing them would hide 1 versus 1.0 and round large integers.
+  const showValues = open && result !== null && result.outcome !== "NOT_RUN";
+  const hasDetails = result !== null && (result.outcome !== "NOT_RUN" || Boolean(result.publicErrorMessage));
+  const showDetails = showValues || (open && Boolean(result?.publicErrorMessage));
 
-  if (!open) {
-    return (
-      <div sx={styles.row}>
-        <TestStatusDot tone={row.tone} />
-        <Control appearance={styles.rowButton} expanded={false} onActivate={() => props.onOpenChange(true)}>
+  return (
+    <div sx={[styles.row, (showDetails || Boolean(fieldError)) && styles.rowOpen]}>
+      <div sx={styles.rowMain}>
+        <div sx={styles.summary}>
+          <TestStatusDot tone={row.tone} />
           <span sx={styles.caseLabel}>Test {number}</span>
           <span sx={[styles.inputText, row.draft.inputJson.length === 0 && styles.inputEmpty]}>
             {row.draft.inputJson.length > 0 ? row.draft.inputJson : "Empty input"}
           </span>
           <TestCaseOutcome row={row} />
-        </Control>
-        {removeControl}
-      </div>
-    );
-  }
-
-  const lineCount = row.draft.inputJson.split("\n").length;
-  const {result} = row;
-  // Serialized values render verbatim: parsing them would hide 1 versus 1.0 and round large integers.
-  const showValues = result !== null && result.outcome !== "NOT_RUN";
-
-  return (
-    <div sx={[styles.row, styles.rowOpen]}>
-      <div sx={styles.rowMain}>
-        <TestStatusDot tone={row.tone} />
-        <label htmlFor={fieldId} sx={styles.caseLabel}>Test {number}</label>
-        <textarea
-          id={fieldId}
-          sx={[styles.field, Boolean(fieldError) && styles.fieldInvalid, disabled && styles.disabled]}
-          value={row.draft.inputJson}
-          onChange={event => props.onInputChange(event.target.value)}
-          disabled={disabled}
-          rows={Math.min(8, Math.max(1, lineCount))}
-          placeholder="JSON input"
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          aria-invalid={Boolean(fieldError)}
-          aria-describedby={fieldError ? errorId : props.descriptionId}
-        />
-        <TestCaseOutcome row={row} />
-        <Control
-          appearance={styles.iconButton}
-          label={`Collapse test ${number}`}
-          expanded
-          onActivate={() => props.onOpenChange(false)}
-        >
-          <Icon name="chevronUp" />
-        </Control>
-        {removeControl}
+        </div>
+        {hasDetails && (
+          <Control
+            appearance={styles.iconButton}
+            label={`${open ? "Collapse" : "Show"} test ${number} results`}
+            expanded={open}
+            onActivate={() => props.onOpenChange(!open)}
+          >
+            <Icon name={open ? "chevronUp" : "chevronDown"} />
+          </Control>
+        )}
+        <div sx={styles.actions}>
+          <Control
+            appearance={[styles.iconButton, disabled && styles.disabled]}
+            label={`Edit test ${number} input`}
+            description={fieldError ? errorId : props.descriptionId}
+            title="Edit formatted input"
+            disabled={disabled}
+            onActivate={props.onEdit}
+          >
+            <Icon name="edit" size={14} />
+          </Control>
+          <Control
+            appearance={[styles.iconButton, styles.removeButton, removeDisabled && styles.disabled]}
+            label={`Remove test ${number}`}
+            disabled={removeDisabled}
+            onActivate={props.onRemove}
+          >
+            <Icon name="close" size={14} />
+          </Control>
+        </div>
       </div>
       {fieldError && <div id={errorId} role="alert" sx={styles.detailError}>{fieldError}</div>}
-      {result?.publicErrorMessage && <div sx={styles.detailError}>{result.publicErrorMessage}</div>}
+      {open && result?.publicErrorMessage && <div sx={styles.detailError}>{result.publicErrorMessage}</div>}
       {showValues && (
         <dl sx={styles.details}>
           <dt sx={styles.detailLabel}>Expected</dt>

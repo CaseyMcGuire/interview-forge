@@ -5,6 +5,7 @@ import type {TestPanel_submission$key} from "__generated__/TestPanel_submission.
 import {AppRoutes} from "routes/AppRoutes";
 import AddTestButton from "./AddTestButton";
 import TestCaseRow from "./TestCaseRow";
+import TestInputDialog from "./TestInputDialog";
 import TestPanelHeader, {type SubmissionChip, type WorkspacePanel} from "./TestPanelHeader";
 import {createTestCaseRow, type CustomInputDraft, type TestCaseRowData} from "./testCaseRows";
 import Control from "./WorkspaceControl";
@@ -152,6 +153,9 @@ export default function TestPanel(props: Props) {
   const bodyId = `${id}-body`;
   const descriptionId = `${id}-description`;
   const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
+  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
+  const editingCaseIndex = cases.findIndex(testCase => testCase.id === editingCaseId);
+  const editingCase = cases[editingCaseIndex];
   const isPending = submission?.status === "QUEUED" || submission?.status === "RUNNING";
   const results = submission?.status === "FINISHED" ? submission.caseResults ?? null : null;
   const rows = cases.map((draft, index) => createTestCaseRow(draft, index, results, isPending));
@@ -173,12 +177,10 @@ export default function TestPanel(props: Props) {
 
     const caseId = crypto.randomUUID();
     onCasesChange([...cases, {id: caseId, inputJson: ""}]);
-    setOpen(caseId, true);
+    setEditingCaseId(caseId);
   }
 
   function updateCase(caseId: string, inputJson: string) {
-    // Editing detaches the old result, so keep the row open rather than letting it snap shut.
-    setOpen(caseId, true);
     onCasesChange(cases.map(testCase => testCase.id === caseId ? {...testCase, inputJson} : testCase));
   }
 
@@ -247,8 +249,8 @@ export default function TestPanel(props: Props) {
                     removeDisabled={removeDisabled}
                     fieldError={errors[row.draft.id]}
                     descriptionId={descriptionId}
-                    onInputChange={inputJson => updateCase(row.draft.id, inputJson)}
                     onOpenChange={open => setOpen(row.draft.id, open)}
+                    onEdit={() => setEditingCaseId(row.draft.id)}
                     onRemove={() => removeCase(row.draft.id)}
                   />
                 ))}
@@ -264,6 +266,16 @@ export default function TestPanel(props: Props) {
             </>
           )}
         </div>
+      )}
+      {editingCase && (
+        <TestInputDialog
+          key={editingCase.id}
+          testNumber={editingCaseIndex + 1}
+          inputJson={editingCase.inputJson}
+          disabled={disabled}
+          onSave={inputJson => updateCase(editingCase.id, inputJson)}
+          onClose={() => setEditingCaseId(null)}
+        />
       )}
     </section>
   );
