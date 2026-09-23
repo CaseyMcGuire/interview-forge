@@ -10,7 +10,7 @@ pluginManagement {
   }
 }
 
-rootProject.name = "application"
+rootProject.name = "interview-forge"
 
 // Single source of truth for SPA route definitions (see AGENTS.md)
 include("spa-route-definitions")
