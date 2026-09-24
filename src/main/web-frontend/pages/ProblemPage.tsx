@@ -40,6 +40,10 @@ export default function ProblemPage() {
         statementMarkdown
         difficulty
         canEdit
+        tags {
+          id
+          displayName
+        }
         languageConfigurations {
           id
           starterCode

@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import ProblemDifficultyBadge from "components/problems/ProblemDifficultyBadge";
+import ProblemTags from "components/problems/ProblemTags";
 import type {CodingProblem} from "./codingProblemTypes";
 import {formatTestCaseJson} from "./formatTestCaseJson";
 import ProblemMarkdown from "./ProblemMarkdown";
@@ -126,6 +127,7 @@ export default function ProblemPanel({problem}: ProblemPanelProps) {
         <div role="heading" aria-level={1} id="problem-title" sx={styles.title}>{problem.title}</div>
         <div sx={styles.badges}>
           <ProblemDifficultyBadge difficulty={problem.difficulty} />
+          <ProblemTags tags={problem.tags} />
         </div>
         <ProblemMarkdown>{problem.statementMarkdown}</ProblemMarkdown>
 

@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<d0fe2ac7d881829ac0a239f16c7cb023>>
+ * @generated SignedSource<<ed9d08193f3389af0236cbcf74c648c9>>
  * @lightSyntaxTransform
  */
 
@@ -35,6 +35,10 @@ export type ProblemPageQuery$data = {
     }>;
     readonly slug: string;
     readonly statementMarkdown: string;
+    readonly tags: ReadonlyArray<{
+      readonly displayName: string;
+      readonly id: string;
+    }>;
     readonly title: string;
   } | null | undefined;
 };
@@ -58,7 +62,14 @@ v1 = {
   "name": "id",
   "storageKey": null
 },
-v2 = [
+v2 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "displayName",
+  "storageKey": null
+},
+v3 = [
   {
     "alias": null,
     "args": [
@@ -112,6 +123,19 @@ v2 = [
       {
         "alias": null,
         "args": null,
+        "concreteType": "Tag",
+        "kind": "LinkedField",
+        "name": "tags",
+        "plural": true,
+        "selections": [
+          (v1/*:: as any*/),
+          (v2/*:: as any*/)
+        ],
+        "storageKey": null
+      },
+      {
+        "alias": null,
+        "args": null,
         "concreteType": "ProblemLanguage",
         "kind": "LinkedField",
         "name": "languageConfigurations",
@@ -141,13 +165,7 @@ v2 = [
                 "name": "key",
                 "storageKey": null
               },
-              {
-                "alias": null,
-                "args": null,
-                "kind": "ScalarField",
-                "name": "displayName",
-                "storageKey": null
-              }
+              (v2/*:: as any*/)
             ],
             "storageKey": null
           }
@@ -206,7 +224,7 @@ return {
       "throwOnFieldError": true
     },
     "name": "ProblemPageQuery",
-    "selections": (v2/*:: as any*/),
+    "selections": (v3/*:: as any*/),
     "type": "Query",
     "abstractKey": null
   },
@@ -215,19 +233,19 @@ return {
     "argumentDefinitions": (v0/*:: as any*/),
     "kind": "Operation",
     "name": "ProblemPageQuery",
-    "selections": (v2/*:: as any*/)
+    "selections": (v3/*:: as any*/)
   },
   "params": {
-    "cacheID": "8a0ff2de3ec0f1f796f569044f2da751",
+    "cacheID": "1dc636b60c099bdcfde6d3ed0a374ac7",
     "id": null,
     "metadata": {},
     "name": "ProblemPageQuery",
     "operationKind": "query",
-    "text": "query ProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    statementMarkdown\n    difficulty\n    canEdit\n    languageConfigurations {\n      id\n      starterCode\n      language {\n        id\n        key\n        displayName\n      }\n    }\n    examples {\n      id\n      position\n      inputJson\n      expectedOutputJson\n      explanationMarkdown\n    }\n  }\n}\n"
+    "text": "query ProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    statementMarkdown\n    difficulty\n    canEdit\n    tags {\n      id\n      displayName\n    }\n    languageConfigurations {\n      id\n      starterCode\n      language {\n        id\n        key\n        displayName\n      }\n    }\n    examples {\n      id\n      position\n      inputJson\n      expectedOutputJson\n      explanationMarkdown\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "6f8c9aaa366fb57dc2cd932d8c0f1e69";
+(node as any).hash = "3e298f74854b830c4dd40dc4833f7473";
 
 export default node;
