@@ -25,6 +25,7 @@ import com.application.graphql.types.ProblemDifficulty
 import com.application.graphql.types.ProblemExample
 import com.application.graphql.types.ProblemLanguage
 import com.application.graphql.types.ProblemTestCase
+import com.application.graphql.types.Tag
 import com.application.graphql.types.ProblemConnection
 import com.application.graphql.types.ProblemEdge
 import com.application.graphql.types.ProblemFilterInput
@@ -99,6 +100,7 @@ class ProblemDataFetcher(
         examples = input.examples.map {
           CreateProblemTestCase(it.inputJson, it.expectedOutputJson, it.explanationMarkdown)
         },
+        tagIds = decodeTagIds(input.tagIds),
       ))
     } catch (exception: EntValidationException) {
       throw DgsBadRequestException(exception.violations.joinToString("; ") { it.message })
@@ -190,6 +192,7 @@ class ProblemDataFetcher(
       title = input.title,
       statementMarkdown = input.statementMarkdown,
       difficulty = input.difficulty?.let { SchemaProblemDifficulty.valueOf(it.name) },
+      tagIds = input.tagIds?.let(::decodeTagIds),
     ))
 
     if (problem == null) {
@@ -425,6 +428,10 @@ class ProblemDataFetcher(
     globalIdUtil.fromGlobalIdOrNull(value, type)
       ?: throw ProblemInputException(field, "Provide a valid ${type.simpleName} ID")
 
+  private fun decodeTagIds(ids: List<String>): List<Long> = ids.mapIndexed { index, id ->
+    problemContentId(id, Tag::class, "tagIds[$index]")
+  }
+
   private fun contentNotFound() =
     ProblemNotFound("The requested content does not exist or is unavailable")
 
@@ -452,8 +459,7 @@ class ProblemDataFetcher(
         .map(::toGraphqlProblemLanguage)
         .sortedBy { it.language.key },
       examples = problem.edges.testCases.requireLoaded().map(::toGraphqlProblemExample),
-      // Populated when tag queries and assignment are implemented in the backend stage.
-      tags = emptyList(),
+      tags = problem.edges.tags.requireLoaded().map { it.toGraphqlTag(globalIdUtil) },
     )
 
   private fun toGraphqlProblemLanguage(configuration: ProblemLanguageEntity): ProblemLanguage {

@@ -10,6 +10,7 @@ data class CreateProblem(
   val languageConfigurations: List<CreateProblemLanguage>,
   val examples: List<CreateProblemTestCase>,
   val testCases: List<CreateProblemTestCase> = emptyList(),
+  val tagIds: List<Long> = emptyList(),
 )
 
 data class CreateProblemLanguage(

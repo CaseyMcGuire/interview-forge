@@ -9,6 +9,7 @@ import com.application.ent.ProblemLanguage
 import com.application.ent.ProblemQuery
 import com.application.ent.ProblemQueryScope
 import com.application.ent.TestCase
+import com.application.ent.Tag
 import com.application.schema.TestCaseVisibility
 import com.application.schema.ProblemDifficulty
 import com.application.schema.UserRole
@@ -59,6 +60,7 @@ class ProblemService(
       entClient.withTransaction { tx ->
         val languageKeys = input.languageConfigurations.map { it.languageKey }
         val languages = loadEnabledLanguages(tx, languageKeys, context)
+        validateTagAssignments(tx, input.tagIds, context)
 
         val problem = tx.problems.create {
           slug = input.slug.trim()
@@ -68,6 +70,12 @@ class ProblemService(
           createdByUserId = author.id
           publishedAt = Instant.now()
         }.saveAndLoad(context).getOrThrow()
+
+        if (input.tagIds.isNotEmpty()) {
+          tx.problems.update(problem.id) {
+            tags.set(input.tagIds)
+          }.save(context).getOrThrow()
+        }
 
         input.languageConfigurations.forEach { configuration ->
           val language = languages.getValue(configuration.languageKey)
@@ -222,14 +230,34 @@ class ProblemService(
     val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
     return entClient.withTransaction { tx ->
+      input.tagIds?.let { validateTagAssignments(tx, it, context) }
+
       tx.problems.update(input.id) {
         input.title?.let { title = it.trim() }
         input.statementMarkdown?.let { statementMarkdown = it }
         input.difficulty?.let { difficulty = it }
+        input.tagIds?.let { tags.set(it) }
       }.save(context).getOrThrow()
 
       tx.loadProblemContent(input.id, context)
     }.getOrThrow()
+  }
+
+  private fun validateTagAssignments(tx: EntTransactionClient, tagIds: List<Long>, context: ViewerContext) {
+    if (tagIds.isEmpty()) {
+      return
+    }
+
+    val uniqueIds = tagIds.distinct()
+    // Keep selected tags from being deleted before their links are saved; lock in a consistent order.
+    val tags = tx.tags.query {
+      where(Tag.id `in` uniqueIds)
+      orderBy(Tag.id.asc())
+    }.forUpdate().all(context).getOrThrow()
+
+    if (tags.size != uniqueIds.size) {
+      throw ProblemInputException("tagIds", "Every tag must exist")
+    }
   }
 
   fun createProblemHiddenTestCase(input: CreateProblemHiddenTestCase): Problem? {
@@ -570,6 +598,10 @@ class ProblemService(
   }
 
   private fun ProblemQueryScope.loadPublicContent() {
+    loadTags {
+      orderBy(Tag.displayName.asc())
+      orderBy(Tag.slug.asc())
+    }
     loadLanguageConfigurations {
       where(ProblemLanguage.language.has { where(Language.enabled eq true) })
       loadLanguage()

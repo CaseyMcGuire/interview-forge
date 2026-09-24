@@ -7,6 +7,7 @@ data class UpdateProblem(
   val title: String? = null,
   val statementMarkdown: String? = null,
   val difficulty: ProblemDifficulty? = null,
+  val tagIds: List<Long>? = null,
 )
 
 data class UpdateProblemLanguage(
