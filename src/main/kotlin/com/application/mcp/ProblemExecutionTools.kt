@@ -2,7 +2,7 @@ package com.application.mcp
 
 import com.application.ent.ProblemLanguage
 import com.application.ent.ProblemSubmission
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import com.application.services.ProblemInputException
 import com.application.services.ProblemService
 import com.application.services.ProblemSubmissionService
@@ -21,7 +21,7 @@ class ProblemExecutionTools(
   private val problemService: ProblemService,
   private val expectedOutputService: TestCaseExpectedOutputService,
   private val submissionService: ProblemSubmissionService,
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
   private val results: McpToolResults,
 ) {
   @McpTool(
@@ -37,7 +37,7 @@ class ProblemExecutionTools(
     @McpToolParam(description = "Serialized JSON input, at most 20,000 characters when compactly serialized.")
     inputJson: String,
   ): CallToolResult = results.withValidationErrors {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
     val configuration = requireLanguageConfiguration(slug, languageKey)
 
     when (val outcome = expectedOutputService.generateExpectedOutput(configuration.id, inputJson)) {
@@ -67,7 +67,7 @@ class ProblemExecutionTools(
     @McpToolParam(required = false, description = "Solution source code; omit to use the stored reference solution.")
     sourceCode: String?,
   ): CallToolResult = results.withValidationErrors {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
     val configuration = requireLanguageConfiguration(slug, languageKey)
     val source = sourceCode ?: problemService.findJudgeConfiguration(configuration.id)?.referenceSolutionCode
       ?: throw ProblemInputException("sourceCode", "Configure a reference solution or supply sourceCode")
@@ -95,7 +95,7 @@ class ProblemExecutionTools(
     @McpToolParam(description = "The decimal submission ID returned by enqueue_problem_submission.")
     submissionId: String,
   ): ProblemSubmissionLookupResult {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
     val id = submissionId.toLongOrNull()?.takeIf { it > 0 } ?: return ProblemSubmissionLookupResult(null)
     val submission = submissionService.findProblemSubmissionForCurrentUser(id)
       ?: return ProblemSubmissionLookupResult(null)

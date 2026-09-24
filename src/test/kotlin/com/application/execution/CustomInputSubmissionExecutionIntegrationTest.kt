@@ -4,7 +4,7 @@ import com.application.config.ExecutionProperties
 import com.application.db.policies.GradingJobPolicy
 import com.application.db.policies.CustomTestCasePolicy
 import com.application.db.policies.CustomInputSubmissionPolicy
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import com.application.services.ExecutionAvailabilityService
 import com.application.ent.EntClient
 import com.application.ent.CustomTestCase
@@ -412,7 +412,7 @@ class CustomInputSubmissionExecutionIntegrationTest {
     }
     val failingService = CustomInputSubmissionService(
       failingClient,
-      context.getBean(CurrentUser::class.java),
+      context.getBean(CurrentUserService::class.java),
       ExecutionProperties(),
       context.getBean(ExecutionAvailabilityService::class.java),
     )

@@ -1,6 +1,6 @@
 package com.application.mcp
 
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import jakarta.servlet.FilterChain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
@@ -18,30 +18,30 @@ class McpAuthenticationFilterTest {
 
   @Test
   fun `MCP is closed by default without inspecting credentials or users`() {
-    val currentUser = mock(CurrentUser::class.java)
+    val currentUserService = mock(CurrentUserService::class.java)
     val chain = mock(FilterChain::class.java)
     val response = MockHttpServletResponse()
 
-    McpAuthenticationFilter(McpProperties(), currentUser)
+    McpAuthenticationFilter(McpProperties(), currentUserService)
       .doFilter(MockHttpServletRequest("POST", "/mcp"), response, chain)
 
     assertEquals(404, response.status)
-    verifyNoInteractions(currentUser, chain)
+    verifyNoInteractions(currentUserService, chain)
   }
 
   @Test
   fun `a configured account that no longer exists cannot authenticate`() {
-    val currentUser = mock(CurrentUser::class.java)
+    val currentUserService = mock(CurrentUserService::class.java)
     val chain = mock(FilterChain::class.java)
     val request = MockHttpServletRequest("POST", "/mcp")
     request.addHeader("Authorization", "Bearer ${McpServerIntegrationTest.TEST_TOKEN}")
     val response = MockHttpServletResponse()
     val properties = McpProperties(apiToken = McpServerIntegrationTest.TEST_TOKEN, userId = 42)
 
-    McpAuthenticationFilter(properties, currentUser).doFilter(request, response, chain)
+    McpAuthenticationFilter(properties, currentUserService).doFilter(request, response, chain)
 
     assertEquals(403, response.status)
-    verify(currentUser).get()
+    verify(currentUserService).get()
     verifyNoInteractions(chain)
   }
 

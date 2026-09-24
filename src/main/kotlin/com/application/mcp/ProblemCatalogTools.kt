@@ -2,7 +2,7 @@ package com.application.mcp
 
 import com.application.ent.ProblemLanguage
 import com.application.schema.ProblemDifficulty
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import com.application.services.ProblemCursor
 import com.application.services.ProblemService
 import entkt.runtime.query.requireLoaded
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component
 @Component
 class ProblemCatalogTools(
   private val problemService: ProblemService,
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
 ) {
   @McpTool(
     name = "list_languages",
@@ -23,7 +23,7 @@ class ProblemCatalogTools(
     annotations = McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false),
   )
   fun listLanguages(): LanguageCatalogResult {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
 
     val languages = problemService.findEnabledLanguages().map { LanguageSummary(it.key, it.displayName) }
     return LanguageCatalogResult(languages)
@@ -46,7 +46,7 @@ class ProblemCatalogTools(
     @McpToolParam(required = false, description = "The nextCursor returned by the previous search.")
     after: String?,
   ): ProblemSearchResult {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
 
     val pageSize = first ?: 20
     require(pageSize in 1..100) { "first must be between 1 and 100" }
@@ -75,7 +75,7 @@ class ProblemCatalogTools(
     @McpToolParam(description = "The problem's stable URL slug, such as three-card-poker.")
     slug: String,
   ): ProblemLookupResult {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
     require(slug.isNotBlank()) { "slug must not be blank" }
 
     val problem = problemService.findPublicProblemBySlug(slug) ?: return ProblemLookupResult(null)

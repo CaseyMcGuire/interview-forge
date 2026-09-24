@@ -12,7 +12,7 @@ import com.application.ent.TestCase
 import com.application.schema.TestCaseVisibility
 import com.application.schema.ProblemDifficulty
 import com.application.schema.UserRole
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import entkt.runtime.result.EntConstraintViolationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -31,7 +31,7 @@ import java.time.Instant
 @Service
 class ProblemService(
   private val entClient: EntClient,
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
 ) {
   // This catalog view uses the same public visibility for signed-in and anonymous visitors.
   private val publicContext = ViewerContext(Viewer.Anonymous)
@@ -43,7 +43,7 @@ class ProblemService(
     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS, DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
     .build()
 
-  fun canEditProblems(): Boolean = currentUser.get()?.role == UserRole.ADMIN
+  fun canEditProblems(): Boolean = currentUserService.get()?.role == UserRole.ADMIN
 
   fun findEnabledLanguages(): List<Language> = entClient.languages.query {
     where(Language.enabled eq true)
@@ -51,7 +51,7 @@ class ProblemService(
   }.all(publicContext).getOrThrow()
 
   fun createProblem(input: CreateProblem): Problem {
-    val author = currentUser.requireAdmin()
+    val author = currentUserService.requireAdmin()
     validateRequest(input)
     val context = ViewerContext(Viewer.User(author.id))
 
@@ -219,7 +219,7 @@ class ProblemService(
     }.firstOrNull(publicContext).visibleOrNull().getOrThrow()
 
   fun updateProblem(input: UpdateProblem): Problem? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
     return entClient.withTransaction { tx ->
       tx.problems.update(input.id) {
@@ -233,7 +233,7 @@ class ProblemService(
   }
 
   fun createProblemHiddenTestCase(input: CreateProblemHiddenTestCase): Problem? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
     val parsedInput = parseTestCaseJson(input.inputJson, "inputJson")
     val parsedOutput = parseTestCaseJson(input.expectedOutputJson, "expectedOutputJson")
 
@@ -271,7 +271,7 @@ class ProblemService(
     publicExamples: List<CreateProblemTestCase>,
     testCases: List<CreateProblemTestCase>,
   ): List<TestCase>? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
     val count = publicExamples.size.toLong() + testCases.size
     require(count in 1..100) { "Provide between 1 and 100 cases per batch" }
     require(publicExamples.size <= 20) { "Provide at most 20 public examples per batch" }
@@ -299,7 +299,7 @@ class ProblemService(
   }
 
   fun updateProblemLanguage(input: UpdateProblemLanguage): ProblemLanguage? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
     return entClient.withTransaction { tx ->
       tx.problemLanguages.findById(context, input.id).visibleOrNull().getOrThrow()
@@ -326,7 +326,7 @@ class ProblemService(
     timeLimitMs: Int,
     memoryLimitMb: Int,
   ): Problem? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
     val judge = ProblemJudgeConfiguration(testDriverCode, referenceSolutionCode, timeLimitMs, memoryLimitMb)
 
     return entClient.withTransaction { tx ->
@@ -376,7 +376,7 @@ class ProblemService(
 
   /** Null when absent or when the judge's admin-only read policy denies the current viewer. */
   fun findJudgeConfiguration(problemLanguageId: Long): JudgeConfiguration? {
-    val viewer = currentUser.get()?.let { Viewer.User(it.id) } ?: Viewer.Anonymous
+    val viewer = currentUserService.get()?.let { Viewer.User(it.id) } ?: Viewer.Anonymous
 
     return entClient.judgeConfigurations.indexes.problemLanguageId(problemLanguageId)
       .find(ViewerContext(viewer))
@@ -392,7 +392,7 @@ class ProblemService(
     memoryLimitMb: Int,
     referenceSolutionCode: String? = null,
   ): ProblemLanguage? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
     return entClient.withTransaction { tx ->
       // Lock the language configuration so concurrent creations cannot both pass the existence check.
@@ -432,7 +432,7 @@ class ProblemService(
     memoryLimitMb: Int? = null,
     referenceSolutionCode: FieldUpdate<String?> = FieldUpdate.Unchanged,
   ): JudgeConfiguration? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
     return entClient.withTransaction { tx ->
       val configuration = tx.judgeConfigurations.findById(context, id).visibleOrNull().getOrThrow()
@@ -480,7 +480,7 @@ class ProblemService(
     expectedOutputJson: String,
     explanationMarkdown: String?,
   ): TestCase? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
     val parsedInput = parseTestCaseJson(inputJson, "inputJson")
     val parsedOutput = parseTestCaseJson(expectedOutputJson, "expectedOutputJson")
 
@@ -497,7 +497,7 @@ class ProblemService(
   }
 
   private fun currentAdminContext(): ViewerContext? {
-    val user = currentUser.get() ?: return null
+    val user = currentUserService.get() ?: return null
     if (user.role != UserRole.ADMIN) {
       return null
     }
@@ -506,7 +506,7 @@ class ProblemService(
   }
 
   fun updateProblemExample(input: UpdateProblemExample): TestCase? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
     return entClient.withTransaction { tx ->
       val example = tx.testCases.findById(context, input.id).visibleOrNull().getOrThrow()
@@ -527,7 +527,7 @@ class ProblemService(
   }
 
   fun deleteProblemExample(id: Long): Problem? {
-    val context = ViewerContext(Viewer.User(currentUser.requireAdmin().id))
+    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
     return entClient.withTransaction { tx ->
       val example = tx.testCases.findById(context, id).visibleOrNull().getOrThrow()

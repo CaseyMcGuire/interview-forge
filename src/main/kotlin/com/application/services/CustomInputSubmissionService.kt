@@ -12,7 +12,7 @@ import com.application.execution.customInputSubmissionErrorMessage
 import com.application.schema.GradingCase
 import com.application.schema.CustomInputSubmissionOutcome
 import com.application.schema.CustomInputSubmissionStatus
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import com.application.security.ExecutionAccess
 import entkt.runtime.driver.IsolationLevel
 import entkt.runtime.privacy.Viewer
@@ -34,7 +34,7 @@ import java.time.Instant
 @Service
 class CustomInputSubmissionService(
   private val entClient: EntClient,
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
   private val properties: ExecutionProperties,
   private val executionAvailabilityService: ExecutionAvailabilityService,
 ) {
@@ -57,7 +57,7 @@ class CustomInputSubmissionService(
     sourceCode: String,
     caseInputs: List<String>,
   ): EnqueueCustomInputSubmissionOutcome {
-    val user = currentUser.get() ?: return EnqueueCustomInputSubmissionOutcome.AuthenticationRequired
+    val user = currentUserService.get() ?: return EnqueueCustomInputSubmissionOutcome.AuthenticationRequired
     val configurationId = problemLanguageId ?: return EnqueueCustomInputSubmissionOutcome.NotFound
     validateCaseCount(caseInputs.size)
 
@@ -168,7 +168,7 @@ class CustomInputSubmissionService(
 
   /** Loads the retained inputs through owner policies, independently of current problem availability. */
   fun findCustomInputSubmissionForCurrentUser(id: Long): CustomInputSubmission? {
-    val user = currentUser.get() ?: return null
+    val user = currentUserService.get() ?: return null
     val viewer = ViewerContext(Viewer.User(user.id))
 
     return entClient.withTransaction(IsolationLevel.RepeatableRead) { tx ->

@@ -1,7 +1,7 @@
 package com.application.db.policies.rules
 
 import com.application.ent.ReadOnlyEntClient
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRule
 import entkt.runtime.privacy.PrivacyRuleContext
@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component
  * Kotlin's Any is a common supertype, so this does not bypass type checking.
  */
 @Component
-class AllowIfAdminUpdateRule(private val currentUser: CurrentUser) : PrivacyRule<ReadOnlyEntClient, Any> {
+class AllowIfAdminUpdateRule(private val currentUserService: CurrentUserService) : PrivacyRule<ReadOnlyEntClient, Any> {
   override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: Any): PrivacyDecision =
-    if (currentUser.isAdmin(context.viewerContext)) {
+    if (currentUserService.isAdmin(context.viewerContext, context.client)) {
       PrivacyDecision.Allow
     } else {
       PrivacyDecision.Deny("Only administrators can update problem content")

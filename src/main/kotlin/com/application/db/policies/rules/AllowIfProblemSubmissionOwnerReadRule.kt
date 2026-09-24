@@ -2,7 +2,7 @@ package com.application.db.policies.rules
 
 import com.application.ent.ReadOnlyEntClient
 import com.application.ent.ProblemSubmission
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRule
 import entkt.runtime.privacy.PrivacyRuleContext
@@ -11,11 +11,11 @@ import org.springframework.stereotype.Component
 
 @Component
 class AllowIfProblemSubmissionOwnerReadRule(
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
 ) : PrivacyRule<ReadOnlyEntClient, ProblemSubmission> {
 
   override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: ProblemSubmission): PrivacyDecision {
-    val user = currentUser.get()
+    val user = currentUserService.get(context.client)
 
     return if (
       user != null &&

@@ -1,6 +1,6 @@
 package com.application.mcp
 
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import com.application.schema.TestCaseVisibility
 import com.application.services.ProblemInputException
 import com.application.services.ProblemService
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
 @Component
 class ProblemTestTools(
   private val problemService: ProblemService,
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
   private val results: McpToolResults,
 ) {
   @McpTool(
@@ -30,7 +30,7 @@ class ProblemTestTools(
     @McpToolParam(required = false, description = "Public examples to append. Defaults to none.")
     publicExamples: List<ProblemTestCaseInput>?,
   ): CallToolResult = results.withValidationErrors {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
     val problem = problemService.findPublicProblemBySlug(slug)
       ?: throw ProblemInputException("slug", "Problem is unavailable")
 
@@ -60,7 +60,7 @@ class ProblemTestTools(
     @McpToolParam(required = false, description = "Replacement explanation; omit or pass null to clear it.")
     explanationMarkdown: String?,
   ): CallToolResult = results.withValidationErrors {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
     val id = testCaseId.toLongOrNull()?.takeIf { it > 0 }
       ?: throw ProblemInputException("testCaseId", "Provide a valid test-case ID")
 

@@ -4,7 +4,7 @@ import com.application.ent.EntClient
 import com.application.ent.GeneratedEntViewerRegistry
 import com.application.schema.UserRole
 import com.application.security.AuthenticatedUser
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.viewer.EntViewer
@@ -28,6 +28,6 @@ class EntViewerConfiguration {
     }
 
   @Bean
-  fun entViewerPrincipalResolver(currentUser: CurrentUser): EntViewerPrincipalResolver =
-    EntViewerPrincipalResolver { currentUser.get() }
+  fun entViewerPrincipalResolver(currentUserService: CurrentUserService): EntViewerPrincipalResolver =
+    EntViewerPrincipalResolver { currentUserService.get() }
 }

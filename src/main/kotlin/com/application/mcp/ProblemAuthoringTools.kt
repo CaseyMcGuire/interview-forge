@@ -2,7 +2,7 @@ package com.application.mcp
 
 import com.application.ent.Problem
 import com.application.schema.ProblemDifficulty
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import com.application.services.CreateProblem
 import com.application.services.CreateProblemLanguage
 import com.application.services.ProblemInputException
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component
 @Component
 class ProblemAuthoringTools(
   private val problemService: ProblemService,
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
   private val results: McpToolResults,
 ) {
   @McpTool(
@@ -101,7 +101,7 @@ class ProblemAuthoringTools(
     ?: throw ProblemInputException("slug", "Problem is unavailable")
 
   private fun reportProblemWrite(write: () -> Problem): CallToolResult = results.withValidationErrors {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
 
     val problem = write()
     results.success(ProblemWriteResult(ProblemSummary(problem.slug, problem.title, problem.difficulty)))

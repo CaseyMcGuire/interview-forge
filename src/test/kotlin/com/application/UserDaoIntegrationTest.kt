@@ -1,10 +1,15 @@
 package com.application
 
 import com.application.dao.UserDao
+import com.application.db.models.UserDetailsImpl
 import com.application.ent.EntClient
 import com.application.exceptions.UserAlreadyExistsException
 import com.application.services.UserService
 import com.application.schema.UserRole
+import com.application.security.AuthenticatedUser
+import com.application.security.CurrentUserService
+import com.application.security.UserIdPrincipal
+import com.application.services.User
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntConstraintViolationException
@@ -17,15 +22,22 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.security.core.userdetails.UserDetailsService
+import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
+import java.util.UUID
 import com.application.ent.User as EntUser
 
 /**
@@ -59,6 +71,48 @@ class UserDaoIntegrationTest {
 
   @Autowired
   lateinit var passwordEncoder: PasswordEncoder
+
+  @Autowired
+  lateinit var currentUserService: CurrentUserService
+
+  @AfterEach
+  fun clearSecurityContext() {
+    SecurityContextHolder.clearContext()
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = [true, false])
+  fun `current user reflects role changes and account deletion for browser and MCP identities`(browserIdentity: Boolean) {
+    val account = entClient.users.create {
+      email = "current-user-${UUID.randomUUID()}@example.com"
+      hashedPassword = "private-password-hash"
+      role = UserRole.ADMIN
+    }.saveAndLoad(inspectionContext).getOrThrow()
+
+    val principal = if (browserIdentity) {
+      UserDetailsImpl(User(account.email, account.hashedPassword, account.role, account.id))
+    } else {
+      UserIdPrincipal(account.id)
+    }
+    SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken.authenticated(
+      principal, null, emptyList(),
+    )
+
+    assertEquals(AuthenticatedUser(account.id, UserRole.ADMIN), currentUserService.requireAdmin())
+    assertTrue(currentUserService.isAdmin(ViewerContext(Viewer.User(account.id))))
+    assertFalse(currentUserService.isAdmin(ViewerContext(Viewer.User(account.id + 1))))
+
+    entClient.users.update(account.id) { role = UserRole.USER }.save(inspectionContext).getOrThrow()
+
+    assertEquals(AuthenticatedUser(account.id, UserRole.USER), currentUserService.get())
+    assertFalse(currentUserService.isAdmin(ViewerContext(Viewer.User(account.id))))
+    assertThrows(AccessDeniedException::class.java) { currentUserService.requireAdmin() }
+
+    entClient.users.deleteById(inspectionContext, account.id).getOrThrow()
+
+    assertNull(currentUserService.get())
+    assertThrows(AccessDeniedException::class.java) { currentUserService.requireAdmin() }
+  }
 
   @Test
   fun `persists a user and reads it back`() {
@@ -149,6 +203,10 @@ class UserDaoIntegrationTest {
     val hash = "private-password-hash"
     userDao.createUser(email, hash)
     val entity = findEntityByEmail(email)
+
+    SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken.authenticated(
+      UserIdPrincipal(entity.id), null, emptyList(),
+    )
 
     for (viewer in listOf(Viewer.Anonymous, Viewer.User(entity.id))) {
       assertThrows(EntPrivacyDeniedException::class.java) {

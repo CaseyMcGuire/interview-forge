@@ -3,7 +3,7 @@ package com.application.db.policies.rules
 import com.application.ent.ReadOnlyEntClient
 import com.application.ent.TestCase
 import com.application.schema.TestCaseVisibility
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import entkt.runtime.privacy.BatchPrivacyRule
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRuleContext
@@ -14,13 +14,13 @@ import org.springframework.stereotype.Component
 
 @Component
 class AllowIfAvailableTestCaseReadRule(
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
 ) : BatchPrivacyRule<ReadOnlyEntClient, TestCase> {
   override fun runBatch(
     context: PrivacyRuleContext<ReadOnlyEntClient>,
     batch: RuleBatch<TestCase>,
   ): RuleDecisions<PrivacyDecision> {
-    if (currentUser.isAdmin(context.viewerContext)) {
+    if (currentUserService.isAdmin(context.viewerContext, context.client)) {
       return batch.allowAll()
     }
 

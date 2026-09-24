@@ -7,7 +7,7 @@ import com.application.execution.CodeExecutionSettings
 import com.application.execution.ExecutionStartup
 import com.application.execution.ProgramStatus
 import com.application.execution.TestSuiteProtocol
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.visibleOrNull
@@ -25,7 +25,7 @@ import java.util.UUID
 @Service
 class TestCaseExpectedOutputService(
   private val entClient: EntClient,
-  private val currentUser: CurrentUser,
+  private val currentUserService: CurrentUserService,
   private val settingsService: CodeExecutionSettingsService,
   private val executionService: CodeExecutionService,
   private val startup: ExecutionStartup,
@@ -40,7 +40,7 @@ class TestCaseExpectedOutputService(
     .build()
 
   fun generateExpectedOutput(problemLanguageId: Long?, inputJson: String): TestCaseExpectedOutputOutcome {
-    currentUser.requireAdmin()
+    currentUserService.requireAdmin()
     val configurationId = problemLanguageId
       ?: throw ProblemInputException("problemLanguageId", "Provide a valid problem-language ID")
     val input = parseTestInput(inputJson)

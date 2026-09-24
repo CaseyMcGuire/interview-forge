@@ -11,7 +11,7 @@ import com.application.schema.GradingJobStatus
 import com.application.schema.ProblemDifficulty
 import com.application.schema.ProblemSubmissionStatus
 import com.application.schema.ProblemSubmissionVerdict
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import com.application.services.CustomInputSubmissionService
 import com.application.services.ExecutionAvailabilityService
 import entkt.postgres.PostgresDriver
@@ -45,7 +45,7 @@ class CustomInputSubmissionCleanupIntegrationTest {
   lateinit var customInputSubmissionService: CustomInputSubmissionService
 
   @Autowired
-  lateinit var currentUser: CurrentUser
+  lateinit var currentUserService: CurrentUserService
 
   @Autowired
   lateinit var properties: ExecutionProperties
@@ -164,7 +164,7 @@ class CustomInputSubmissionCleanupIntegrationTest {
       }
     }
 
-    val failingService = CustomInputSubmissionService(failingClient, currentUser, properties, executionAvailabilityService)
+    val failingService = CustomInputSubmissionService(failingClient, currentUserService, properties, executionAvailabilityService)
 
     assertThrows(Exception::class.java) {
       failingService.deleteExpiredCustomInputSubmissions(cutoff)

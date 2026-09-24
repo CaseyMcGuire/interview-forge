@@ -1,6 +1,6 @@
 package com.application.mcp
 
-import com.application.security.CurrentUser
+import com.application.security.CurrentUserService
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper
 import io.modelcontextprotocol.server.transport.DefaultServerTransportSecurityValidator
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStatelessServerTransport
@@ -23,7 +23,7 @@ class McpConfiguration {
   fun mcpSecurityFilterChain(
     http: HttpSecurity,
     properties: McpProperties,
-    currentUser: CurrentUser,
+    currentUserService: CurrentUserService,
   ): SecurityFilterChain = http
     .securityMatcher("/mcp", "/mcp/**")
     .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
@@ -31,7 +31,7 @@ class McpConfiguration {
     // This endpoint requires a bearer token; browser endpoints retain their CSRF protection.
     .csrf { it.disable() }
     .authorizeHttpRequests { it.anyRequest().authenticated() }
-    .addFilterAfter(McpAuthenticationFilter(properties, currentUser), SecurityContextHolderFilter::class.java)
+    .addFilterAfter(McpAuthenticationFilter(properties, currentUserService), SecurityContextHolderFilter::class.java)
     .build()
 
   @Bean
