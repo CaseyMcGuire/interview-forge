@@ -1,0 +1,21 @@
+extend type Mutation {
+  """Creates a tag. Admins only."""
+  createTag(input: CreateTagInput!): CreateTagResult!
+}
+
+union CreateTagResult =
+    CreateTagSuccess
+  | TagValidationFailure
+  | TagForbidden
+
+type CreateTagSuccess {
+  tag: Tag!
+}
+
+input CreateTagInput {
+  """Unique slug: 1–100 characters using lowercase letters, numbers, and single hyphens."""
+  slug: String!
+
+  """Nonblank, trimmed label, at most 100 characters."""
+  displayName: String!
+}

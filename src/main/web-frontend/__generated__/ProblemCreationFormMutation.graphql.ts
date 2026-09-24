@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<6db3f33e4f0dca457568433fb613c516>>
+ * @generated SignedSource<<6588e1b6bac76c52692daf8f125f0ba7>>
  * @lightSyntaxTransform
  */
 
@@ -15,6 +15,7 @@ export type CreateProblemInput = {
   languageConfigurations: ReadonlyArray<CreateProblemLanguageInput>;
   slug: string;
   statementMarkdown: string;
+  tagIds?: ReadonlyArray<string>;
   title: string;
 };
 export type CreateProblemLanguageInput = {

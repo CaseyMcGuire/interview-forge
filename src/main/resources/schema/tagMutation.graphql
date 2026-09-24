@@ -1,0 +1,17 @@
+interface TagFailure {
+  message: String!
+}
+
+"""The mutation input is invalid. No changes were applied."""
+type TagValidationFailure implements TagFailure {
+  message: String!
+  fieldErrors: [FieldError!]!
+}
+
+type TagNotFound implements TagFailure {
+  message: String!
+}
+
+type TagForbidden implements TagFailure {
+  message: String!
+}

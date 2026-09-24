@@ -452,6 +452,8 @@ class ProblemDataFetcher(
         .map(::toGraphqlProblemLanguage)
         .sortedBy { it.language.key },
       examples = problem.edges.testCases.requireLoaded().map(::toGraphqlProblemExample),
+      // Populated when tag queries and assignment are implemented in the backend stage.
+      tags = emptyList(),
     )
 
   private fun toGraphqlProblemLanguage(configuration: ProblemLanguageEntity): ProblemLanguage {

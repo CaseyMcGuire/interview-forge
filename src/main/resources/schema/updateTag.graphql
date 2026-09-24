@@ -1,0 +1,21 @@
+extend type Mutation {
+  """Changes a tag's display name. Admins only."""
+  updateTag(input: UpdateTagInput!): UpdateTagResult!
+}
+
+union UpdateTagResult =
+    UpdateTagSuccess
+  | TagValidationFailure
+  | TagNotFound
+  | TagForbidden
+
+type UpdateTagSuccess {
+  tag: Tag!
+}
+
+input UpdateTagInput {
+  id: ID!
+
+  """Nonblank, trimmed label, at most 100 characters."""
+  displayName: String!
+}

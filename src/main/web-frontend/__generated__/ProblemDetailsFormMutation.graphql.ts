@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<e045a7fdd5fe10f081fc0c770b152946>>
+ * @generated SignedSource<<b934edc8ba29501c9ddcf052243b1ead>>
  * @lightSyntaxTransform
  */
 
@@ -13,6 +13,7 @@ export type UpdateProblemInput = {
   difficulty?: ProblemDifficulty | null | undefined;
   id: string;
   statementMarkdown?: string | null | undefined;
+  tagIds?: ReadonlyArray<string> | null | undefined;
   title?: string | null | undefined;
 };
 export type ProblemDetailsFormMutation$variables = {

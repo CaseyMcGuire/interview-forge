@@ -1,0 +1,18 @@
+extend type Mutation {
+  """Deletes a tag and removes it from all problems. Admins only."""
+  deleteTag(input: DeleteTagInput!): DeleteTagResult!
+}
+
+union DeleteTagResult =
+    DeleteTagSuccess
+  | TagValidationFailure
+  | TagNotFound
+  | TagForbidden
+
+type DeleteTagSuccess {
+  deletedTagId: ID!
+}
+
+input DeleteTagInput {
+  id: ID!
+}

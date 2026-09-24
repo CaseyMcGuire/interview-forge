@@ -1,5 +1,5 @@
 extend type Mutation {
-  """Updates a published problem's title, statement, or difficulty. Admins only."""
+  """Updates a published problem's title, statement, difficulty, or tags. Admins only."""
   updateProblem(input: UpdateProblemInput!): UpdateProblemResult!
 }
 
@@ -21,4 +21,7 @@ input UpdateProblemInput {
   title: String
   statementMarkdown: String
   difficulty: ProblemDifficulty
+
+  """Replaces the assigned tags. An empty list removes all tags."""
+  tagIds: [ID!]
 }
