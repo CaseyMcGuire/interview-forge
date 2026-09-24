@@ -42,6 +42,10 @@ class Problem : EntSchema("problems", clientName = "problems") {
   val testCases by hasMany<TestCase>()
     .comment("Official examples and hidden grading cases, shared across languages.")
 
+  val tags by manyToMany<Tag>()
+    .throughLink<ProblemTag>(ProblemTag::problem, ProblemTag::tag)
+    .comment("Topics and techniques associated with this problem.")
+
   val problemSubmissions by hasMany<ProblemSubmission>()
     .comment("Attempts by all users; future access policies must filter this history by the viewer.")
 

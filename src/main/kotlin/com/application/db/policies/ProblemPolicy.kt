@@ -1,8 +1,7 @@
 package com.application.db.policies
 
 import com.application.db.policies.rules.AllowIfPublishedReadRule
-import com.application.db.policies.rules.AllowIfAdminCreateRule
-import com.application.db.policies.rules.AllowIfAdminUpdateRule
+import com.application.db.policies.rules.AllowIfAdminRule
 import com.application.db.policies.rules.DenyIfProblemUnavailableUpdateRule
 import com.application.db.validation.ProblemContentValidationRule
 import com.application.ent.Problem
@@ -12,13 +11,13 @@ import org.springframework.stereotype.Component
 
 @Component
 class ProblemPolicy(
-  private val adminCreateRule: AllowIfAdminCreateRule,
-  private val adminUpdateRule: AllowIfAdminUpdateRule,
+  private val adminRule: AllowIfAdminRule,
 ) : EntityPolicy<Problem, ProblemPolicyScope> {
   override fun configure(scope: ProblemPolicyScope) = scope.run {
     privacy {
-      create(adminCreateRule)
-      update(DenyIfProblemUnavailableUpdateRule(), adminUpdateRule)
+      create(adminRule)
+      update(DenyIfProblemUnavailableUpdateRule())
+      update(adminRule)
       load(AllowIfPublishedReadRule())
     }
 

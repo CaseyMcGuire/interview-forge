@@ -8,6 +8,7 @@ import com.application.db.policies.LanguagePolicy
 import com.application.db.policies.ProblemLanguagePolicy
 import com.application.db.policies.ProblemPolicy
 import com.application.db.policies.TestCasePolicy
+import com.application.db.policies.TagPolicy
 import com.application.db.policies.UserPolicy
 import com.application.db.policies.ProblemSubmissionPolicy
 import com.application.db.policies.ProblemSubmissionFailurePolicy
@@ -33,6 +34,7 @@ class DatabaseConfiguration {
     customTestCasePolicy: CustomTestCasePolicy,
     customInputSubmissionPolicy: CustomInputSubmissionPolicy,
     gradingJobPolicy: GradingJobPolicy,
+    tagPolicy: TagPolicy,
   ): EntClient {
     // Flyway owns database changes; registering EntKt schemas only configures runtime metadata.
     return EntClient(PostgresDriver(dataSource, autoDdl = false)) {
@@ -48,6 +50,7 @@ class DatabaseConfiguration {
         customTestCases(customTestCasePolicy)
         customInputSubmissions(customInputSubmissionPolicy)
         gradingJobs(gradingJobPolicy)
+        tags(tagPolicy)
       }
     }
   }
