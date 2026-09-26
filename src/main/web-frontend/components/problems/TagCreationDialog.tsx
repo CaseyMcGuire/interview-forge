@@ -2,7 +2,7 @@ import {useEffect, useId, useRef, useState, type FormEvent} from "react";
 import {graphql, useMutation} from "react-relay";
 import type {RecordSourceSelectorProxy} from "relay-runtime";
 import * as stylex from "@stylexjs/stylex";
-import type {TagCreationDialogMutation} from "__generated__/TagCreationDialogMutation.graphql";
+import type {TagCreationDialogMutation, TagType} from "__generated__/TagCreationDialogMutation.graphql";
 import ProblemCreationField from "./ProblemCreationField";
 
 type Props = {
@@ -14,6 +14,11 @@ type FieldError = {
   field: string;
   message: string;
 };
+
+const tagTypeOptions = [
+  {type: "TOPIC", label: "Topic"},
+  {type: "COMPANY", label: "Company"}
+] as const;
 
 const styles = stylex.create({
   dialog: {
@@ -45,6 +50,34 @@ const styles = stylex.create({
   description: {
     color: "#9da0a8",
     fontSize: 13
+  },
+  typeField: {
+    borderWidth: 0,
+    margin: 0,
+    padding: 0,
+    minWidth: 0
+  },
+  typeLegend: {
+    padding: 0,
+    marginBottom: 8,
+    fontWeight: 600
+  },
+  typeOptions: {
+    display: "flex",
+    gap: 24
+  },
+  typeOption: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 14
+  },
+  radio: {
+    width: 16,
+    height: 16,
+    accentColor: "#6b9bfa",
+    outlineColor: "#6b9bfa",
+    outlineOffset: 3
   },
   error: {
     color: "#f2a6a6",
@@ -108,6 +141,7 @@ export default function TagCreationDialog(props: Props) {
   const id = useId();
   const [displayName, setDisplayName] = useState("");
   const [slug, setSlug] = useState("");
+  const [type, setType] = useState<TagType>("TOPIC");
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ReadonlyArray<FieldError>>([]);
 
@@ -162,7 +196,7 @@ export default function TagCreationDialog(props: Props) {
     setFieldErrors([]);
 
     commit({
-      variables: {input: {slug, displayName}},
+      variables: {input: {slug, displayName, type}},
 
       updater: addCreatedTagToCatalog,
 
@@ -214,6 +248,25 @@ export default function TagCreationDialog(props: Props) {
       <form sx={styles.form} onSubmit={createTag} aria-busy={isInFlight}>
         <h2 id={`${id}-title`} sx={styles.title}>Create tag</h2>
         <p sx={styles.description}>New tags are available to all problems. Save the problem to assign your selections.</p>
+
+        <fieldset sx={[styles.typeField, isInFlight && styles.disabled]} disabled={isInFlight}>
+          <legend sx={styles.typeLegend}>Type</legend>
+          <div sx={styles.typeOptions}>
+            {tagTypeOptions.map((option) => (
+              <label key={option.type} sx={styles.typeOption}>
+                <input
+                  sx={styles.radio}
+                  type="radio"
+                  name={`${id}-type`}
+                  value={option.type}
+                  checked={type === option.type}
+                  onChange={() => setType(option.type)}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <ProblemCreationField
           label="Display name"
