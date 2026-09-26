@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<b934edc8ba29501c9ddcf052243b1ead>>
+ * @generated SignedSource<<8193c8fed41396863eaeaf59b1bab171>>
  * @lightSyntaxTransform
  */
 
@@ -38,6 +38,10 @@ export type ProblemDetailsFormMutation$data = {
       readonly difficulty: ProblemDifficulty;
       readonly id: string;
       readonly statementMarkdown: string;
+      readonly tags: ReadonlyArray<{
+        readonly displayName: string;
+        readonly id: string;
+      }>;
       readonly title: string;
     };
   } | {
@@ -63,13 +67,20 @@ v1 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+},
+v2 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
   "name": "message",
   "storageKey": null
 },
-v2 = [
-  (v1/*:: as any*/)
-],
 v3 = [
+  (v2/*:: as any*/)
+],
+v4 = [
   {
     "alias": null,
     "args": [
@@ -102,13 +113,7 @@ v3 = [
             "name": "problem",
             "plural": false,
             "selections": [
-              {
-                "alias": null,
-                "args": null,
-                "kind": "ScalarField",
-                "name": "id",
-                "storageKey": null
-              },
+              (v1/*:: as any*/),
               {
                 "alias": null,
                 "args": null,
@@ -129,6 +134,25 @@ v3 = [
                 "kind": "ScalarField",
                 "name": "difficulty",
                 "storageKey": null
+              },
+              {
+                "alias": null,
+                "args": null,
+                "concreteType": "Tag",
+                "kind": "LinkedField",
+                "name": "tags",
+                "plural": true,
+                "selections": [
+                  (v1/*:: as any*/),
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "displayName",
+                    "storageKey": null
+                  }
+                ],
+                "storageKey": null
               }
             ],
             "storageKey": null
@@ -140,7 +164,7 @@ v3 = [
       {
         "kind": "InlineFragment",
         "selections": [
-          (v1/*:: as any*/),
+          (v2/*:: as any*/),
           {
             "alias": null,
             "args": null,
@@ -148,7 +172,7 @@ v3 = [
             "kind": "LinkedField",
             "name": "fieldErrors",
             "plural": true,
-            "selections": (v2/*:: as any*/),
+            "selections": (v3/*:: as any*/),
             "storageKey": null
           }
         ],
@@ -157,13 +181,13 @@ v3 = [
       },
       {
         "kind": "InlineFragment",
-        "selections": (v2/*:: as any*/),
+        "selections": (v3/*:: as any*/),
         "type": "ProblemNotFound",
         "abstractKey": null
       },
       {
         "kind": "InlineFragment",
-        "selections": (v2/*:: as any*/),
+        "selections": (v3/*:: as any*/),
         "type": "ProblemForbidden",
         "abstractKey": null
       }
@@ -177,7 +201,7 @@ return {
     "kind": "Fragment",
     "metadata": null,
     "name": "ProblemDetailsFormMutation",
-    "selections": (v3/*:: as any*/),
+    "selections": (v4/*:: as any*/),
     "type": "Mutation",
     "abstractKey": null
   },
@@ -186,19 +210,19 @@ return {
     "argumentDefinitions": (v0/*:: as any*/),
     "kind": "Operation",
     "name": "ProblemDetailsFormMutation",
-    "selections": (v3/*:: as any*/)
+    "selections": (v4/*:: as any*/)
   },
   "params": {
-    "cacheID": "ec57d08bb42df60297a81d15a644368a",
+    "cacheID": "1bdb0d84f5c1fbdf76bbd72352873348",
     "id": null,
     "metadata": {},
     "name": "ProblemDetailsFormMutation",
     "operationKind": "mutation",
-    "text": "mutation ProblemDetailsFormMutation(\n  $input: UpdateProblemInput!\n) {\n  updateProblem(input: $input) {\n    __typename\n    ... on UpdateProblemSuccess {\n      problem {\n        id\n        title\n        statementMarkdown\n        difficulty\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
+    "text": "mutation ProblemDetailsFormMutation(\n  $input: UpdateProblemInput!\n) {\n  updateProblem(input: $input) {\n    __typename\n    ... on UpdateProblemSuccess {\n      problem {\n        id\n        title\n        statementMarkdown\n        difficulty\n        tags {\n          id\n          displayName\n        }\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "569b78471933afd6f0abca165bc7a27f";
+(node as any).hash = "ac67998e6bc74dc8428dbacaf664294a";
 
 export default node;

@@ -2,6 +2,7 @@ import {useId, useState} from "react";
 import {graphql, useFragment, useMutation} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
 import type {ProblemDetailsForm_problem$key} from "__generated__/ProblemDetailsForm_problem.graphql";
+import type {ProblemTagField_query$key} from "__generated__/ProblemTagField_query.graphql";
 import type {
   ProblemDetailsFormMutation,
   UpdateProblemInput
@@ -9,9 +10,11 @@ import type {
 import Control from "components/coding/WorkspaceControl";
 import ProblemCreationField from "./ProblemCreationField";
 import ProblemEditFeedback from "./ProblemEditFeedback";
+import ProblemTagField from "./ProblemTagField";
 
 type Props = {
   problem: ProblemDetailsForm_problem$key;
+  tagCatalog: ProblemTagField_query$key;
 };
 
 const difficulties = [
@@ -58,19 +61,23 @@ const styles = stylex.create({
   }
 });
 
-export default function ProblemDetailsForm({problem}: Props) {
+export default function ProblemDetailsForm(props: Props) {
   const data = useFragment(graphql`
     fragment ProblemDetailsForm_problem on Problem {
       id
       title
       statementMarkdown
       difficulty
+      tags {
+        id
+      }
     }
-  `, problem);
+  `, props.problem);
 
   const [title, setTitle] = useState(data.title);
   const [statementMarkdown, setStatementMarkdown] = useState(data.statementMarkdown);
   const [difficulty, setDifficulty] = useState(data.difficulty);
+  const [tagIds, setTagIds] = useState(() => data.tags.map((tag) => tag.id));
   const [errors, setErrors] = useState<readonly string[]>([]);
   const [saved, setSaved] = useState(false);
   const id = useId();
@@ -85,6 +92,10 @@ export default function ProblemDetailsForm({problem}: Props) {
             title
             statementMarkdown
             difficulty
+            tags {
+              id
+              displayName
+            }
           }
         }
         ... on ProblemValidationFailure {
@@ -103,9 +114,12 @@ export default function ProblemDetailsForm({problem}: Props) {
     }
   `);
 
+  const tagsChanged = tagIds.length !== data.tags.length ||
+    data.tags.some((tag) => !tagIds.includes(tag.id));
   const hasChanges = title !== data.title ||
     statementMarkdown !== data.statementMarkdown ||
-    difficulty !== data.difficulty;
+    difficulty !== data.difficulty ||
+    tagsChanged;
   const saveDisabled = !hasChanges || isInFlight;
 
   function save() {
@@ -123,8 +137,12 @@ export default function ProblemDetailsForm({problem}: Props) {
       input.statementMarkdown = statementMarkdown;
     }
 
-    if (difficulty !== data.difficulty && difficulty !== "%future added value") {
+    if (difficulty !== data.difficulty) {
       input.difficulty = difficulty;
+    }
+
+    if (tagsChanged) {
+      input.tagIds = tagIds;
     }
 
     setErrors([]);
@@ -146,6 +164,7 @@ export default function ProblemDetailsForm({problem}: Props) {
             setTitle(result.problem.title);
             setStatementMarkdown(result.problem.statementMarkdown);
             setDifficulty(result.problem.difficulty);
+            setTagIds(result.problem.tags.map((tag) => tag.id));
             setSaved(true);
             break;
 
@@ -201,6 +220,13 @@ export default function ProblemDetailsForm({problem}: Props) {
           ))}
         </div>
       </div>
+
+      <ProblemTagField
+        query={props.tagCatalog}
+        selectedTagIds={tagIds}
+        disabled={isInFlight}
+        onChange={setTagIds}
+      />
 
       <ProblemCreationField
         label="Statement (Markdown)"

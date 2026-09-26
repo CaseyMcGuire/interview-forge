@@ -14,6 +14,7 @@ import Control from "components/coding/WorkspaceControl";
 import ProblemCreationField from "./ProblemCreationField";
 import ProblemExampleEditor from "./ProblemExampleEditor";
 import ProblemLanguageEditor from "./ProblemLanguageEditor";
+import ProblemTagField from "./ProblemTagField";
 
 const difficulties = [
   {value: "EASY", label: "Easy"},
@@ -86,8 +87,9 @@ const styles = stylex.create({
 });
 
 export default function ProblemCreationForm() {
-  const {languages} = useLazyLoadQuery<ProblemCreationFormQuery>(graphql`
+  const data = useLazyLoadQuery<ProblemCreationFormQuery>(graphql`
     query ProblemCreationFormQuery @throwOnFieldError {
+      ...ProblemTagField_query
       languages {
         id
         key
@@ -95,6 +97,7 @@ export default function ProblemCreationForm() {
       }
     }
   `, {});
+  const {languages} = data;
 
   const navigate = useNavigate();
 
@@ -102,6 +105,7 @@ export default function ProblemCreationForm() {
   const [slug, setSlug] = useState("");
   const [statementMarkdown, setStatementMarkdown] = useState("");
   const [difficulty, setDifficulty] = useState<ProblemDifficulty>("EASY");
+  const [tagIds, setTagIds] = useState<string[]>([]);
 
   const [languageConfigurations, setLanguageConfigurations] = useState<CreateProblemLanguageInput[]>(() => (
     languages.length > 0
@@ -147,6 +151,7 @@ export default function ProblemCreationForm() {
           slug,
           statementMarkdown,
           difficulty,
+          tagIds,
           languageConfigurations,
           examples
         }
@@ -235,6 +240,13 @@ export default function ProblemCreationForm() {
           ))}
         </div>
       </div>
+
+      <ProblemTagField
+        query={data}
+        selectedTagIds={tagIds}
+        disabled={isInFlight}
+        onChange={setTagIds}
+      />
 
       <ProblemCreationField
         label="Statement (Markdown)"

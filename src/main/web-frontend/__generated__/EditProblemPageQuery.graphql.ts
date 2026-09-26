@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<cee06da01eb06e5961d4e7f24dbe9ee4>>
+ * @generated SignedSource<<d7e1de685833562f55c486d539653b49>>
  * @lightSyntaxTransform
  */
 
@@ -26,6 +26,7 @@ export type EditProblemPageQuery$data = {
     readonly slug: string;
     readonly " $fragmentSpreads": FragmentRefs<"ProblemDetailsForm_problem">;
   } | null | undefined;
+  readonly " $fragmentSpreads": FragmentRefs<"ProblemTagField_query">;
 };
 export type EditProblemPageQuery = {
   response: EditProblemPageQuery$data;
@@ -60,6 +61,13 @@ v3 = {
   "kind": "ScalarField",
   "name": "slug",
   "storageKey": null
+},
+v4 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "displayName",
+  "storageKey": null
 };
 return {
   "fragment": {
@@ -70,6 +78,11 @@ return {
     },
     "name": "EditProblemPageQuery",
     "selections": [
+      {
+        "args": null,
+        "kind": "FragmentSpread",
+        "name": "ProblemTagField_query"
+      },
       {
         "alias": null,
         "args": (v1/*:: as any*/),
@@ -134,6 +147,20 @@ return {
     "selections": [
       {
         "alias": null,
+        "args": null,
+        "concreteType": "Tag",
+        "kind": "LinkedField",
+        "name": "tags",
+        "plural": true,
+        "selections": [
+          (v2/*:: as any*/),
+          (v3/*:: as any*/),
+          (v4/*:: as any*/)
+        ],
+        "storageKey": null
+      },
+      {
+        "alias": null,
         "args": (v1/*:: as any*/),
         "concreteType": "Problem",
         "kind": "LinkedField",
@@ -161,6 +188,18 @@ return {
             "args": null,
             "kind": "ScalarField",
             "name": "difficulty",
+            "storageKey": null
+          },
+          {
+            "alias": null,
+            "args": null,
+            "concreteType": "Tag",
+            "kind": "LinkedField",
+            "name": "tags",
+            "plural": true,
+            "selections": [
+              (v2/*:: as any*/)
+            ],
             "storageKey": null
           },
           {
@@ -194,13 +233,7 @@ return {
                     "name": "key",
                     "storageKey": null
                   },
-                  {
-                    "alias": null,
-                    "args": null,
-                    "kind": "ScalarField",
-                    "name": "displayName",
-                    "storageKey": null
-                  },
+                  (v4/*:: as any*/),
                   (v2/*:: as any*/)
                 ],
                 "storageKey": null
@@ -287,16 +320,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "99bbe5077da695043256a3b9d6413344",
+    "cacheID": "967c92239611543c6c3e2975973c16f0",
     "id": null,
     "metadata": {},
     "name": "EditProblemPageQuery",
     "operationKind": "query",
-    "text": "query EditProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    ...ProblemDetailsForm_problem\n    languageConfigurations {\n      id\n      ...ProblemLanguageEditForm_configuration\n    }\n    examples {\n      id\n      ...ProblemExampleEditForm_example\n    }\n  }\n}\n\nfragment ProblemDetailsForm_problem on Problem {\n  id\n  title\n  statementMarkdown\n  difficulty\n}\n\nfragment ProblemExampleEditForm_example on ProblemExample {\n  id\n  inputJson\n  expectedOutputJson\n  explanationMarkdown\n}\n\nfragment ProblemJudgeConfigurationEditor_configuration on ProblemLanguage {\n  id\n  language {\n    key\n    displayName\n    id\n  }\n  judgeConfiguration {\n    id\n    testDriverCode\n    checkerSource\n    timeLimitMs\n    memoryLimitMb\n  }\n}\n\nfragment ProblemLanguageEditForm_configuration on ProblemLanguage {\n  id\n  starterCode\n  language {\n    key\n    displayName\n    id\n  }\n  ...ProblemJudgeConfigurationEditor_configuration\n}\n"
+    "text": "query EditProblemPageQuery(\n  $slug: String!\n) {\n  ...ProblemTagField_query\n  problem(slug: $slug) {\n    id\n    slug\n    ...ProblemDetailsForm_problem\n    languageConfigurations {\n      id\n      ...ProblemLanguageEditForm_configuration\n    }\n    examples {\n      id\n      ...ProblemExampleEditForm_example\n    }\n  }\n}\n\nfragment ProblemDetailsForm_problem on Problem {\n  id\n  title\n  statementMarkdown\n  difficulty\n  tags {\n    id\n  }\n}\n\nfragment ProblemExampleEditForm_example on ProblemExample {\n  id\n  inputJson\n  expectedOutputJson\n  explanationMarkdown\n}\n\nfragment ProblemJudgeConfigurationEditor_configuration on ProblemLanguage {\n  id\n  language {\n    key\n    displayName\n    id\n  }\n  judgeConfiguration {\n    id\n    testDriverCode\n    checkerSource\n    timeLimitMs\n    memoryLimitMb\n  }\n}\n\nfragment ProblemLanguageEditForm_configuration on ProblemLanguage {\n  id\n  starterCode\n  language {\n    key\n    displayName\n    id\n  }\n  ...ProblemJudgeConfigurationEditor_configuration\n}\n\nfragment ProblemTagField_query on Query {\n  tags {\n    id\n    slug\n    displayName\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "d4e0907bce1bd791726cf285f3a7bcfe";
+(node as any).hash = "9231737605cd6d3db626c6cf712e1e0d";
 
 export default node;

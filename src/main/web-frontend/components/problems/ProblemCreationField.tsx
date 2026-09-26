@@ -5,6 +5,7 @@ type Props = {
   label: string;
   value: string;
   hint?: string;
+  error?: string;
   rows?: number;
   maxLength?: number;
   type?: "text" | "number";
@@ -48,6 +49,11 @@ const styles = stylex.create({
     color: "#9da0a8",
     fontSize: 12,
     lineHeight: 1.5
+  },
+  error: {
+    color: "#f2a6a6",
+    fontSize: 12,
+    lineHeight: 1.5
   }
 });
 
@@ -57,6 +63,7 @@ export default function ProblemCreationField({
   onChange,
   readOnly = false,
   hint,
+  error,
   rows,
   maxLength,
   type = "text",
@@ -71,7 +78,8 @@ export default function ProblemCreationField({
     onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange?.(event.target.value),
     readOnly,
     "aria-labelledby": id,
-    "aria-describedby": hint ? `${id}-hint` : undefined,
+    "aria-describedby": [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined,
+    "aria-invalid": Boolean(error),
     maxLength,
     disabled,
   };
@@ -87,6 +95,7 @@ export default function ProblemCreationField({
       )}
 
       {hint && <span id={`${id}-hint`} sx={styles.hint}>{hint}</span>}
+      {error && <span id={`${id}-error`} sx={styles.error}>{error}</span>}
     </div>
   );
 }

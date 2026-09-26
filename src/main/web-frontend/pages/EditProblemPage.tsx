@@ -46,8 +46,9 @@ const styles = stylex.create({
 });
 
 function EditProblemContent({slug}: {slug: string}) {
-  const {problem} = useLazyLoadQuery<EditProblemPageQuery>(graphql`
+  const data = useLazyLoadQuery<EditProblemPageQuery>(graphql`
     query EditProblemPageQuery($slug: String!) @throwOnFieldError {
+      ...ProblemTagField_query
       problem(slug: $slug) {
         id
         slug
@@ -63,6 +64,7 @@ function EditProblemContent({slug}: {slug: string}) {
       }
     }
   `, {slug}, {fetchPolicy: "network-only"});
+  const {problem} = data;
 
   if (!problem) {
     return <div role="status">Problem not found.</div>;
@@ -75,7 +77,7 @@ function EditProblemContent({slug}: {slug: string}) {
       </Link>
 
       <ProblemEditSection title="Problem details">
-        <ProblemDetailsForm key={problem.id} problem={problem} />
+        <ProblemDetailsForm key={problem.id} problem={problem} tagCatalog={data} />
       </ProblemEditSection>
 
       <ProblemEditSection title="Language configurations">
