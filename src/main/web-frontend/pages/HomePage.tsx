@@ -1,4 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
+import {Link} from "react-router";
+import {AppRoutes} from "routes/AppRoutes";
 
 const styles = stylex.create({
   page: {
@@ -13,6 +15,9 @@ const styles = stylex.create({
     fontSize: 24,
     fontWeight: 600,
     marginBottom: 8
+  },
+  link: {
+    color: "#6b9bfa"
   }
 });
 
@@ -20,7 +25,7 @@ export default function HomePage() {
   return (
     <div sx={styles.page} role="main">
       <div sx={styles.title} role="heading" aria-level={1}>Problems</div>
-      <div>Problem index coming soon.</div>
+      <Link sx={styles.link} to={AppRoutes.Problems()}>Browse problems</Link>
     </div>
   );
 }
