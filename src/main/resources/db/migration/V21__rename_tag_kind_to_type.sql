@@ -1,0 +1,1 @@
+ALTER TABLE tags RENAME COLUMN kind TO type;

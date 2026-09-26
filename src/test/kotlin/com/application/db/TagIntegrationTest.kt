@@ -4,6 +4,7 @@ import com.application.ent.EntClient
 import com.application.ent.Problem
 import com.application.ent.Tag
 import com.application.schema.ProblemDifficulty
+import com.application.schema.TagType
 import com.application.schema.UserRole
 import com.application.security.UserIdPrincipal
 import entkt.runtime.privacy.Viewer
@@ -72,6 +73,7 @@ class TagIntegrationTest {
 
     assertEquals(tag.id, stored.id)
     assertEquals(tag.slug, stored.slug)
+    assertEquals(TagType.TOPIC, stored.type)
     assertEquals(renamed, stored.displayName)
     assertEquals(tag.createdAt, stored.createdAt)
     assertNotNull(stored.updatedAt)
@@ -87,6 +89,7 @@ class TagIntegrationTest {
       entClient.tags.create {
         slug = tag.slug
         displayName = "Another label"
+        type = TagType.COMPANY
       }.save(admin).getOrThrow()
     }
 
@@ -148,6 +151,35 @@ class TagIntegrationTest {
 
     assertEquals(emptySet<Long>(), tagIds(first))
     assertEquals(setOf(second.id), problemIds(concurrency))
+  }
+
+  @Test
+  fun `company and topic tags use the same problem relationship`() {
+    val problem = createProblem()
+    val topic = createTag()
+    val company = entClient.tags.create {
+      slug = "company-${UUID.randomUUID()}"
+      displayName = "Example Company"
+      type = TagType.COMPANY
+    }.saveAndLoad(admin).getOrThrow()
+
+    entClient.withTransaction { tx ->
+      tx.problems.update(problem.id) {
+        tags.set(listOf(topic.id, company.id))
+      }.save(admin).getOrThrow()
+    }.getOrThrow()
+
+    SecurityContextHolder.clearContext()
+    val loaded = entClient.problems.query {
+      where(Problem.id eq problem.id)
+      loadTags()
+    }.firstOrNull(anonymous).getOrThrow()!!
+
+    assertEquals(
+      mapOf(topic.id to TagType.TOPIC, company.id to TagType.COMPANY),
+      loaded.edges.tags.requireLoaded().associate { it.id to it.type },
+    )
+    assertEquals(setOf(problem.id), problemIds(company))
   }
 
   @Test

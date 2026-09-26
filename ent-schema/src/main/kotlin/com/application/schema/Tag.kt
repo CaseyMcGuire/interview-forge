@@ -12,6 +12,9 @@ class Tag : EntSchema("tags", clientName = "tags") {
   val displayName by string("display_name")
     .comment("Human-readable label, such as \"Two Pointers\" or \"Concurrency\".")
 
+  val type by enum<TagType>("type").default(TagType.TOPIC).immutable()
+    .comment("Whether the tag describes a topic or a company, fixed when the tag is created.")
+
   val problems by manyToMany<Problem>()
     .throughLink<ProblemTag>(ProblemTag::tag, ProblemTag::problem)
 
