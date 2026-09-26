@@ -2,6 +2,7 @@ package com.application.graphql
 
 import com.application.ent.EntClient
 import com.application.graphql.types.Tag
+import com.application.schema.TagType
 import com.application.schema.UserRole
 import com.application.security.UserIdPrincipal
 import com.netflix.graphql.dgs.DgsQueryExecutor
@@ -63,14 +64,38 @@ class TagDataFetcherIntegrationTest {
     val first = createTag("$prefix-a", "$prefix Concurrency")
     SecurityContextHolder.clearContext()
 
-    val tags = graphql("{ tags { id slug displayName } }")["tags"]
+    val tags = graphql("{ tags { id slug displayName type } }")["tags"]
       .filter { it["slug"].asString().startsWith(prefix) }
 
     assertEquals(listOf(first, second, last), tags)
     for (tag in tags) {
       val stored = entClient.tags.indexes.slug(tag["slug"].asString()).find(fixtures).getOrThrow()!!
       assertEquals(globalIdUtil.toGlobalId(Tag::class, stored.id), tag["id"].asString())
+      assertEquals("TOPIC", tag["type"].asString())
     }
+  }
+
+  @Test
+  fun `public catalog and problem tags expose stored topic and company types`() {
+    val topic = createTag()
+    val company = entClient.tags.create {
+      slug = "company-${UUID.randomUUID()}"
+      displayName = "Example Company"
+      type = TagType.COMPANY
+    }.saveAndLoad(fixtures).getOrThrow()
+    val companyId = globalIdUtil.toGlobalId(Tag::class, company.id)
+    val topicId = topic["id"].asString()
+    val problem = createProblem(problemInput(listOf(topicId, companyId)))
+
+    SecurityContextHolder.clearContext()
+    val catalogTypes = graphql("{ tags { id type } }")["tags"]
+      .associate { it["id"].asString() to it["type"].asString() }
+    val problemTypes = readProblem(problem["slug"].asString())["tags"]
+      .associate { it["id"].asString() to it["type"].asString() }
+
+    assertEquals("TOPIC", catalogTypes[topicId])
+    assertEquals("COMPANY", catalogTypes[companyId])
+    assertEquals(mapOf(topicId to "TOPIC", companyId to "COMPANY"), problemTypes)
   }
 
   @Test
@@ -168,7 +193,7 @@ class TagDataFetcherIntegrationTest {
 
     val listed = graphql(
       """query(${'$'}search: String!) {
-        problems(filters: {search: ${'$'}search}) { edges { node { id tags { id slug displayName } } } }
+        problems(filters: {search: ${'$'}search}) { edges { node { id tags { id slug displayName type } } } }
       }""".trimIndent(),
       mapOf("search" to input.getValue("title")),
     )["problems"]["edges"].single()["node"]
@@ -309,7 +334,7 @@ class TagDataFetcherIntegrationTest {
     mutate(UPDATE_PROBLEM, "updateProblem", mapOf("id" to id) + fields)
 
   private fun readProblem(slug: String): JsonNode = graphql(
-    """query(${'$'}slug: String!) { problem(slug: ${'$'}slug) { id slug title tags { id slug displayName } } }""",
+    """query(${'$'}slug: String!) { problem(slug: ${'$'}slug) { id slug title tags { id slug displayName type } } }""",
     mapOf("slug" to slug),
   )["problem"]
 
@@ -354,7 +379,7 @@ class TagDataFetcherIntegrationTest {
       mutation(${'$'}input: CreateTagInput!) {
         createTag(input: ${'$'}input) {
           __typename
-          ... on CreateTagSuccess { tag { id slug displayName } }
+          ... on CreateTagSuccess { tag { id slug displayName type } }
           ... on TagValidationFailure { fieldErrors { field message } }
         }
       }
@@ -364,7 +389,7 @@ class TagDataFetcherIntegrationTest {
       mutation(${'$'}input: UpdateTagInput!) {
         updateTag(input: ${'$'}input) {
           __typename
-          ... on UpdateTagSuccess { tag { id slug displayName } }
+          ... on UpdateTagSuccess { tag { id slug displayName type } }
           ... on TagValidationFailure { fieldErrors { field message } }
         }
       }
@@ -382,7 +407,7 @@ class TagDataFetcherIntegrationTest {
 
     private val CREATE_PROBLEM = """
       mutation(${'$'}input: CreateProblemInput!) {
-        createProblem(input: ${'$'}input) { id slug title tags { id slug displayName } }
+        createProblem(input: ${'$'}input) { id slug title tags { id slug displayName type } }
       }
     """.trimIndent()
 
@@ -390,7 +415,7 @@ class TagDataFetcherIntegrationTest {
       mutation(${'$'}input: UpdateProblemInput!) {
         updateProblem(input: ${'$'}input) {
           __typename
-          ... on UpdateProblemSuccess { problem { id slug title tags { id slug displayName } } }
+          ... on UpdateProblemSuccess { problem { id slug title tags { id slug displayName type } } }
           ... on ProblemValidationFailure { fieldErrors { field message } }
         }
       }

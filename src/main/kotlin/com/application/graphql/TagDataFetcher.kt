@@ -10,6 +10,7 @@ import com.application.graphql.types.FieldError
 import com.application.graphql.types.Tag
 import com.application.graphql.types.TagForbidden
 import com.application.graphql.types.TagNotFound
+import com.application.graphql.types.TagType
 import com.application.graphql.types.TagValidationFailure
 import com.application.graphql.types.UpdateTagInput
 import com.application.graphql.types.UpdateTagResult
@@ -25,6 +26,7 @@ import entkt.runtime.result.EntTargetAbsentException
 import entkt.runtime.result.EntValidationException
 import org.springframework.security.access.AccessDeniedException
 import com.application.ent.Tag as TagEntity
+import com.application.schema.TagType as SchemaTagType
 
 @DgsComponent
 class TagDataFetcher(
@@ -103,4 +105,8 @@ internal fun TagEntity.toGraphqlTag(globalIdUtil: GlobalIdUtil): Tag = Tag(
   id = globalIdUtil.toGlobalId(Tag::class, id),
   slug = slug,
   displayName = displayName,
+  type = when (type) {
+    SchemaTagType.TOPIC -> TagType.TOPIC
+    SchemaTagType.COMPANY -> TagType.COMPANY
+  },
 )

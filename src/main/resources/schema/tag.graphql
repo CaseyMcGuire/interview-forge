@@ -8,6 +8,11 @@ extend type Problem {
   tags: [Tag!]!
 }
 
+enum TagType {
+  TOPIC
+  COMPANY
+}
+
 type Tag {
   id: ID!
 
@@ -15,4 +20,6 @@ type Tag {
   slug: String!
 
   displayName: String!
+
+  type: TagType!
 }
