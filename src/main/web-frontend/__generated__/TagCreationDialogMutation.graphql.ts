@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<4df6624c1ee4b7d5e7a6f53c49bd39d2>>
+ * @generated SignedSource<<e5f448adf20b40cff9205089335ebec2>>
  * @lightSyntaxTransform
  */
 
@@ -8,9 +8,11 @@
 // @ts-nocheck
 
 import { ConcreteRequest } from 'relay-runtime';
+export type TagType = "COMPANY" | "TOPIC" | "%future added value";
 export type CreateTagInput = {
   displayName: string;
   slug: string;
+  type?: TagType;
 };
 export type TagCreationDialogMutation$variables = {
   input: CreateTagInput;

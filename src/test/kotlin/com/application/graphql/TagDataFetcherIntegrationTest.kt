@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.NullSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -72,6 +74,7 @@ class TagDataFetcherIntegrationTest {
       val stored = entClient.tags.indexes.slug(tag["slug"].asString()).find(fixtures).getOrThrow()!!
       assertEquals(globalIdUtil.toGlobalId(Tag::class, stored.id), tag["id"].asString())
       assertEquals("TOPIC", tag["type"].asString())
+      assertEquals(TagType.TOPIC, stored.type)
     }
   }
 
@@ -118,12 +121,50 @@ class TagDataFetcherIntegrationTest {
     assertEquals("TagNotFound", deleteTag(id)["__typename"].asString())
   }
 
+  @ParameterizedTest
+  @EnumSource(TagType::class)
+  fun `administrators can create each tag type and renaming preserves it`(type: TagType) {
+    val slug = "tag-${UUID.randomUUID()}"
+    val result = mutate(CREATE_TAG, "createTag", mapOf(
+      "slug" to slug,
+      "displayName" to "Example tag",
+      "type" to type.name,
+    ))
+
+    assertEquals("CreateTagSuccess", result["__typename"].asString())
+    val tag = result["tag"]
+    assertEquals(type.name, tag["type"].asString())
+
+    val stored = entClient.tags.indexes.slug(slug).find(fixtures).getOrThrow()!!
+    assertEquals(type, stored.type)
+
+    val updated = updateTag(tag["id"].asString(), "Renamed tag")
+    assertEquals("UpdateTagSuccess", updated["__typename"].asString())
+    assertEquals(type.name, updated["tag"]["type"].asString())
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = ["UNKNOWN"])
+  fun `null and unknown tag types are rejected without creating a tag`(type: String?) {
+    val slug = "tag-${UUID.randomUUID()}"
+    val result = queryExecutor.execute(CREATE_TAG, mapOf("input" to mapOf(
+      "slug" to slug,
+      "displayName" to "Invalid type",
+      "type" to type,
+    )))
+
+    assertFalse(result.errors.isEmpty())
+    assertNull(entClient.tags.indexes.slug(slug).find(fixtures).getOrThrow())
+  }
+
   @Test
   fun `duplicate slugs and invalid content return field validation failures`() {
     val tag = createTag()
     val duplicate = mutate(CREATE_TAG, "createTag", mapOf(
       "slug" to tag["slug"].asString(),
       "displayName" to "Different label",
+      "type" to "COMPANY",
     ))
     assertValidation(duplicate, "TagValidationFailure", "slug")
 
@@ -298,11 +339,15 @@ class TagDataFetcherIntegrationTest {
   }
 
   private fun assertTagMutationsForbidden(id: String) {
-    val creation = mutate(CREATE_TAG, "createTag", mapOf(
-      "slug" to "forbidden-${UUID.randomUUID()}",
-      "displayName" to "Forbidden",
-    ))
-    assertEquals("TagForbidden", creation["__typename"].asString())
+    for (type in TagType.entries) {
+      val creation = mutate(CREATE_TAG, "createTag", mapOf(
+        "slug" to "forbidden-${UUID.randomUUID()}",
+        "displayName" to "Forbidden",
+        "type" to type.name,
+      ))
+      assertEquals("TagForbidden", creation["__typename"].asString())
+    }
+
     assertEquals("TagForbidden", updateTag(id, "Forbidden")["__typename"].asString())
     assertEquals("TagForbidden", deleteTag(id)["__typename"].asString())
   }

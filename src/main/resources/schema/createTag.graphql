@@ -18,4 +18,6 @@ input CreateTagInput {
 
   """Nonblank, trimmed label, at most 100 characters."""
   displayName: String!
+
+  type: TagType! = TOPIC
 }

@@ -2,6 +2,7 @@ package com.application.services
 
 import com.application.ent.EntClient
 import com.application.ent.Tag
+import com.application.schema.TagType
 import com.application.security.CurrentUserService
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
@@ -20,13 +21,14 @@ class TagService(
     orderBy(Tag.slug.asc())
   }.all(publicContext).getOrThrow()
 
-  fun createTag(slug: String, displayName: String): Tag {
+  fun createTag(slug: String, displayName: String, type: TagType): Tag {
     val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
     return try {
       entClient.tags.create {
         this.slug = slug
         this.displayName = displayName
+        this.type = type
       }.saveAndLoad(context).getOrThrow()
     } catch (exception: EntConstraintViolationException) {
       if (exception.driverCode == "23505" && exception.constraint == "idx_tags_slug_unique") {

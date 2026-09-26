@@ -38,7 +38,14 @@ class TagDataFetcher(
 
   @DgsMutation
   fun createTag(@InputArgument input: CreateTagInput): CreateTagResult = try {
-    val tag = tagService.createTag(input.slug, input.displayName)
+    val tag = tagService.createTag(
+      slug = input.slug,
+      displayName = input.displayName,
+      type = when (input.type) {
+        TagType.TOPIC -> SchemaTagType.TOPIC
+        TagType.COMPANY -> SchemaTagType.COMPANY
+      },
+    )
     CreateTagSuccess(tag.toGraphqlTag(globalIdUtil))
   } catch (_: AccessDeniedException) {
     forbidden()
