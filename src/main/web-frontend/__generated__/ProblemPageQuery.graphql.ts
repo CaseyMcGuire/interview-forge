@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<ed9d08193f3389af0236cbcf74c648c9>>
+ * @generated SignedSource<<6fcfed6d1709e82a8e9cba0815dd7038>>
  * @lightSyntaxTransform
  */
 
@@ -9,6 +9,7 @@
 
 import { ConcreteRequest } from 'relay-runtime';
 export type ProblemDifficulty = "EASY" | "HARD" | "MEDIUM" | "%future added value";
+export type TagType = "COMPANY" | "TOPIC" | "%future added value";
 export type ProblemPageQuery$variables = {
   slug: string;
 };
@@ -38,6 +39,7 @@ export type ProblemPageQuery$data = {
     readonly tags: ReadonlyArray<{
       readonly displayName: string;
       readonly id: string;
+      readonly type: TagType;
     }>;
     readonly title: string;
   } | null | undefined;
@@ -129,7 +131,14 @@ v3 = [
         "plural": true,
         "selections": [
           (v1/*:: as any*/),
-          (v2/*:: as any*/)
+          (v2/*:: as any*/),
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "type",
+            "storageKey": null
+          }
         ],
         "storageKey": null
       },
@@ -236,16 +245,16 @@ return {
     "selections": (v3/*:: as any*/)
   },
   "params": {
-    "cacheID": "1dc636b60c099bdcfde6d3ed0a374ac7",
+    "cacheID": "9f9a4f4aee52af8a671eb4324433d954",
     "id": null,
     "metadata": {},
     "name": "ProblemPageQuery",
     "operationKind": "query",
-    "text": "query ProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    statementMarkdown\n    difficulty\n    canEdit\n    tags {\n      id\n      displayName\n    }\n    languageConfigurations {\n      id\n      starterCode\n      language {\n        id\n        key\n        displayName\n      }\n    }\n    examples {\n      id\n      position\n      inputJson\n      expectedOutputJson\n      explanationMarkdown\n    }\n  }\n}\n"
+    "text": "query ProblemPageQuery(\n  $slug: String!\n) {\n  problem(slug: $slug) {\n    id\n    slug\n    title\n    statementMarkdown\n    difficulty\n    canEdit\n    tags {\n      id\n      displayName\n      type\n    }\n    languageConfigurations {\n      id\n      starterCode\n      language {\n        id\n        key\n        displayName\n      }\n    }\n    examples {\n      id\n      position\n      inputJson\n      expectedOutputJson\n      explanationMarkdown\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "3e298f74854b830c4dd40dc4833f7473";
+(node as any).hash = "49bb231ffa0f554004de78c89fb3c148";
 
 export default node;

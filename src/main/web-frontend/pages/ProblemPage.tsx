@@ -43,6 +43,7 @@ export default function ProblemPage() {
         tags {
           id
           displayName
+          type
         }
         languageConfigurations {
           id

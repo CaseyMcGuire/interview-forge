@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<5f95631558334bfbf2200c1289371196>>
+ * @generated SignedSource<<f7ac5d786bc577381fa8811080e9cdbd>>
  * @lightSyntaxTransform
  */
 
@@ -99,7 +99,14 @@ return {
             "name": "slug",
             "storageKey": null
           },
-          (v1/*:: as any*/)
+          (v1/*:: as any*/),
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "type",
+            "storageKey": null
+          }
         ],
         "storageKey": null
       },
@@ -107,12 +114,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "4c0c74c5f64f2dc4be1c6f123a46b36f",
+    "cacheID": "90fb14264b80938aa9acc88980abfb11",
     "id": null,
     "metadata": {},
     "name": "ProblemCreationFormQuery",
     "operationKind": "query",
-    "text": "query ProblemCreationFormQuery {\n  ...ProblemTagField_query\n  languages {\n    id\n    key\n    displayName\n  }\n}\n\nfragment ProblemTagField_query on Query {\n  tags {\n    id\n    slug\n    displayName\n  }\n}\n"
+    "text": "query ProblemCreationFormQuery {\n  ...ProblemTagField_query\n  languages {\n    id\n    key\n    displayName\n  }\n}\n\nfragment ProblemTagField_query on Query {\n  tags {\n    id\n    slug\n    displayName\n    type\n  }\n}\n"
   }
 };
 })();

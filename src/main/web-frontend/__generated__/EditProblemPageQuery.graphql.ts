@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<d7e1de685833562f55c486d539653b49>>
+ * @generated SignedSource<<2e3cd0924aaebb1208df9248fecad57a>>
  * @lightSyntaxTransform
  */
 
@@ -155,7 +155,14 @@ return {
         "selections": [
           (v2/*:: as any*/),
           (v3/*:: as any*/),
-          (v4/*:: as any*/)
+          (v4/*:: as any*/),
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "type",
+            "storageKey": null
+          }
         ],
         "storageKey": null
       },
@@ -320,12 +327,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "967c92239611543c6c3e2975973c16f0",
+    "cacheID": "45f4982f045adc5fb8e6a33011d3afb6",
     "id": null,
     "metadata": {},
     "name": "EditProblemPageQuery",
     "operationKind": "query",
-    "text": "query EditProblemPageQuery(\n  $slug: String!\n) {\n  ...ProblemTagField_query\n  problem(slug: $slug) {\n    id\n    slug\n    ...ProblemDetailsForm_problem\n    languageConfigurations {\n      id\n      ...ProblemLanguageEditForm_configuration\n    }\n    examples {\n      id\n      ...ProblemExampleEditForm_example\n    }\n  }\n}\n\nfragment ProblemDetailsForm_problem on Problem {\n  id\n  title\n  statementMarkdown\n  difficulty\n  tags {\n    id\n  }\n}\n\nfragment ProblemExampleEditForm_example on ProblemExample {\n  id\n  inputJson\n  expectedOutputJson\n  explanationMarkdown\n}\n\nfragment ProblemJudgeConfigurationEditor_configuration on ProblemLanguage {\n  id\n  language {\n    key\n    displayName\n    id\n  }\n  judgeConfiguration {\n    id\n    testDriverCode\n    checkerSource\n    timeLimitMs\n    memoryLimitMb\n  }\n}\n\nfragment ProblemLanguageEditForm_configuration on ProblemLanguage {\n  id\n  starterCode\n  language {\n    key\n    displayName\n    id\n  }\n  ...ProblemJudgeConfigurationEditor_configuration\n}\n\nfragment ProblemTagField_query on Query {\n  tags {\n    id\n    slug\n    displayName\n  }\n}\n"
+    "text": "query EditProblemPageQuery(\n  $slug: String!\n) {\n  ...ProblemTagField_query\n  problem(slug: $slug) {\n    id\n    slug\n    ...ProblemDetailsForm_problem\n    languageConfigurations {\n      id\n      ...ProblemLanguageEditForm_configuration\n    }\n    examples {\n      id\n      ...ProblemExampleEditForm_example\n    }\n  }\n}\n\nfragment ProblemDetailsForm_problem on Problem {\n  id\n  title\n  statementMarkdown\n  difficulty\n  tags {\n    id\n  }\n}\n\nfragment ProblemExampleEditForm_example on ProblemExample {\n  id\n  inputJson\n  expectedOutputJson\n  explanationMarkdown\n}\n\nfragment ProblemJudgeConfigurationEditor_configuration on ProblemLanguage {\n  id\n  language {\n    key\n    displayName\n    id\n  }\n  judgeConfiguration {\n    id\n    testDriverCode\n    checkerSource\n    timeLimitMs\n    memoryLimitMb\n  }\n}\n\nfragment ProblemLanguageEditForm_configuration on ProblemLanguage {\n  id\n  starterCode\n  language {\n    key\n    displayName\n    id\n  }\n  ...ProblemJudgeConfigurationEditor_configuration\n}\n\nfragment ProblemTagField_query on Query {\n  tags {\n    id\n    slug\n    displayName\n    type\n  }\n}\n"
   }
 };
 })();

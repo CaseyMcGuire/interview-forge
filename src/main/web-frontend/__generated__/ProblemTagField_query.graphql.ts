@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<935650a2e1b4df28beb2fe27f41a9101>>
+ * @generated SignedSource<<f1e76fc714fb887bf87bae08d7b53367>>
  * @lightSyntaxTransform
  */
 
@@ -8,12 +8,14 @@
 // @ts-nocheck
 
 import { ReaderFragment } from 'relay-runtime';
+export type TagType = "COMPANY" | "TOPIC" | "%future added value";
 import { FragmentRefs } from "relay-runtime";
 export type ProblemTagField_query$data = {
   readonly tags: ReadonlyArray<{
     readonly displayName: string;
     readonly id: string;
     readonly slug: string;
+    readonly type: TagType;
   }>;
   readonly " $fragmentType": "ProblemTagField_query";
 };
@@ -56,6 +58,13 @@ const node: ReaderFragment = {
           "kind": "ScalarField",
           "name": "displayName",
           "storageKey": null
+        },
+        {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "type",
+          "storageKey": null
         }
       ],
       "storageKey": null
@@ -65,6 +74,6 @@ const node: ReaderFragment = {
   "abstractKey": null
 };
 
-(node as any).hash = "9a9e24b990fb43a009b1f1f792ed57af";
+(node as any).hash = "7c9b31b023c680fb2baa6a7097e1f732";
 
 export default node;

@@ -120,6 +120,7 @@ export default function TagCreationDialog(props: Props) {
             id
             slug
             displayName
+            type
           }
         }
         ... on TagValidationFailure {

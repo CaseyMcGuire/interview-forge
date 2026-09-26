@@ -127,8 +127,8 @@ export default function ProblemPanel({problem}: ProblemPanelProps) {
         <div role="heading" aria-level={1} id="problem-title" sx={styles.title}>{problem.title}</div>
         <div sx={styles.badges}>
           <ProblemDifficultyBadge difficulty={problem.difficulty} />
-          <ProblemTags tags={problem.tags} />
         </div>
+        <ProblemTags tags={problem.tags} />
         <ProblemMarkdown>{problem.statementMarkdown}</ProblemMarkdown>
 
         {problem.examples.length > 0 && (

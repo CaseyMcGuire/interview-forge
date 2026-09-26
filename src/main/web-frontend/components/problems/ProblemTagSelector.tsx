@@ -1,15 +1,18 @@
 import {useId} from "react";
 import * as stylex from "@stylexjs/stylex";
+import type {TagType} from "__generated__/ProblemTagField_query.graphql";
+import {groupTagsByType} from "./groupTagsByType";
 
 type TagOption = {
   id: string;
   slug: string;
   displayName: string;
+  type: TagType;
 };
 
 type Props = {
-  tags: readonly TagOption[];
-  selectedTagIds: readonly string[];
+  tags: ReadonlyArray<TagOption>;
+  selectedTagIds: ReadonlyArray<string>;
   disabled?: boolean;
   onChange: (tagIds: string[]) => void;
 };
@@ -31,6 +34,18 @@ const styles = stylex.create({
     fontSize: 12,
     lineHeight: 1.5
   },
+  group: {
+    borderWidth: 0,
+    margin: "16px 0 0",
+    padding: 0,
+    minWidth: 0
+  },
+  groupLegend: {
+    padding: 0,
+    color: "#9da0a8",
+    fontSize: 13,
+    fontWeight: 600
+  },
   options: {
     display: "grid",
     gridTemplateColumns: {
@@ -38,7 +53,7 @@ const styles = stylex.create({
       "@media (max-width: 600px)": "minmax(0, 1fr)"
     },
     gap: 8,
-    marginTop: 12
+    marginTop: 8
   },
   option: {
     display: "flex",
@@ -98,34 +113,37 @@ export default function ProblemTagSelector(props: Props) {
       <p id={`${id}-hint`} sx={styles.description}>
         {props.tags.length === 0
           ? "No tags available."
-          : "Select the topics and techniques used by this problem."}
+          : "Select the topics and companies associated with this problem."}
       </p>
 
-      {props.tags.length > 0 && (
-        <div sx={styles.options}>
-          {props.tags.map((tag) => {
-            const selected = props.selectedTagIds.includes(tag.id);
+      {groupTagsByType(props.tags).map((group) => (
+        <fieldset key={group.label} sx={styles.group}>
+          <legend sx={styles.groupLegend}>{group.label}</legend>
+          <div sx={styles.options}>
+            {group.tags.map((tag) => {
+              const selected = props.selectedTagIds.includes(tag.id);
 
-            return (
-              <label
-                key={tag.id}
-                sx={[styles.option, selected && styles.selected, props.disabled && styles.disabled]}
-              >
-                <input
-                  sx={styles.checkbox}
-                  type="checkbox"
-                  checked={selected}
-                  onChange={(event) => setTagSelected(tag.id, event.target.checked)}
-                />
-                <span sx={styles.label}>
-                  <span>{tag.displayName}</span>
-                  <span sx={styles.slug}>{tag.slug}</span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
-      )}
+              return (
+                <label
+                  key={tag.id}
+                  sx={[styles.option, selected && styles.selected, props.disabled && styles.disabled]}
+                >
+                  <input
+                    sx={styles.checkbox}
+                    type="checkbox"
+                    checked={selected}
+                    onChange={(event) => setTagSelected(tag.id, event.target.checked)}
+                  />
+                  <span sx={styles.label}>
+                    <span>{tag.displayName}</span>
+                    <span sx={styles.slug}>{tag.slug}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      ))}
     </fieldset>
   );
 }

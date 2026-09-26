@@ -95,6 +95,7 @@ export default function ProblemDetailsForm(props: Props) {
             tags {
               id
               displayName
+              type
             }
           }
         }

@@ -1,8 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
+import type {TagType} from "__generated__/ProblemPageQuery.graphql";
+import {groupTagsByType} from "./groupTagsByType";
 
 type Tag = {
   id: string;
   displayName: string;
+  type: TagType;
 };
 
 type Props = {
@@ -10,6 +13,22 @@ type Props = {
 };
 
 const styles = stylex.create({
+  groups: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8
+  },
+  group: {
+    display: "flex",
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  label: {
+    color: "#9da0a8",
+    fontSize: 12,
+    fontWeight: 600
+  },
   list: {
     display: "flex",
     flexWrap: "wrap",
@@ -36,10 +55,17 @@ export default function ProblemTags(props: Props) {
   }
 
   return (
-    <ul sx={styles.list} aria-label="Tags" role="list">
-      {props.tags.map((tag) => (
-        <li key={tag.id} sx={styles.tag}>{tag.displayName}</li>
+    <div sx={styles.groups}>
+      {groupTagsByType(props.tags).map((group) => (
+        <div key={group.label} sx={styles.group}>
+          <span sx={styles.label}>{group.label}</span>
+          <ul sx={styles.list} aria-label={group.label} role="list">
+            {group.tags.map((tag) => (
+              <li key={tag.id} sx={styles.tag}>{tag.displayName}</li>
+            ))}
+          </ul>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }

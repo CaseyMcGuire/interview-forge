@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<e5f448adf20b40cff9205089335ebec2>>
+ * @generated SignedSource<<8a4035c19cc3148fe5374327b59aba01>>
  * @lightSyntaxTransform
  */
 
@@ -24,6 +24,7 @@ export type TagCreationDialogMutation$data = {
       readonly displayName: string;
       readonly id: string;
       readonly slug: string;
+      readonly type: TagType;
     };
   } | {
     readonly __typename: "TagForbidden";
@@ -114,6 +115,13 @@ v2 = [
                 "kind": "ScalarField",
                 "name": "displayName",
                 "storageKey": null
+              },
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
+                "name": "type",
+                "storageKey": null
               }
             ],
             "storageKey": null
@@ -179,16 +187,16 @@ return {
     "selections": (v2/*:: as any*/)
   },
   "params": {
-    "cacheID": "4146f3f38ee8fd6c0b42ad32ec9669c7",
+    "cacheID": "fddf4a182bcdb61fffa5f2425d3687bf",
     "id": null,
     "metadata": {},
     "name": "TagCreationDialogMutation",
     "operationKind": "mutation",
-    "text": "mutation TagCreationDialogMutation(\n  $input: CreateTagInput!\n) {\n  createTag(input: $input) {\n    __typename\n    ... on CreateTagSuccess {\n      tag {\n        id\n        slug\n        displayName\n      }\n    }\n    ... on TagValidationFailure {\n      message\n      fieldErrors {\n        field\n        message\n      }\n    }\n    ... on TagForbidden {\n      message\n    }\n  }\n}\n"
+    "text": "mutation TagCreationDialogMutation(\n  $input: CreateTagInput!\n) {\n  createTag(input: $input) {\n    __typename\n    ... on CreateTagSuccess {\n      tag {\n        id\n        slug\n        displayName\n        type\n      }\n    }\n    ... on TagValidationFailure {\n      message\n      fieldErrors {\n        field\n        message\n      }\n    }\n    ... on TagForbidden {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "45559b6fc9cb54c2f49fd51d4b1d5d3b";
+(node as any).hash = "30708e19c06ed150f9ba23463ad93cd8";
 
 export default node;

@@ -46,6 +46,7 @@ export default function ProblemTagField(props: Props) {
         id
         slug
         displayName
+        type
       }
     }
   `, props.query);

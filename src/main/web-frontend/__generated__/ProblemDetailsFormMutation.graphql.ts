@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<8193c8fed41396863eaeaf59b1bab171>>
+ * @generated SignedSource<<be9fbeb577c1edf83e34a7aa728a9bec>>
  * @lightSyntaxTransform
  */
 
@@ -9,6 +9,7 @@
 
 import { ConcreteRequest } from 'relay-runtime';
 export type ProblemDifficulty = "EASY" | "HARD" | "MEDIUM" | "%future added value";
+export type TagType = "COMPANY" | "TOPIC" | "%future added value";
 export type UpdateProblemInput = {
   difficulty?: ProblemDifficulty | null | undefined;
   id: string;
@@ -41,6 +42,7 @@ export type ProblemDetailsFormMutation$data = {
       readonly tags: ReadonlyArray<{
         readonly displayName: string;
         readonly id: string;
+        readonly type: TagType;
       }>;
       readonly title: string;
     };
@@ -150,6 +152,13 @@ v4 = [
                     "kind": "ScalarField",
                     "name": "displayName",
                     "storageKey": null
+                  },
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "type",
+                    "storageKey": null
                   }
                 ],
                 "storageKey": null
@@ -213,16 +222,16 @@ return {
     "selections": (v4/*:: as any*/)
   },
   "params": {
-    "cacheID": "1bdb0d84f5c1fbdf76bbd72352873348",
+    "cacheID": "360ee6077b6ff48d047c553a1bd36995",
     "id": null,
     "metadata": {},
     "name": "ProblemDetailsFormMutation",
     "operationKind": "mutation",
-    "text": "mutation ProblemDetailsFormMutation(\n  $input: UpdateProblemInput!\n) {\n  updateProblem(input: $input) {\n    __typename\n    ... on UpdateProblemSuccess {\n      problem {\n        id\n        title\n        statementMarkdown\n        difficulty\n        tags {\n          id\n          displayName\n        }\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
+    "text": "mutation ProblemDetailsFormMutation(\n  $input: UpdateProblemInput!\n) {\n  updateProblem(input: $input) {\n    __typename\n    ... on UpdateProblemSuccess {\n      problem {\n        id\n        title\n        statementMarkdown\n        difficulty\n        tags {\n          id\n          displayName\n          type\n        }\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "ac67998e6bc74dc8428dbacaf664294a";
+(node as any).hash = "e7b1c47ce59d261b6cd3dc06a28c3924";
 
 export default node;
