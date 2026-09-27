@@ -21,6 +21,7 @@ input UpdateJudgeConfigurationInput {
   """Opaque judge configuration ID returned by JudgeConfiguration.id."""
   id: ID!
 
+  testDriverType: TestDriverType
   testDriverCode: String
 
   """

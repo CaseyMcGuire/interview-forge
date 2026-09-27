@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<ad3601e5e868700c80b3133e86612153>>
+ * @generated SignedSource<<15094424f664305a745db2dc52a9dcb0>>
  * @lightSyntaxTransform
  */
 
@@ -8,11 +8,13 @@
 // @ts-nocheck
 
 import { ConcreteRequest } from 'relay-runtime';
+export type TestDriverType = "JSON_TEST_DRIVER" | "MAIN_FUNCTION" | "%future added value";
 export type CreateJudgeConfigurationInput = {
   memoryLimitMb: number;
   problemLanguageId: string;
   referenceSolutionCode?: string | null | undefined;
   testDriverCode: string;
+  testDriverType?: TestDriverType;
   timeLimitMs: number;
 };
 export type ProblemJudgeConfigurationEditorCreateMutation$variables = {

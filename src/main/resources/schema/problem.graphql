@@ -98,7 +98,10 @@ type JudgeConfiguration {
   """Opaque, globally unique judge configuration identifier."""
   id: ID!
 
-  """Code that parses test input, calls the submitted solution, and serializes its output."""
+  """Determines how the runtime invokes testDriverCode."""
+  testDriverType: TestDriverType!
+
+  """Code compiled with the submitted source to invoke its API."""
   testDriverCode: String!
 
   """Reference solution used to compute expected outputs for custom inputs; null if unconfigured."""

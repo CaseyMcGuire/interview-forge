@@ -1,0 +1,2 @@
+"""Fields supplied by a dedicated resolver instead of the generated parent model."""
+directive @skipcodegen on FIELD_DEFINITION

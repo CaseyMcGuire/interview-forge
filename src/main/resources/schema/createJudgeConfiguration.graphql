@@ -21,7 +21,10 @@ input CreateJudgeConfigurationInput {
   """ID of the problem-language configuration to use."""
   problemLanguageId: ID!
 
-  """Code that parses input, calls the solution, and serializes output. Nonblank; at most 50,000 characters."""
+  """Determines how the runtime invokes testDriverCode."""
+  testDriverType: TestDriverType! = MAIN_FUNCTION
+
+  """Code compiled with the submitted source to invoke its API. Nonblank; at most 50,000 characters."""
   testDriverCode: String!
 
   """Reference solution for custom inputs. Nonblank when provided; at most 50,000 characters."""

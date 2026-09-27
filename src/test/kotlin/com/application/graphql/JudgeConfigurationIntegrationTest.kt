@@ -106,6 +106,7 @@ class JudgeConfigurationIntegrationTest {
     val language = result["problemLanguage"]
     assertEquals(configurationId, language["id"].asString())
     val judge = language["judgeConfiguration"]
+    assertEquals("MAIN_FUNCTION", judge["testDriverType"].asString())
     assertEquals("fun main() = judge()", judge["testDriverCode"].asString())
     assertEquals(validSettings["referenceSolutionCode"], judge["referenceSolutionCode"].asString())
     assertEquals(1000, judge["timeLimitMs"].asInt())
@@ -147,7 +148,9 @@ class JudgeConfigurationIntegrationTest {
     assertEquals(TestDriverType.JSON_TEST_DRIVER, stored.testDriverType)
     assertEquals(typedDriver, stored.testDriverCode)
 
-    assertSuccess(updateJudge(judgeGlobalId(created), mapOf("timeLimitMs" to 2500)), "UpdateJudgeConfigurationSuccess")
+    val result = updateJudge(judgeGlobalId(created), mapOf("timeLimitMs" to 2500))
+    assertSuccess(result, "UpdateJudgeConfigurationSuccess")
+    assertEquals("JSON_TEST_DRIVER", result["judgeConfiguration"]["testDriverType"].asString())
     val updated = storedJudge(configuration.id)!!
     assertEquals(TestDriverType.JSON_TEST_DRIVER, updated.testDriverType)
     assertEquals(typedDriver, updated.testDriverCode)
@@ -440,7 +443,7 @@ class JudgeConfigurationIntegrationTest {
     return user.id to (result.request.session as MockHttpSession)
   }
 
-  private val judgeFields = "id testDriverCode referenceSolutionCode timeLimitMs memoryLimitMb"
+  private val judgeFields = "id testDriverType testDriverCode referenceSolutionCode timeLimitMs memoryLimitMb"
 
   private fun createJudge(
     fields: Map<String, Any?> = emptyMap(),

@@ -1,0 +1,20 @@
+extend type Language {
+  """Supported test driver types and usage instructions for this language."""
+  testDriverTypes: [TestDriverTypeInfo!]! @skipcodegen
+}
+
+enum TestDriverType {
+  """The driver reads JSON from standard input and writes its answer to standard output."""
+  MAIN_FUNCTION
+
+  """The runtime deserializes JSON input and serializes the driver's return value."""
+  JSON_TEST_DRIVER
+}
+
+type TestDriverTypeInfo {
+  type: TestDriverType!
+  displayName: String!
+
+  """Language-specific instructions, entry-point requirements, and code examples."""
+  documentationMarkdown: String!
+}
