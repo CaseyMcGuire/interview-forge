@@ -122,6 +122,60 @@ class McpAuthoringWorkflowIntegrationTest {
     Files.list(executionRoot).use { assertEquals(0L, it.count()) }
   }
 
+  @Test
+  fun `typed drivers generate reference answers and grade submitted source through the worker`() {
+    assumeTrue(docker.isAvailable(DockerExecutionServiceTest.IMAGE), "Build the Kotlin execution image first")
+    connectClient()
+    client.initialize()
+
+    val kotlin = callTool("list_languages")["languages"].single { it["key"].asString() == "kotlin" }
+    val documentedTypes = kotlin["testDriverTypes"].toList()
+    assertEquals(listOf("MAIN_FUNCTION", "JSON_TEST_DRIVER"), documentedTypes.map { it["type"].asString() })
+    assertTrue(documentedTypes.all { it["documentationMarkdown"].asString().contains("```kotlin") })
+
+    val driver = """
+      import com.application.execution.JsonTestDriver
+
+      data class Input(val value: Long)
+
+      class TestDriver : JsonTestDriver<Input, Long>(Input::class) {
+        override fun run(input: Input): Long = Solution().echo(input.value)
+      }
+    """.trimIndent()
+    val slug = "typed-driver-workflow"
+    val referenceCode = "class Solution { fun echo(value: Long): Long = value }"
+    callTool("create_problem", mapOf(
+      "slug" to slug,
+      "title" to "Typed input echo",
+      "statementMarkdown" to "Return the value from the input object.",
+      "difficulty" to "EASY",
+      "languageConfigurations" to listOf(mapOf(
+        "languageKey" to "kotlin",
+        "starterCode" to "class Solution { fun echo(value: Long): Long = TODO() }",
+        "testDriverType" to "JSON_TEST_DRIVER",
+        "testDriverCode" to driver,
+        "referenceSolutionCode" to referenceCode,
+        "timeLimitMs" to 2000,
+        "memoryLimitMb" to 256,
+      )),
+      "publicExamples" to listOf(mapOf("inputJson" to """{"value":1}""", "expectedOutputJson" to "1")),
+    ))
+    val problem = callTool("get_problem", mapOf("slug" to slug))["problem"]
+    assertEquals("JSON_TEST_DRIVER", problem["languageConfigurations"][0]["judgeConfiguration"]["testDriverType"].asString())
+    val target = mapOf("slug" to slug, "languageKey" to "kotlin")
+
+    val generated = callTool("generate_expected_output", target + ("inputJson" to """{"value":9007199254740993}"""))
+    assertEquals("9007199254740993", generated["expectedOutputJson"].asString())
+
+    val correct = enqueueAndAwaitSubmission(target + ("sourceCode" to referenceCode))
+    assertEquals("ACCEPTED", correct["verdict"].asString(), correct.toString())
+
+    val incorrect = enqueueAndAwaitSubmission(target + (
+      "sourceCode" to "class Solution { fun echo(value: Long): Long = 0L }"
+    ))
+    assertEquals("WRONG_ANSWER", incorrect["verdict"].asString(), incorrect.toString())
+  }
+
   private fun connectClient() {
     val transport = HttpClientStreamableHttpTransport.builder("http://localhost:$port")
       .endpoint("/mcp")

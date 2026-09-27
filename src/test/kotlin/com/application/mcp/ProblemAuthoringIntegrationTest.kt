@@ -72,6 +72,7 @@ class ProblemAuthoringIntegrationTest {
     assertEquals(configuration()["starterCode"], language["starterCode"].asString())
     assertEquals(configuration()["referenceSolutionCode"], language["judgeConfiguration"]["referenceSolutionCode"].asString())
     assertEquals(1000, language["judgeConfiguration"]["timeLimitMs"].asInt())
+    assertEquals("MAIN_FUNCTION", language["judgeConfiguration"]["testDriverType"].asString())
     assertEquals("9007199254740993", problem["publicExamples"][0]["inputJson"].asString())
     assertEquals("9007199254740993", problem["publicExamples"][0]["expectedOutputJson"].asString())
     assertEquals(listOf(1, 2), problem["testCases"].toList().map { it["position"].asInt() })
@@ -169,11 +170,20 @@ class ProblemAuthoringIntegrationTest {
     val slug = input["slug"] as String
     val original = inspectProblem(slug)["languageConfigurations"][0]
 
-    val invalid = configuration() + mapOf("starterCode" to "class Changed", "timeLimitMs" to 0)
+    val invalid = configuration() + mapOf(
+      "starterCode" to "class Changed",
+      "testDriverType" to "JSON_TEST_DRIVER",
+      "timeLimitMs" to 0,
+    )
     assertTrue(callTool("configure_problem_language", mapOf("slug" to slug, "configuration" to invalid))["isError"].asBoolean())
     assertEquals(original, inspectProblem(slug)["languageConfigurations"][0])
 
-    val replacement = configuration() + mapOf("starterCode" to "class Changed", "referenceSolutionCode" to "class Corrected", "timeLimitMs" to 2000)
+    val replacement = configuration() + mapOf(
+      "starterCode" to "class Changed",
+      "referenceSolutionCode" to "class Corrected",
+      "testDriverType" to "JSON_TEST_DRIVER",
+      "timeLimitMs" to 2000,
+    )
     repeat(2) {
       val result = callTool("configure_problem_language", mapOf("slug" to slug, "configuration" to replacement))
       assertFalse(result["isError"].asBoolean(), result.toString())
@@ -183,6 +193,11 @@ class ProblemAuthoringIntegrationTest {
     assertEquals("class Changed", replaced[0]["starterCode"].asString())
     assertEquals("class Corrected", replaced[0]["judgeConfiguration"]["referenceSolutionCode"].asString())
     assertEquals(2000, replaced[0]["judgeConfiguration"]["timeLimitMs"].asInt())
+    assertEquals("JSON_TEST_DRIVER", replaced[0]["judgeConfiguration"]["testDriverType"].asString())
+
+    val legacy = callTool("configure_problem_language", mapOf("slug" to slug, "configuration" to configuration()))
+    assertFalse(legacy["isError"].asBoolean(), legacy.toString())
+    assertEquals("MAIN_FUNCTION", inspectProblem(slug)["languageConfigurations"][0]["judgeConfiguration"]["testDriverType"].asString())
 
     entClient.languages.create {
       key = "another-language"

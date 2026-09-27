@@ -49,6 +49,22 @@ class ProblemDataFetcherIntegrationTest {
   lateinit var queryExecutor: DgsQueryExecutor
 
   @Test
+  fun `languages expose driver documentation independently of problem configuration`() {
+    val unsupported = createLanguage("unimplemented-${UUID.randomUUID()}")
+    val response = queryExecutor.execute("""
+      { languages { key testDriverTypes { type displayName documentationMarkdown } } }
+    """.trimIndent())
+    assertTrue(response.errors.isEmpty(), response.errors.toString())
+    val languages = response.getData<Map<String, Any?>>()!!.objects("languages")
+    val drivers = languages.single { it["key"] == "kotlin" }.objects("testDriverTypes")
+
+    assertEquals(listOf("MAIN_FUNCTION", "JSON_TEST_DRIVER"), drivers.map { it["type"] })
+    assertTrue(drivers.all { (it["displayName"] as String).isNotBlank() })
+    assertTrue(drivers.all { (it["documentationMarkdown"] as String).contains("```kotlin") })
+    assertTrue(languages.single { it["key"] == unsupported.key }.objects("testDriverTypes").isEmpty())
+  }
+
+  @Test
   fun `lists published problems in title and slug order without unavailable problems`() {
     val prefix = UUID.randomUUID().toString()
     val last = createProblem(title = "$prefix Zebra Search")
@@ -220,6 +236,11 @@ class ProblemDataFetcherIntegrationTest {
     assertEquals(kotlin.starterCode, configurations.first()["starterCode"])
     assertEquals("Kotlin", configurations.first().obj("language")["displayName"])
     assertEquals("Language:${kotlin.languageId}", decodeId(configurations.first().obj("language")["id"]))
+    assertEquals(
+      listOf("MAIN_FUNCTION", "JSON_TEST_DRIVER"),
+      configurations.first().obj("language").objects("testDriverTypes").map { it["type"] },
+    )
+    assertTrue(configurations.last().obj("language").objects("testDriverTypes").isEmpty())
 
     val examples = result.objects("examples")
     assertEquals(listOf(2, 8), examples.map { it["position"] })
@@ -425,7 +446,7 @@ class ProblemDataFetcherIntegrationTest {
           id slug title statementMarkdown difficulty canEdit
           languageConfigurations {
             id starterCode
-            language { id key displayName }
+            language { id key displayName testDriverTypes { type } }
           }
           examples { id position inputJson expectedOutputJson explanationMarkdown }
         }

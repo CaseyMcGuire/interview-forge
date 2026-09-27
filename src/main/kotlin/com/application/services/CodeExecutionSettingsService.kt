@@ -74,7 +74,7 @@ class CodeExecutionSettingsService(
 
     return CodeExecutionSettings(
       runtime = runtime,
-      program = languageConfiguration.prepare(sourceCode, judge.testDriverCode),
+      program = languageConfiguration.prepare(sourceCode, judge.testDriverCode, judge.testDriverType),
       timeLimitMs = judge.timeLimitMs,
       memoryLimitMb = judge.memoryLimitMb,
     )

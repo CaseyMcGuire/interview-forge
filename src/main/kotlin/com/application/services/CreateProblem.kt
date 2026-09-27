@@ -1,6 +1,7 @@
 package com.application.services
 
 import com.application.schema.ProblemDifficulty
+import com.application.schema.TestDriverType
 
 data class CreateProblem(
   val slug: String,
@@ -24,6 +25,7 @@ data class ProblemJudgeConfiguration(
   val referenceSolutionCode: String?,
   val timeLimitMs: Int,
   val memoryLimitMb: Int,
+  val testDriverType: TestDriverType = TestDriverType.MAIN_FUNCTION,
 )
 
 data class CreateProblemTestCase(

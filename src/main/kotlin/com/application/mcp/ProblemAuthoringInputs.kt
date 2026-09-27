@@ -1,14 +1,15 @@
 package com.application.mcp
 
 import com.application.services.CreateProblemTestCase
+import com.application.schema.TestDriverType
 import org.springframework.ai.mcp.annotation.McpToolParam
 
 data class ProblemLanguageInput(
   @field:McpToolParam(description = "An enabled language key returned by list_languages.")
   val languageKey: String,
   val starterCode: String,
-  @field:McpToolParam(description = "For Kotlin, a top-level main in the default package that reads one JSON value " +
-    "from stdin, calls Solution, and prints one JSON value. It runs once per case in the same JVM.")
+  @field:McpToolParam(description = "Code compiled with the submitted source using the selected testDriverType. " +
+    "See list_languages for each driver's requirements and examples.")
   val testDriverCode: String,
   @field:McpToolParam(description = "A correct solution implementing the same interface as starterCode, " +
     "used to generate expected outputs.")
@@ -17,6 +18,8 @@ data class ProblemLanguageInput(
   val timeLimitMs: Int,
   @field:McpToolParam(description = "Memory limit, 1 to 8,192 megabytes.")
   val memoryLimitMb: Int,
+  @field:McpToolParam(required = false, description = "Driver contract. Defaults to MAIN_FUNCTION when omitted.")
+  val testDriverType: TestDriverType = TestDriverType.MAIN_FUNCTION,
 )
 
 data class ProblemTestCaseInput(

@@ -91,6 +91,7 @@ class ProblemAuthoringTools(
       languageKey = configuration.languageKey,
       starterCode = configuration.starterCode,
       testDriverCode = configuration.testDriverCode,
+      testDriverType = configuration.testDriverType,
       referenceSolutionCode = configuration.referenceSolutionCode,
       timeLimitMs = configuration.timeLimitMs,
       memoryLimitMb = configuration.memoryLimitMb,
@@ -112,6 +113,7 @@ class ProblemAuthoringTools(
     starterCode = input.starterCode,
     judgeConfiguration = ProblemJudgeConfiguration(
       testDriverCode = input.testDriverCode,
+      testDriverType = input.testDriverType,
       referenceSolutionCode = input.referenceSolutionCode,
       timeLimitMs = input.timeLimitMs,
       memoryLimitMb = input.memoryLimitMb,

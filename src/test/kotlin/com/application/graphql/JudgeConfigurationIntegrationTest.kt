@@ -128,7 +128,7 @@ class JudgeConfigurationIntegrationTest {
   }
 
   @Test
-  fun `Ent stores the selected driver type and unrelated updates preserve it`() {
+  fun `driver types can be selected and replaced while omitted or null updates preserve them`() {
     val typedDriver = """
       import com.application.execution.JsonTestDriver
 
@@ -136,19 +136,15 @@ class JudgeConfigurationIntegrationTest {
         override fun run(input: Int): Int = input
       }
     """.trimIndent()
-    val created = entClient.judgeConfigurations.create {
-      problemLanguageId = configuration.id
-      testDriverType = TestDriverType.JSON_TEST_DRIVER
-      testDriverCode = typedDriver
-      timeLimitMs = 1000
-      memoryLimitMb = 256
-    }.saveAndLoad(fixtureContext).getOrThrow()
+    val creation = createJudge(mapOf("testDriverType" to "JSON_TEST_DRIVER", "testDriverCode" to typedDriver))
+    assertSuccess(creation, "CreateJudgeConfigurationSuccess")
+    assertEquals("JSON_TEST_DRIVER", creation["problemLanguage"]["judgeConfiguration"]["testDriverType"].asString())
 
     val stored = storedJudge(configuration.id)!!
     assertEquals(TestDriverType.JSON_TEST_DRIVER, stored.testDriverType)
     assertEquals(typedDriver, stored.testDriverCode)
 
-    val result = updateJudge(judgeGlobalId(created), mapOf("timeLimitMs" to 2500))
+    val result = updateJudge(judgeGlobalId(stored), mapOf("timeLimitMs" to 2500))
     assertSuccess(result, "UpdateJudgeConfigurationSuccess")
     assertEquals("JSON_TEST_DRIVER", result["judgeConfiguration"]["testDriverType"].asString())
     val updated = storedJudge(configuration.id)!!
@@ -156,10 +152,15 @@ class JudgeConfigurationIntegrationTest {
     assertEquals(typedDriver, updated.testDriverCode)
     assertEquals(2500, updated.timeLimitMs)
 
-    entClient.judgeConfigurations.update(created.id) {
-      testDriverType = TestDriverType.MAIN_FUNCTION
-      testDriverCode = "fun main() = print(42)"
-    }.save(fixtureContext).getOrThrow()
+    assertSuccess(updateJudge(judgeGlobalId(stored), mapOf("testDriverType" to null)), "UpdateJudgeConfigurationSuccess")
+    assertEquals(updated, storedJudge(configuration.id))
+
+    val replaced = updateJudge(judgeGlobalId(stored), mapOf(
+      "testDriverType" to "MAIN_FUNCTION",
+      "testDriverCode" to "fun main() = print(42)",
+    ))
+    assertSuccess(replaced, "UpdateJudgeConfigurationSuccess")
+    assertEquals("MAIN_FUNCTION", replaced["judgeConfiguration"]["testDriverType"].asString())
 
     val mainDriver = storedJudge(configuration.id)!!
     assertEquals(TestDriverType.MAIN_FUNCTION, mainDriver.testDriverType)

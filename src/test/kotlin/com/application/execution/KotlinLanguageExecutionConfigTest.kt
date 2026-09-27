@@ -54,7 +54,7 @@ class KotlinLanguageExecutionConfigTest {
     assertEquals(
       listOf(
         "java", "-cp", "/opt/interview-forge/lib/*:submission.jar",
-        "com.application.execution.KotlinTestSuite", "TestDriverKt",
+        "com.application.execution.KotlinTestSuite", "MAIN_FUNCTION",
       ),
       withMain.runCommand,
     )

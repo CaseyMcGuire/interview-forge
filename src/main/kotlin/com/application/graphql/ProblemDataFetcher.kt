@@ -26,7 +26,6 @@ import com.application.graphql.types.ProblemExample
 import com.application.graphql.types.ProblemLanguage
 import com.application.graphql.types.ProblemTestCase
 import com.application.graphql.types.Tag
-import com.application.graphql.types.TestDriverType
 import com.application.graphql.types.ProblemConnection
 import com.application.graphql.types.ProblemEdge
 import com.application.graphql.types.ProblemFilterInput
@@ -72,7 +71,6 @@ import com.application.ent.Problem as ProblemEntity
 import com.application.ent.ProblemLanguage as ProblemLanguageEntity
 import com.application.ent.TestCase as TestCaseEntity
 import com.application.schema.ProblemDifficulty as SchemaProblemDifficulty
-import com.application.schema.TestDriverType as SchemaTestDriverType
 
 @DgsComponent
 class ProblemDataFetcher(
@@ -255,6 +253,7 @@ class ProblemDataFetcher(
     val configuration = problemService.createJudgeConfiguration(
       problemLanguageId = problemContentId(input.problemLanguageId, ProblemLanguage::class, "problemLanguageId"),
       testDriverCode = input.testDriverCode,
+      testDriverType = input.testDriverType.toSchemaType(),
       referenceSolutionCode = input.referenceSolutionCode,
       timeLimitMs = input.timeLimitMs,
       memoryLimitMb = input.memoryLimitMb,
@@ -293,6 +292,7 @@ class ProblemDataFetcher(
     val judge = problemService.updateJudgeConfiguration(
       id = problemContentId(input.id, JudgeConfiguration::class),
       testDriverCode = input.testDriverCode,
+      testDriverType = input.testDriverType?.toSchemaType(),
       referenceSolutionCode = referenceSolutionCode,
       timeLimitMs = input.timeLimitMs,
       memoryLimitMb = input.memoryLimitMb,
@@ -478,11 +478,6 @@ class ProblemDataFetcher(
     timeLimitMs = judge.timeLimitMs,
     memoryLimitMb = judge.memoryLimitMb,
   )
-
-  private fun SchemaTestDriverType.toGraphqlType(): TestDriverType = when (this) {
-    SchemaTestDriverType.MAIN_FUNCTION -> TestDriverType.MAIN_FUNCTION
-    SchemaTestDriverType.JSON_TEST_DRIVER -> TestDriverType.JSON_TEST_DRIVER
-  }
 
   private fun toGraphqlProblemTestCase(testCase: TestCaseEntity): ProblemTestCase = ProblemTestCase(
     id = globalIdUtil.toGlobalId(ProblemTestCase::class, testCase.id),

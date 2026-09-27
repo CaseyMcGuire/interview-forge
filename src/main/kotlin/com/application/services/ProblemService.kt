@@ -11,6 +11,7 @@ import com.application.ent.ProblemQueryScope
 import com.application.ent.TestCase
 import com.application.ent.Tag
 import com.application.schema.TestCaseVisibility
+import com.application.schema.TestDriverType
 import com.application.schema.ProblemDifficulty
 import com.application.schema.UserRole
 import com.application.security.CurrentUserService
@@ -130,6 +131,7 @@ class ProblemService(
   ) {
     tx.judgeConfigurations.create {
       this.problemLanguageId = problemLanguageId
+      testDriverType = input.testDriverType
       testDriverCode = input.testDriverCode
       referenceSolutionCode = input.referenceSolutionCode
       timeLimitMs = input.timeLimitMs
@@ -353,9 +355,16 @@ class ProblemService(
     referenceSolutionCode: String,
     timeLimitMs: Int,
     memoryLimitMb: Int,
+    testDriverType: TestDriverType = TestDriverType.MAIN_FUNCTION,
   ): Problem? {
     val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
-    val judge = ProblemJudgeConfiguration(testDriverCode, referenceSolutionCode, timeLimitMs, memoryLimitMb)
+    val judge = ProblemJudgeConfiguration(
+      testDriverCode = testDriverCode,
+      referenceSolutionCode = referenceSolutionCode,
+      timeLimitMs = timeLimitMs,
+      memoryLimitMb = memoryLimitMb,
+      testDriverType = testDriverType,
+    )
 
     return entClient.withTransaction { tx ->
       // Serialize additions for the same problem, including when this language has no row yet.
@@ -395,6 +404,7 @@ class ProblemService(
     }
 
     tx.judgeConfigurations.update(existing.id) {
+      testDriverType = input.testDriverType
       testDriverCode = input.testDriverCode
       referenceSolutionCode = input.referenceSolutionCode
       timeLimitMs = input.timeLimitMs
@@ -418,6 +428,7 @@ class ProblemService(
     timeLimitMs: Int,
     memoryLimitMb: Int,
     referenceSolutionCode: String? = null,
+    testDriverType: TestDriverType = TestDriverType.MAIN_FUNCTION,
   ): ProblemLanguage? {
     val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
@@ -436,6 +447,7 @@ class ProblemService(
 
       tx.judgeConfigurations.create {
         this.problemLanguageId = problemLanguageId
+        this.testDriverType = testDriverType
         this.testDriverCode = testDriverCode
         this.referenceSolutionCode = referenceSolutionCode
         this.timeLimitMs = timeLimitMs
@@ -456,6 +468,7 @@ class ProblemService(
     timeLimitMs: Int? = null,
     memoryLimitMb: Int? = null,
     referenceSolutionCode: FieldUpdate<String?> = FieldUpdate.Unchanged,
+    testDriverType: TestDriverType? = null,
   ): JudgeConfiguration? {
     val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
 
@@ -468,6 +481,7 @@ class ProblemService(
         ?: return@withTransaction null
 
       tx.judgeConfigurations.update(id) {
+        testDriverType?.let { this.testDriverType = it }
         testDriverCode?.let { this.testDriverCode = it }
         if (referenceSolutionCode is FieldUpdate.Set) {
           this.referenceSolutionCode = referenceSolutionCode.value

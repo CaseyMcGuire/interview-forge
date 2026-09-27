@@ -1,6 +1,7 @@
 package com.application.mcp
 
 import com.application.ent.ProblemLanguage
+import com.application.execution.LanguageExecutionConfig
 import com.application.schema.ProblemDifficulty
 import com.application.security.CurrentUserService
 import com.application.services.ProblemCursor
@@ -15,17 +16,26 @@ import org.springframework.stereotype.Component
 class ProblemCatalogTools(
   private val problemService: ProblemService,
   private val currentUserService: CurrentUserService,
+  languageExecutionConfigs: List<LanguageExecutionConfig>,
 ) {
+  private val languageConfigurations = languageExecutionConfigs.associateBy { it.key }
+
   @McpTool(
     name = "list_languages",
-    description = "List enabled programming languages and their stable keys for problem authoring.",
+    description = "List enabled programming languages, their stable keys, and supported test driver types with usage instructions.",
     generateOutputSchema = true,
     annotations = McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false),
   )
   fun listLanguages(): LanguageCatalogResult {
     currentUserService.requireAdmin()
 
-    val languages = problemService.findEnabledLanguages().map { LanguageSummary(it.key, it.displayName) }
+    val languages = problemService.findEnabledLanguages().map { language ->
+      LanguageSummary(
+        key = language.key,
+        displayName = language.displayName,
+        testDriverTypes = languageConfigurations[language.key]?.testDriverTypes.orEmpty(),
+      )
+    }
     return LanguageCatalogResult(languages)
   }
 
@@ -106,6 +116,7 @@ class ProblemCatalogTools(
       starterCode = configuration.starterCode,
       judgeConfiguration = judge?.let {
         JudgeConfigurationDetails(
+          testDriverType = it.testDriverType,
           testDriverCode = it.testDriverCode,
           referenceSolutionCode = it.referenceSolutionCode,
           timeLimitMs = it.timeLimitMs,

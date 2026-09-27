@@ -1,11 +1,17 @@
 package com.application.mcp
 
 import com.application.ent.TestCase
+import com.application.execution.TestDriverDocumentation
 import com.application.schema.ProblemDifficulty
+import com.application.schema.TestDriverType
 
 data class LanguageCatalogResult(val languages: List<LanguageSummary>)
 
-data class LanguageSummary(val key: String, val displayName: String)
+data class LanguageSummary(
+  val key: String,
+  val displayName: String,
+  val testDriverTypes: List<TestDriverDocumentation>,
+)
 
 data class ProblemSearchResult(
   val problems: List<ProblemSummary>,
@@ -37,6 +43,7 @@ data class ProblemLanguageDetails(
 )
 
 data class JudgeConfigurationDetails(
+  val testDriverType: TestDriverType,
   val testDriverCode: String,
   val referenceSolutionCode: String?,
   val timeLimitMs: Int,

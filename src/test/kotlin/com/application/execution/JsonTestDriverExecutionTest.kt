@@ -2,6 +2,7 @@ package com.application.execution
 
 import com.application.config.DockerConfiguration
 import com.application.config.ExecutionProperties
+import com.application.schema.TestDriverType
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.serialization.json.Json
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 
 @Timeout(30)
@@ -177,7 +179,7 @@ class JsonTestDriverExecutionTest {
     val result = executeDriver(
       driver = "fun main(args: Array<String>) { print(System.`in`.bufferedReader().readText()) }",
       inputs = listOf(JsonPrimitive(42)),
-      type = "MAIN_FUNCTION",
+      type = TestDriverType.MAIN_FUNCTION,
     )
     val completed = assertInstanceOf(CodeExecutionResult.Completed::class.java, result)
 
@@ -185,18 +187,32 @@ class JsonTestDriverExecutionTest {
     assertEquals(JsonPrimitive(42), completed.caseResults.single().outputJson)
   }
 
+  @ParameterizedTest
+  @EnumSource(TestDriverType::class)
+  fun `published driver examples compile and execute`(type: TestDriverType) {
+    val documentation = KotlinLanguageExecutionConfig().testDriverTypes.single { it.type == type }
+    val driver = documentation.documentationMarkdown.substringAfter("```kotlin\n").substringBefore("\n```")
+    val source = "class Solution { fun sum(numbers: List<Int>): Int = numbers.sum() }"
+
+    val result = executeDriver(
+      driver = driver,
+      inputs = listOf(Json.parseToJsonElement("""{"numbers":[1,2,3]}""")),
+      source = source,
+      type = type,
+    )
+    val completed = assertInstanceOf(CodeExecutionResult.Completed::class.java, result)
+
+    assertEquals(ProgramStatus.SUCCEEDED, completed.caseResults.single().status, completed.toString())
+    assertEquals(JsonPrimitive(6), completed.caseResults.single().outputJson)
+  }
+
   private fun executeDriver(
     driver: String,
     inputs: List<JsonElement>,
     source: String = "",
-    type: String = "JSON_TEST_DRIVER",
+    type: TestDriverType = TestDriverType.JSON_TEST_DRIVER,
   ): CodeExecutionResult {
-    val prepared = KotlinLanguageExecutionConfig().prepare(source, driver)
-    val program = PreparedProgram(
-      sourceFiles = prepared.sourceFiles,
-      compileCommand = prepared.compileCommand,
-      runCommand = prepared.runCommand.dropLast(1) + type,
-    )
+    val program = KotlinLanguageExecutionConfig().prepare(source, driver, type)
     val service = DockerExecutionService(ExecutionProperties(workspaceDirectory = executionRoot.toString()), docker)
 
     val result = service.executeCode("typed-driver-test", DockerExecutionServiceTest.IMAGE, program, inputs, 2_000, 256)
