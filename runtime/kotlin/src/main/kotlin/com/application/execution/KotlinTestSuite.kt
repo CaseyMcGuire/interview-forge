@@ -57,7 +57,7 @@ object KotlinTestSuite {
     timeLimitMs: Int,
     timer: Timer,
     report: PrintStream,
-    driver: () -> Method,
+    driver: () -> LoadedDriver,
   ): ProgramResult {
     val stdout = CaseOutput()
     val stderr = CaseOutput()
@@ -96,7 +96,7 @@ object KotlinTestSuite {
       System.setErr(PrintStream(stderr, true, Charsets.UTF_8))
       timer.schedule(deadline, timeLimitMs.toLong())
 
-      invokeTestDriver(driver())
+      invokeTestDriver(driver(), input.toString())
     } catch (exception: Throwable) {
       failure = if (exception is InvocationTargetException) exception.targetException else exception
     } finally {
@@ -123,8 +123,25 @@ object KotlinTestSuite {
     return ProgramResult(status, stdout.text(), diagnostic, runtimeMs)
   }
 
-  private fun loadTestDriver(className: String): Method {
-    val driver = Class.forName(className)
+  private sealed interface LoadedDriver {
+    data class MainFunction(val method: Method) : LoadedDriver
+    data class JsonDriver(val instance: JsonTestDriver<*, *>) : LoadedDriver
+  }
+
+  private fun loadTestDriver(type: String): LoadedDriver = when (type) {
+    // Existing application versions pass the generated main class name.
+    "MAIN_FUNCTION", "TestDriverKt" -> LoadedDriver.MainFunction(loadMainFunction())
+
+    "JSON_TEST_DRIVER" -> {
+      val driverClass = Class.forName("TestDriver").asSubclass(JsonTestDriver::class.java)
+      LoadedDriver.JsonDriver(driverClass.getConstructor().newInstance())
+    }
+
+    else -> error("Unsupported test driver type: $type")
+  }
+
+  private fun loadMainFunction(): Method {
+    val driver = Class.forName("TestDriverKt")
     return try {
       driver.getMethod("main")
     } catch (_: NoSuchMethodException) {
@@ -132,7 +149,14 @@ object KotlinTestSuite {
     }
   }
 
-  private fun invokeTestDriver(driver: Method) {
+  private fun invokeTestDriver(driver: LoadedDriver, inputJson: String) {
+    when (driver) {
+      is LoadedDriver.MainFunction -> invokeMainFunction(driver.method)
+      is LoadedDriver.JsonDriver -> driver.instance.writeJsonResult(inputJson, System.out)
+    }
+  }
+
+  private fun invokeMainFunction(driver: Method) {
     if (driver.parameterCount == 0) {
       driver.invoke(null)
     } else {

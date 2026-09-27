@@ -670,10 +670,51 @@ object key order and whitespace do not matter, array order and JSON types do. Co
 runtime, time/memory limits, output errors, and infrastructure failures need explicit
 outcomes, with safe diagnostics excluding hidden inputs.
 
-`KotlinTestSuite` invokes the existing driver's top-level `main()` or `main(args)` for each
-case in the same JVM and class loader. Only stdin/stdout/stderr are rebound between calls.
-The driver continues to print its JSON answer to stdout. The application retains that
-raw stream and parses it into `outputJson`; extra logging on stdout makes the answer invalid.
+`KotlinTestSuite` accepts a driver type as its command-line argument:
+
+- `MAIN_FUNCTION` invokes the top-level `main()` or `main(args)` from `TestDriver.kt`.
+  It also accepts the existing `TestDriverKt` argument for compatibility.
+- `JSON_TEST_DRIVER` constructs a public, default-package `TestDriver` extending
+  `JsonTestDriver<Input, Output>`, using its public no-argument constructor. The driver
+  supplies `Input::class` to its base constructor and implements `run(input: Input): Output`.
+  The runtime parses each input and serializes the returned answer. The input must have a
+  concrete, non-null type; put generic or nullable values in properties of an input class.
+  Those properties retain their generic types and nullability, and support Jackson annotations
+  for sealed operations. The returned answer can be nullable or a generic type such as a list.
+
+The runtime compiles the submitted source (`Solution.kt`) and test driver (`TestDriver.kt`)
+together. The driver directly references classes and functions supplied by the submission;
+the problem's starter code must show the API that submissions are expected to implement.
+There is no required solution class name. The driver controls construction, including
+constructors that depend on the current input. Missing classes or incompatible method
+signatures are compilation errors. Reference solutions must implement the same API.
+
+For example, a problem whose starter code declares `Solution.sum(numbers: List<Int>): Int`
+can use this driver:
+
+```kotlin
+import com.application.execution.JsonTestDriver
+
+data class SumInput(val numbers: List<Int>)
+
+class TestDriver : JsonTestDriver<SumInput, Int>(inputClass = SumInput::class) {
+  override fun run(input: SumInput): Int {
+    val solution = Solution()
+    return solution.sum(input.numbers)
+  }
+}
+```
+
+Its input is an object such as `{"numbers":[1,2,3]}`. For generic or nullable root values,
+use a wrapper like `SumInput`; `KClass` alone cannot describe `List<Int>` or `Int?`.
+
+Both formats share one JVM and class loader. Typed drivers reuse one instance across cases;
+only stdin/stdout/stderr are rebound between calls. Loading and construction happen within
+the first case's deadline. The answer is written to stdout in either format. The application
+retains that raw stream and parses it into `outputJson`; extra logging on stdout makes the
+answer invalid. Typed input conversion rejects unknown fields, primitive nulls, fractional
+integers, and string-to-number coercion before calling `run`.
+
 Driver invocations retain the configured per-case deadline and independent 20,000-byte
 stdout/stderr limits. Measured case durations include driver loading and invocation but
 exclude JVM startup. A watchdog halts a looping case; the container's outer deadline is
