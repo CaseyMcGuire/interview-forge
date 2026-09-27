@@ -26,7 +26,7 @@ class TestCase : EntSchema("test_cases", clientName = "testCases") {
     .comment("Language-independent args or constructor/call sequence; redacted because cases may be hidden.")
 
   val expectedOutputJson by json<JsonElement>("expected_output_json").sensitive()
-    .comment("Expected result or custom-checker reference data; JSON null is a value, not a missing expectation.")
+    .comment("Expected result; JSON null is a value, not a missing expectation.")
 
   val explanationMarkdown by string("explanation_markdown").nullable().sensitive()
     .comment("Optional explanation of the case; hidden-case explanations need the same access restrictions.")

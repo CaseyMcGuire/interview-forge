@@ -108,7 +108,6 @@ class ProblemCatalogTools(
         JudgeConfigurationDetails(
           testDriverCode = it.testDriverCode,
           referenceSolutionCode = it.referenceSolutionCode,
-          checkerSource = it.checkerSource,
           timeLimitMs = it.timeLimitMs,
           memoryLimitMb = it.memoryLimitMb,
         )

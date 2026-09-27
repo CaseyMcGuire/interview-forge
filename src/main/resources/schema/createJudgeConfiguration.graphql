@@ -27,12 +27,6 @@ input CreateJudgeConfigurationInput {
   """Reference solution for custom inputs. Nonblank when provided; at most 50,000 characters."""
   referenceSolutionCode: String
 
-  """
-  Custom answer checker; required for custom checking and unavailable for exact JSON comparison.
-  Nonblank when provided; at most 50,000 characters.
-  """
-  checkerSource: String
-
   """Maximum execution time per test case, from 1 to 60,000 milliseconds."""
   timeLimitMs: Int!
 

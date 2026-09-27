@@ -7,12 +7,6 @@ enum class ProblemDifficulty {
   HARD,
 }
 
-/** How official outputs are judged; custom checker source lives in JudgeConfiguration. */
-enum class ProblemCheckerKind {
-  EXACT_JSON,
-  CUSTOM,
-}
-
 /** Whether an official test is a public example or private grading input. */
 enum class TestCaseVisibility {
   EXAMPLE,

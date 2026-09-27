@@ -9,7 +9,6 @@ import com.application.execution.PreparedProgram
 import com.application.execution.ProgramStatus
 import com.application.execution.TestCaseExecutionResult
 import com.application.schema.ProblemDifficulty
-import com.application.schema.ProblemCheckerKind
 import com.application.schema.UserRole
 import entkt.runtime.privacy.ViewerContext
 import jakarta.servlet.Filter
@@ -202,7 +201,7 @@ class TestCaseExpectedOutputIntegrationTest {
   }
 
   @Test
-  fun `unsupported languages and checkers do not execute`() {
+  fun `unsupported languages do not execute`() {
     val language = entClient.languages.create {
       key = "unsupported-${UUID.randomUUID()}"
       displayName = "Unsupported language"
@@ -223,8 +222,6 @@ class TestCaseExpectedOutputIntegrationTest {
 
     assertType("ExecutionUnavailable", generate(configuration = globalIdUtil.toGlobalId(GraphqlProblemLanguage::class, configuration.id)))
 
-    entClient.problems.update(problemId) { checkerKind = ProblemCheckerKind.CUSTOM }.save(fixtures).getOrThrow()
-    assertType("ExecutionUnavailable", generate())
     assertTrue(executor.calls.isEmpty())
   }
 

@@ -5,7 +5,6 @@ import com.application.ent.Language
 import com.application.ent.Problem
 import com.application.ent.ProblemLanguage
 import com.application.ent.TestCase
-import com.application.schema.ProblemCheckerKind
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
@@ -200,11 +199,9 @@ class ProblemDataFetcherIntegrationTest {
     val first = createExample(problem, position = 2, explanation = "Use two different positions.")
     val hidden = createExample(problem, position = 1, visibility = TestCaseVisibility.HIDDEN)
     createExample(createProblem(), position = 0)
-    entClient.problems.update(problem.id) { checkerKind = ProblemCheckerKind.CUSTOM }.save(fixtureContext).getOrThrow()
     entClient.judgeConfigurations.create {
       problemLanguageId = kotlin.id
       testDriverCode = "private test driver code"
-      checkerSource = "private checker source"
       timeLimitMs = 1000
       memoryLimitMb = 256
     }.save(fixtureContext).getOrThrow()
@@ -235,7 +232,6 @@ class ProblemDataFetcherIntegrationTest {
     assertNull(examples.last()["explanationMarkdown"])
     assertFalse(examples.any { decodeId(it["id"]) == "ProblemExample:${hidden.id}" })
     assertFalse(result.toString().contains("private test driver code"))
-    assertFalse(result.toString().contains("private checker source"))
   }
 
   @Test

@@ -7,7 +7,6 @@ import com.application.ent.ProblemSubmissionFailure
 import com.application.ent.TestCase
 import com.application.execution.RuntimeAvailability
 import com.application.schema.ProblemDifficulty
-import com.application.schema.ProblemCheckerKind
 import com.application.schema.ProblemSubmissionStatus
 import com.application.schema.ProblemSubmissionVerdict
 import com.application.security.ExecutionAccess
@@ -482,17 +481,8 @@ class ProblemSubmissionIntegrationTest {
   }
 
   @Test
-  fun `unsupported checkers missing judges and disabled languages cannot be queued`() {
+  fun `missing judges and disabled languages cannot be queued`() {
     createCase(0, TestCaseVisibility.HIDDEN, "1")
-    entClient.problems.update(problem.id) {
-      checkerKind = ProblemCheckerKind.CUSTOM
-    }.save(fixtureContext).getOrThrow()
-    assertEquals("ExecutionUnavailable", submitSolution()["__typename"].asString())
-
-    entClient.problems.update(problem.id) {
-      checkerKind = ProblemCheckerKind.EXACT_JSON
-    }.save(fixtureContext).getOrThrow()
-
     val languageId = entClient.problemLanguages.findById(fixtureContext, configurationId)
       .getOrThrow()!!
       .languageId

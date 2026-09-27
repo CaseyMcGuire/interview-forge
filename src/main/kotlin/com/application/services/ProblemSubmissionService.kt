@@ -71,7 +71,7 @@ class ProblemSubmissionService(
       .getOrThrow()
       ?: return SubmitSolutionOutcome.NotFound
 
-    val judge = executionAvailabilityService.findExecutableJudgeConfiguration(tx, problem, configuration.id, language.key)
+    val judge = executionAvailabilityService.findExecutableJudgeConfiguration(tx, configuration.id, language.key)
     if (judge == null) {
       return SubmitSolutionOutcome.Unavailable
     }

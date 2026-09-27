@@ -25,7 +25,6 @@ function limitHint(limit: JudgeLimit): string {
 /** Limits stay as text while editing so the fields can be emptied; they are parsed on save. */
 export type ProblemJudgeConfigurationDraft = {
   testDriverCode: string;
-  checkerSource: string;
   timeLimitMs: string;
   memoryLimitMb: string;
 };
@@ -54,9 +53,6 @@ const styles = stylex.create({
     overflow: "hidden",
     border: "1px solid #4e5157",
     borderRadius: 5
-  },
-  checkerEditor: {
-    height: 200
   },
   label: {
     fontWeight: 600
@@ -116,25 +112,6 @@ export default function ProblemJudgeConfigurationForm(props: Props) {
       <div id={`${id}-driver-help`} sx={styles.help}>
         Parses the test input, calls the submitted solution, and serializes its output.
         Tab indents code. Press Escape, then Tab to leave the editor.
-      </div>
-
-      <span sx={styles.label}>Checker code (optional)</span>
-
-      <div sx={[styles.editor, styles.checkerEditor]} inert={isSaving}>
-        <CodeEditor
-          languageKey={languageKey}
-          label={`${languageName} checker code`}
-          describedBy={`${id}-checker-help`}
-          value={draft.checkerSource}
-          onChange={(checkerSource) => onChange({...draft, checkerSource})}
-          fontSize={14}
-          wordWrap
-          onCursorChange={() => {}}
-        />
-      </div>
-
-      <div id={`${id}-checker-help`} sx={styles.help}>
-        Only for problems with a custom checker that accepts multiple valid answers. Leave empty otherwise.
       </div>
 
       <div sx={styles.limits}>

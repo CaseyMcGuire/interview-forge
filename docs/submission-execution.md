@@ -262,7 +262,7 @@ the case count and decoding JSON. Expected outputs start absent and are prepared
 asynchronously using the private reference solution on `JudgeConfiguration`.
 
 Admission requires an available public problem and language, a configured runtime,
-an EXACT_JSON judge, and nonblank reference code. Custom runs do not require official
+a judge configuration, and nonblank reference code. Custom runs do not require official
 test cases. `ExecutionAvailabilityService` applies the existing global and per-user limits
 to queued/running attempts across both official submissions and custom runs. Both
 admission paths read those counts in the transaction that creates the attempt.
@@ -549,7 +549,7 @@ and [problemSubmission.graphql](../src/main/resources/schema/problemSubmission.g
 
 1. Authenticate the caller and resolve the problem-language ID.
 2. Load the public problem-language configuration, problem, and enabled language through
-   EntKt. Verify supported Kotlin/EXACT_JSON execution, a judge configuration, a configured
+   EntKt. Verify supported Kotlin execution, a judge configuration, a configured
    runtime, an available execution adapter, and a nonempty official suite.
 3. In the same serializable transaction, check global/per-user queued/running submission limits
    and create the official submission with its owner, problem-language reference, and source.
@@ -588,7 +588,7 @@ outside database transactions. The scheduler passes the result to `finishGrading
 routes to `ProblemSubmissionService.finishProblemSubmission` or `CustomInputSubmissionService.finishCustomInputSubmission`
 and deletes the job in the same transaction.
 The old `SubmissionRunner`, `SubmissionScheduler`, and submission-specific execution wrappers
-are removed. Runtime, driver, checker, and limits remain current configuration; the selected
+are removed. Runtime, driver, and limits remain current configuration; the selected
 case snapshots persist only until the job finishes.
 
 The summary and at most the first failed case are saved together in one transaction.

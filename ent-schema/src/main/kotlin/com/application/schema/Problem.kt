@@ -21,10 +21,6 @@ class Problem : EntSchema("problems", clientName = "problems") {
   val difficulty by enum<ProblemDifficulty>("difficulty")
     .comment("Broad difficulty classification used to filter the catalog.")
 
-  val checkerKind by enum<ProblemCheckerKind>("checker_kind")
-    .default(ProblemCheckerKind.EXACT_JSON)
-    .comment("Exact JSON comparison by default; CUSTOM requires checker source for each supported language.")
-
   val createdByUser by belongsTo<User>("created_by_user_id")
     .immutable()
     .onDelete(OnDelete.RESTRICT)

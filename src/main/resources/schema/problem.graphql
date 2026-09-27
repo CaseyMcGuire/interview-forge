@@ -104,9 +104,6 @@ type JudgeConfiguration {
   """Reference solution used to compute expected outputs for custom inputs; null if unconfigured."""
   referenceSolutionCode: String
 
-  """Validator for problems with multiple valid answers; null unless the problem uses a custom checker."""
-  checkerSource: String
-
   """Maximum execution time per test case, in milliseconds."""
   timeLimitMs: Int!
 
@@ -138,7 +135,7 @@ type ProblemExample {
   inputJson: String!
 
   """
-  Serialized JSON expected result or custom-checker reference data.
+  Serialized JSON expected result.
   The string "null" is a valid expectation, not a missing value.
   """
   expectedOutputJson: String!

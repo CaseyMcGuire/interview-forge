@@ -22,9 +22,6 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
   val referenceSolutionCode by string("reference_solution_code").nullable().sensitive()
     .comment("Private solution compiled with this language's driver; null until configured.")
 
-  val checkerSource by string("checker_source").nullable().sensitive()
-    .comment("Private validator for multiple valid answers; absent for EXACT_JSON and required for CUSTOM.")
-
   val timeLimitMs by int("time_limit_ms")
     .comment("Maximum execution time per case, in milliseconds; must be positive before this judge is usable.")
 
@@ -35,5 +32,5 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
     .comment("Time the judge configuration was created.")
 
   val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
-    .comment("Time the driver, reference solution, checker, or resource limits were last changed.")
+    .comment("Time the driver, reference solution, or resource limits were last changed.")
 }

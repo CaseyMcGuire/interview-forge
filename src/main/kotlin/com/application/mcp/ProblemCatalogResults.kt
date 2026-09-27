@@ -39,7 +39,6 @@ data class ProblemLanguageDetails(
 data class JudgeConfigurationDetails(
   val testDriverCode: String,
   val referenceSolutionCode: String?,
-  val checkerSource: String?,
   val timeLimitMs: Int,
   val memoryLimitMb: Int,
 )

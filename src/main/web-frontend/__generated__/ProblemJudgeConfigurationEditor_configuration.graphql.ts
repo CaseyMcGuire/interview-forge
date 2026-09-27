@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<b63f80c16c24ac461e2b9ffe953efde9>>
+ * @generated SignedSource<<0b6e85f68a883eaaf437c7b7f4f392b3>>
  * @lightSyntaxTransform
  */
 
@@ -12,7 +12,6 @@ import { FragmentRefs } from "relay-runtime";
 export type ProblemJudgeConfigurationEditor_configuration$data = {
   readonly id: string;
   readonly judgeConfiguration: {
-    readonly checkerSource: string | null | undefined;
     readonly id: string;
     readonly memoryLimitMb: number;
     readonly testDriverCode: string;
@@ -89,13 +88,6 @@ return {
           "alias": null,
           "args": null,
           "kind": "ScalarField",
-          "name": "checkerSource",
-          "storageKey": null
-        },
-        {
-          "alias": null,
-          "args": null,
-          "kind": "ScalarField",
           "name": "timeLimitMs",
           "storageKey": null
         },
@@ -115,6 +107,6 @@ return {
 };
 })();
 
-(node as any).hash = "dc941f76cb13baed5718951592150509";
+(node as any).hash = "ac2da98bf0215a6b00e7310c9b2ff0d1";
 
 export default node;

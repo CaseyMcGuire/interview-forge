@@ -5,7 +5,6 @@ import com.application.ent.JudgeConfiguration
 import com.application.ent.Language
 import com.application.ent.Problem
 import com.application.ent.ProblemLanguage
-import com.application.schema.ProblemCheckerKind
 import com.application.schema.ProblemDifficulty
 import com.application.schema.UserRole
 import entkt.runtime.privacy.Viewer
@@ -108,7 +107,6 @@ class JudgeConfigurationIntegrationTest {
     val judge = language["judgeConfiguration"]
     assertEquals("fun main() = judge()", judge["testDriverCode"].asString())
     assertEquals(validSettings["referenceSolutionCode"], judge["referenceSolutionCode"].asString())
-    assertTrue(judge["checkerSource"].isNull)
     assertEquals(1000, judge["timeLimitMs"].asInt())
     assertEquals(256, judge["memoryLimitMb"].asInt())
 
@@ -116,7 +114,6 @@ class JudgeConfigurationIntegrationTest {
     assertEquals(globalIdUtil.toGlobalId(GraphqlJudgeConfiguration::class, stored.id), judge["id"].asString())
     assertEquals("fun main() = judge()", stored.testDriverCode)
     assertEquals(validSettings["referenceSolutionCode"], stored.referenceSolutionCode)
-    assertNull(stored.checkerSource)
     assertEquals(1000, stored.timeLimitMs)
     assertEquals(256, stored.memoryLimitMb)
     assertEquals(configuration.id, stored.problemLanguageId)
@@ -146,7 +143,7 @@ class JudgeConfigurationIntegrationTest {
     assertEquals(created.testDriverCode, stored.testDriverCode)
     assertEquals(created.problemLanguageId, stored.problemLanguageId)
 
-    // Explicit null clears reference code and the checker, so exclude them from this no-op check.
+    // Explicit null clears reference code, so exclude it from this no-op check.
     assertSuccess(updateJudge(judgeId), "UpdateJudgeConfigurationSuccess")
     assertSuccess(updateJudge(judgeId, mapOf(
       "testDriverCode" to null,
@@ -188,8 +185,6 @@ class JudgeConfigurationIntegrationTest {
     assertValidation(createJudge(mapOf("testDriverCode" to "x".repeat(50_001))), "testDriverCode")
     assertValidation(createJudge(mapOf("referenceSolutionCode" to " ")), "referenceSolutionCode")
     assertValidation(createJudge(mapOf("referenceSolutionCode" to "x".repeat(50_001))), "referenceSolutionCode")
-    assertValidation(createJudge(mapOf("checkerSource" to "x".repeat(50_001))), "checkerSource")
-    assertValidation(createJudge(mapOf("checkerSource" to "fun check() = true")), "checkerSource")
     assertValidation(createJudge(mapOf("timeLimitMs" to 0)), "timeLimitMs")
     assertValidation(createJudge(mapOf("timeLimitMs" to 60_001)), "timeLimitMs")
     assertValidation(createJudge(mapOf("memoryLimitMb" to 0)), "memoryLimitMb")
@@ -208,7 +203,6 @@ class JudgeConfigurationIntegrationTest {
     assertValidation(updateJudge(judgeId, mapOf("testDriverCode" to "x".repeat(50_001))), "testDriverCode")
     assertValidation(updateJudge(judgeId, mapOf("referenceSolutionCode" to " ")), "referenceSolutionCode")
     assertValidation(updateJudge(judgeId, mapOf("referenceSolutionCode" to "x".repeat(50_001))), "referenceSolutionCode")
-    assertValidation(updateJudge(judgeId, mapOf("checkerSource" to "fun check() = true")), "checkerSource")
     assertValidation(updateJudge(judgeId, mapOf("timeLimitMs" to 0)), "timeLimitMs")
     assertValidation(updateJudge(judgeId, mapOf("memoryLimitMb" to 8_193)), "memoryLimitMb")
     assertValidation(updateJudge(judgeId, mapOf("timeLimitMs" to 2500, "memoryLimitMb" to 0)), "memoryLimitMb")
@@ -216,34 +210,6 @@ class JudgeConfigurationIntegrationTest {
 
     assertSuccess(updateJudge(judgeId, mapOf("timeLimitMs" to 1, "memoryLimitMb" to 1)), "UpdateJudgeConfigurationSuccess")
     assertEquals(1, storedJudge(configuration.id)!!.timeLimitMs)
-  }
-
-  @Test
-  fun `custom checker problems require checker code and exact JSON problems reject it`() {
-    entClient.problems.update(problem.id) { checkerKind = ProblemCheckerKind.CUSTOM }.save(fixtureContext).getOrThrow()
-    assertValidation(createJudge(), "checkerSource")
-    assertValidation(createJudge(mapOf("checkerSource" to " ")), "checkerSource")
-    assertTrue(storedJudges().isEmpty())
-
-    val result = createJudge(mapOf("checkerSource" to "fun check() = true"))
-    assertSuccess(result, "CreateJudgeConfigurationSuccess")
-    assertEquals("fun check() = true", result["problemLanguage"]["judgeConfiguration"]["checkerSource"].asString())
-    val judgeId = judgeGlobalId(storedJudge(configuration.id)!!)
-
-    assertValidation(updateJudge(judgeId, mapOf("checkerSource" to " ")), "checkerSource")
-    assertValidation(updateJudge(judgeId, mapOf("checkerSource" to null)), "checkerSource")
-    assertSuccess(updateJudge(judgeId, mapOf("checkerSource" to "fun check() = false")), "UpdateJudgeConfigurationSuccess")
-    assertEquals("fun check() = false", storedJudge(configuration.id)!!.checkerSource)
-
-    // A problem that moves back to exact JSON leaves its judge invalid until the checker is cleared.
-    entClient.problems.update(problem.id) { checkerKind = ProblemCheckerKind.EXACT_JSON }.save(fixtureContext).getOrThrow()
-    assertValidation(updateJudge(judgeId, mapOf("checkerSource" to "fun check() = true")), "checkerSource")
-    assertValidation(updateJudge(judgeId, mapOf("timeLimitMs" to 5)), "checkerSource")
-    assertEquals("fun check() = false", storedJudge(configuration.id)!!.checkerSource)
-    assertSuccess(updateJudge(judgeId, mapOf("checkerSource" to null, "timeLimitMs" to 5)), "UpdateJudgeConfigurationSuccess")
-    val cleared = storedJudge(configuration.id)!!
-    assertNull(cleared.checkerSource)
-    assertEquals(5, cleared.timeLimitMs)
   }
 
   @Test
@@ -435,7 +401,7 @@ class JudgeConfigurationIntegrationTest {
     return user.id to (result.request.session as MockHttpSession)
   }
 
-  private val judgeFields = "id testDriverCode referenceSolutionCode checkerSource timeLimitMs memoryLimitMb"
+  private val judgeFields = "id testDriverCode referenceSolutionCode timeLimitMs memoryLimitMb"
 
   private fun createJudge(
     fields: Map<String, Any?> = emptyMap(),

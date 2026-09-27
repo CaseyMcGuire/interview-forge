@@ -14,7 +14,7 @@ type UpdateJudgeConfigurationSuccess {
 }
 
 """
-Omitted fields stay unchanged. Null clears checkerSource and referenceSolutionCode;
+Omitted fields stay unchanged. Null clears referenceSolutionCode;
 for other fields, null leaves the value unchanged.
 """
 input UpdateJudgeConfigurationInput {
@@ -28,9 +28,6 @@ input UpdateJudgeConfigurationInput {
   Omit to keep the current value; null clears it.
   """
   referenceSolutionCode: String
-
-  """Custom answer checker; null clears it only when using exact JSON comparison."""
-  checkerSource: String
 
   timeLimitMs: Int
   memoryLimitMb: Int

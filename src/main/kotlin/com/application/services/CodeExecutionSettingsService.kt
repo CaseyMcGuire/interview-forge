@@ -6,7 +6,6 @@ import com.application.ent.EntTransactionClient
 import com.application.ent.JudgeConfiguration
 import com.application.execution.CodeExecutionSettings
 import com.application.execution.LanguageExecutionConfig
-import com.application.schema.ProblemCheckerKind
 import com.application.security.ExecutionAccess
 import entkt.runtime.driver.IsolationLevel
 import entkt.runtime.privacy.Viewer
@@ -65,13 +64,9 @@ class CodeExecutionSettingsService(
       .visibleOrNull()
       .getOrThrow() ?: return null
 
-    val problem = tx.problems.findById(publicContext, configuration.problemId)
+    tx.problems.findById(publicContext, configuration.problemId)
       .visibleOrNull()
       .getOrThrow() ?: return null
-
-    if (problem.checkerKind != ProblemCheckerKind.EXACT_JSON) {
-      return null
-    }
 
     val languageConfiguration = languageConfigurations[language.key] ?: return null
     val runtime = properties.runtimes[language.key]?.takeIf { it.isNotBlank() }

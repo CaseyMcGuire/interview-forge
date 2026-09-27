@@ -79,7 +79,7 @@ class CustomInputSubmissionService(
       .getOrThrow()
       ?: return EnqueueCustomInputSubmissionOutcome.NotFound
 
-    val problem = tx.problems.findById(publicContext, configuration.problemId)
+    tx.problems.findById(publicContext, configuration.problemId)
       .visibleOrNull()
       .getOrThrow()
       ?: return EnqueueCustomInputSubmissionOutcome.NotFound
@@ -89,7 +89,7 @@ class CustomInputSubmissionService(
       .getOrThrow()
       ?: return EnqueueCustomInputSubmissionOutcome.NotFound
 
-    val judge = executionAvailabilityService.findExecutableJudgeConfiguration(tx, problem, configuration.id, language.key)
+    val judge = executionAvailabilityService.findExecutableJudgeConfiguration(tx, configuration.id, language.key)
     if (judge?.referenceSolutionCode.isNullOrBlank()) {
       return EnqueueCustomInputSubmissionOutcome.Unavailable
     }

@@ -23,7 +23,6 @@ type Props = {
 
 type Judge = {
   readonly testDriverCode: string;
-  readonly checkerSource: string | null | undefined;
   readonly timeLimitMs: number;
   readonly memoryLimitMb: number;
 };
@@ -49,7 +48,6 @@ const styles = stylex.create({
 
 const emptyDraft: ProblemJudgeConfigurationDraft = {
   testDriverCode: "",
-  checkerSource: "",
   timeLimitMs: "",
   memoryLimitMb: ""
 };
@@ -63,7 +61,6 @@ function draftFrom(judge: Judge | null | undefined): ProblemJudgeConfigurationDr
 
   return {
     testDriverCode: judge.testDriverCode,
-    checkerSource: judge.checkerSource ?? "",
     timeLimitMs: String(judge.timeLimitMs),
     memoryLimitMb: String(judge.memoryLimitMb)
   };
@@ -77,7 +74,6 @@ function isComplete(draft: ProblemJudgeConfigurationDraft): boolean {
 
 function isSameDraft(a: ProblemJudgeConfigurationDraft, b: ProblemJudgeConfigurationDraft): boolean {
   return a.testDriverCode === b.testDriverCode &&
-    a.checkerSource === b.checkerSource &&
     a.timeLimitMs === b.timeLimitMs &&
     a.memoryLimitMb === b.memoryLimitMb;
 }
@@ -119,7 +115,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
       judgeConfiguration {
         id
         testDriverCode
-        checkerSource
         timeLimitMs
         memoryLimitMb
       }
@@ -136,7 +131,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
             judgeConfiguration {
               id
               testDriverCode
-              checkerSource
               timeLimitMs
               memoryLimitMb
             }
@@ -166,7 +160,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
           judgeConfiguration {
             id
             testDriverCode
-            checkerSource
             timeLimitMs
             memoryLimitMb
           }
@@ -221,8 +214,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
 
     setErrors([]);
     setSaved(false);
-    // An empty checker means none: omitted on creation, cleared on update.
-    const checkerSource = draft.checkerSource.trim() === "" ? null : draft.checkerSource;
     const current = data.judgeConfiguration;
 
     if (!current) {
@@ -231,7 +222,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
           input: {
             problemLanguageId: data.id,
             testDriverCode: draft.testDriverCode,
-            checkerSource,
             timeLimitMs,
             memoryLimitMb
           }
@@ -260,10 +250,6 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
 
     if (draft.testDriverCode !== current.testDriverCode) {
       input.testDriverCode = draft.testDriverCode;
-    }
-
-    if (checkerSource !== (current.checkerSource ?? null)) {
-      input.checkerSource = checkerSource;
     }
 
     if (timeLimitMs !== current.timeLimitMs) {

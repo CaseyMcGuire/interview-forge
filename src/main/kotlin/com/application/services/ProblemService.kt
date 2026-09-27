@@ -415,7 +415,6 @@ class ProblemService(
   fun createJudgeConfiguration(
     problemLanguageId: Long,
     testDriverCode: String,
-    checkerSource: String?,
     timeLimitMs: Int,
     memoryLimitMb: Int,
     referenceSolutionCode: String? = null,
@@ -439,7 +438,6 @@ class ProblemService(
         this.problemLanguageId = problemLanguageId
         this.testDriverCode = testDriverCode
         this.referenceSolutionCode = referenceSolutionCode
-        this.checkerSource = checkerSource
         this.timeLimitMs = timeLimitMs
         this.memoryLimitMb = memoryLimitMb
       }.save(context).getOrThrow()
@@ -451,11 +449,10 @@ class ProblemService(
     }.getOrThrow()
   }
 
-  /** Null parameters leave values unchanged; reference code and checkers can be cleared explicitly. */
+  /** Null parameters leave values unchanged; reference code can be cleared explicitly. */
   fun updateJudgeConfiguration(
     id: Long,
     testDriverCode: String? = null,
-    checkerSource: FieldUpdate<String?> = FieldUpdate.Unchanged,
     timeLimitMs: Int? = null,
     memoryLimitMb: Int? = null,
     referenceSolutionCode: FieldUpdate<String?> = FieldUpdate.Unchanged,
@@ -476,9 +473,6 @@ class ProblemService(
           this.referenceSolutionCode = referenceSolutionCode.value
         }
 
-        if (checkerSource is FieldUpdate.Set) {
-          this.checkerSource = checkerSource.value
-        }
         timeLimitMs?.let { this.timeLimitMs = it }
         memoryLimitMb?.let { this.memoryLimitMb = it }
       }.saveAndLoad(context).getOrThrow()

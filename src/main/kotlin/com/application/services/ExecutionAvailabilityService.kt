@@ -4,12 +4,10 @@ import com.application.config.ExecutionProperties
 import com.application.ent.CustomInputSubmission
 import com.application.ent.EntTransactionClient
 import com.application.ent.JudgeConfiguration
-import com.application.ent.Problem
 import com.application.ent.ProblemSubmission
 import com.application.execution.LanguageExecutionConfig
 import com.application.execution.RuntimeAvailability
 import com.application.schema.CustomInputSubmissionStatus
-import com.application.schema.ProblemCheckerKind
 import com.application.schema.ProblemSubmissionStatus
 import com.application.security.ExecutionAccess
 import org.springframework.stereotype.Service
@@ -25,11 +23,10 @@ class ExecutionAvailabilityService(
 
   fun findExecutableJudgeConfiguration(
     tx: EntTransactionClient,
-    problem: Problem,
     problemLanguageId: Long,
     languageKey: String,
   ): JudgeConfiguration? {
-    if (languageKey !in supportedLanguages || problem.checkerKind != ProblemCheckerKind.EXACT_JSON) {
+    if (languageKey !in supportedLanguages) {
       return null
     }
 
