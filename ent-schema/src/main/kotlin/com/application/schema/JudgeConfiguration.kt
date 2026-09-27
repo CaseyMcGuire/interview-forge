@@ -16,8 +16,11 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
     .onDelete(OnDelete.RESTRICT)
     .comment("Fixed problem/language pair this configuration judges; each pair has at most one configuration.")
 
+  val testDriverType by enum<TestDriverType>("test_driver_type").default(TestDriverType.MAIN_FUNCTION)
+    .comment("Entry-point contract the runtime uses to invoke the test driver.")
+
   val testDriverCode by string("test_driver_code").sensitive()
-    .comment("Private code that parses test input, calls the submitted solution, and serializes its output.")
+    .comment("Private code that invokes the submitted solution using the selected test-driver contract.")
 
   val referenceSolutionCode by string("reference_solution_code").nullable().sensitive()
     .comment("Private solution compiled with this language's driver; null until configured.")
@@ -32,5 +35,5 @@ class JudgeConfiguration : EntSchema("judge_configurations", clientName = "judge
     .comment("Time the judge configuration was created.")
 
   val updatedAt by instant("updated_at").defaultNow().updateDefaultNow()
-    .comment("Time the driver, reference solution, or resource limits were last changed.")
+    .comment("Time the driver type, driver code, reference solution, or resource limits were last changed.")
 }

@@ -6,6 +6,7 @@ import com.application.ent.Language
 import com.application.ent.Problem
 import com.application.ent.ProblemLanguage
 import com.application.schema.ProblemDifficulty
+import com.application.schema.TestDriverType
 import com.application.schema.UserRole
 import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
@@ -112,6 +113,7 @@ class JudgeConfigurationIntegrationTest {
 
     val stored = storedJudge(configuration.id)!!
     assertEquals(globalIdUtil.toGlobalId(GraphqlJudgeConfiguration::class, stored.id), judge["id"].asString())
+    assertEquals(TestDriverType.MAIN_FUNCTION, stored.testDriverType)
     assertEquals("fun main() = judge()", stored.testDriverCode)
     assertEquals(validSettings["referenceSolutionCode"], stored.referenceSolutionCode)
     assertEquals(1000, stored.timeLimitMs)
@@ -122,6 +124,43 @@ class JudgeConfigurationIntegrationTest {
 
     assertValidation(createJudge(), "problemLanguageId")
     assertEquals(1, storedJudges().size)
+  }
+
+  @Test
+  fun `Ent stores the selected driver type and unrelated updates preserve it`() {
+    val typedDriver = """
+      import com.application.execution.JsonTestDriver
+
+      class TestDriver : JsonTestDriver<Int, Int>(Int::class) {
+        override fun run(input: Int): Int = input
+      }
+    """.trimIndent()
+    val created = entClient.judgeConfigurations.create {
+      problemLanguageId = configuration.id
+      testDriverType = TestDriverType.JSON_TEST_DRIVER
+      testDriverCode = typedDriver
+      timeLimitMs = 1000
+      memoryLimitMb = 256
+    }.saveAndLoad(fixtureContext).getOrThrow()
+
+    val stored = storedJudge(configuration.id)!!
+    assertEquals(TestDriverType.JSON_TEST_DRIVER, stored.testDriverType)
+    assertEquals(typedDriver, stored.testDriverCode)
+
+    assertSuccess(updateJudge(judgeGlobalId(created), mapOf("timeLimitMs" to 2500)), "UpdateJudgeConfigurationSuccess")
+    val updated = storedJudge(configuration.id)!!
+    assertEquals(TestDriverType.JSON_TEST_DRIVER, updated.testDriverType)
+    assertEquals(typedDriver, updated.testDriverCode)
+    assertEquals(2500, updated.timeLimitMs)
+
+    entClient.judgeConfigurations.update(created.id) {
+      testDriverType = TestDriverType.MAIN_FUNCTION
+      testDriverCode = "fun main() = print(42)"
+    }.save(fixtureContext).getOrThrow()
+
+    val mainDriver = storedJudge(configuration.id)!!
+    assertEquals(TestDriverType.MAIN_FUNCTION, mainDriver.testDriverType)
+    assertEquals("fun main() = print(42)", mainDriver.testDriverCode)
   }
 
   @Test
