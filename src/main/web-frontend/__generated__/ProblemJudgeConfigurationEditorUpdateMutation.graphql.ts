@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<8343ffc562ed3259b4c9afec142d9931>>
+ * @generated SignedSource<<8dc26aa7205d20d836e1b3049b302a68>>
  * @lightSyntaxTransform
  */
 
@@ -39,6 +39,7 @@ export type ProblemJudgeConfigurationEditorUpdateMutation$data = {
       readonly id: string;
       readonly memoryLimitMb: number;
       readonly testDriverCode: string;
+      readonly testDriverType: TestDriverType;
       readonly timeLimitMs: number;
     };
   } | {
@@ -108,6 +109,13 @@ v3 = [
                 "args": null,
                 "kind": "ScalarField",
                 "name": "id",
+                "storageKey": null
+              },
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
+                "name": "testDriverType",
                 "storageKey": null
               },
               {
@@ -190,16 +198,16 @@ return {
     "selections": (v3/*:: as any*/)
   },
   "params": {
-    "cacheID": "a57881fb9fabfe86a6dbfc9c667c3b9e",
+    "cacheID": "7b816a0615028e2d913162bc643867a4",
     "id": null,
     "metadata": {},
     "name": "ProblemJudgeConfigurationEditorUpdateMutation",
     "operationKind": "mutation",
-    "text": "mutation ProblemJudgeConfigurationEditorUpdateMutation(\n  $input: UpdateJudgeConfigurationInput!\n) {\n  updateJudgeConfiguration(input: $input) {\n    __typename\n    ... on UpdateJudgeConfigurationSuccess {\n      judgeConfiguration {\n        id\n        testDriverCode\n        timeLimitMs\n        memoryLimitMb\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
+    "text": "mutation ProblemJudgeConfigurationEditorUpdateMutation(\n  $input: UpdateJudgeConfigurationInput!\n) {\n  updateJudgeConfiguration(input: $input) {\n    __typename\n    ... on UpdateJudgeConfigurationSuccess {\n      judgeConfiguration {\n        id\n        testDriverType\n        testDriverCode\n        timeLimitMs\n        memoryLimitMb\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "f3476304335a1ec9a50141da101946f3";
+(node as any).hash = "d18b9fc3143b83d2d64168e5ab4c8316";
 
 export default node;

@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<1a054aed2bf931d8de85356f1cdedcaf>>
+ * @generated SignedSource<<952c5da5ef9e59ed7bfaed781be08346>>
  * @lightSyntaxTransform
  */
 
@@ -67,6 +67,13 @@ v4 = {
   "args": null,
   "kind": "ScalarField",
   "name": "displayName",
+  "storageKey": null
+},
+v5 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "type",
   "storageKey": null
 };
 return {
@@ -156,13 +163,7 @@ return {
           (v2/*:: as any*/),
           (v3/*:: as any*/),
           (v4/*:: as any*/),
-          {
-            "alias": null,
-            "args": null,
-            "kind": "ScalarField",
-            "name": "type",
-            "storageKey": null
-          }
+          (v5/*:: as any*/)
         ],
         "storageKey": null
       },
@@ -241,7 +242,27 @@ return {
                     "storageKey": null
                   },
                   (v4/*:: as any*/),
-                  (v2/*:: as any*/)
+                  (v2/*:: as any*/),
+                  {
+                    "alias": null,
+                    "args": null,
+                    "concreteType": "TestDriverTypeInfo",
+                    "kind": "LinkedField",
+                    "name": "testDriverTypes",
+                    "plural": true,
+                    "selections": [
+                      (v5/*:: as any*/),
+                      (v4/*:: as any*/),
+                      {
+                        "alias": null,
+                        "args": null,
+                        "kind": "ScalarField",
+                        "name": "documentationMarkdown",
+                        "storageKey": null
+                      }
+                    ],
+                    "storageKey": null
+                  }
                 ],
                 "storageKey": null
               },
@@ -254,6 +275,13 @@ return {
                 "plural": false,
                 "selections": [
                   (v2/*:: as any*/),
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "testDriverType",
+                    "storageKey": null
+                  },
                   {
                     "alias": null,
                     "args": null,
@@ -320,12 +348,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "1b8b9ab1e1ec478da19766bde4ce8d92",
+    "cacheID": "c628582d893948c3dc3a36104209aae1",
     "id": null,
     "metadata": {},
     "name": "EditProblemPageQuery",
     "operationKind": "query",
-    "text": "query EditProblemPageQuery(\n  $slug: String!\n) {\n  ...ProblemTagField_query\n  problem(slug: $slug) {\n    id\n    slug\n    ...ProblemDetailsForm_problem\n    languageConfigurations {\n      id\n      ...ProblemLanguageEditForm_configuration\n    }\n    examples {\n      id\n      ...ProblemExampleEditForm_example\n    }\n  }\n}\n\nfragment ProblemDetailsForm_problem on Problem {\n  id\n  title\n  statementMarkdown\n  difficulty\n  tags {\n    id\n  }\n}\n\nfragment ProblemExampleEditForm_example on ProblemExample {\n  id\n  inputJson\n  expectedOutputJson\n  explanationMarkdown\n}\n\nfragment ProblemJudgeConfigurationEditor_configuration on ProblemLanguage {\n  id\n  language {\n    key\n    displayName\n    id\n  }\n  judgeConfiguration {\n    id\n    testDriverCode\n    timeLimitMs\n    memoryLimitMb\n  }\n}\n\nfragment ProblemLanguageEditForm_configuration on ProblemLanguage {\n  id\n  starterCode\n  language {\n    key\n    displayName\n    id\n  }\n  ...ProblemJudgeConfigurationEditor_configuration\n}\n\nfragment ProblemTagField_query on Query {\n  tags {\n    id\n    slug\n    displayName\n    type\n  }\n}\n"
+    "text": "query EditProblemPageQuery(\n  $slug: String!\n) {\n  ...ProblemTagField_query\n  problem(slug: $slug) {\n    id\n    slug\n    ...ProblemDetailsForm_problem\n    languageConfigurations {\n      id\n      ...ProblemLanguageEditForm_configuration\n    }\n    examples {\n      id\n      ...ProblemExampleEditForm_example\n    }\n  }\n}\n\nfragment ProblemDetailsForm_problem on Problem {\n  id\n  title\n  statementMarkdown\n  difficulty\n  tags {\n    id\n  }\n}\n\nfragment ProblemExampleEditForm_example on ProblemExample {\n  id\n  inputJson\n  expectedOutputJson\n  explanationMarkdown\n}\n\nfragment ProblemJudgeConfigurationEditor_configuration on ProblemLanguage {\n  id\n  language {\n    key\n    displayName\n    testDriverTypes {\n      type\n    }\n    ...ProblemTestDriverField_language\n    id\n  }\n  judgeConfiguration {\n    id\n    testDriverType\n    testDriverCode\n    timeLimitMs\n    memoryLimitMb\n  }\n}\n\nfragment ProblemLanguageEditForm_configuration on ProblemLanguage {\n  id\n  starterCode\n  language {\n    key\n    displayName\n    id\n  }\n  ...ProblemJudgeConfigurationEditor_configuration\n}\n\nfragment ProblemTagField_query on Query {\n  tags {\n    id\n    slug\n    displayName\n    type\n  }\n}\n\nfragment ProblemTestDriverField_language on Language {\n  testDriverTypes {\n    type\n    displayName\n    documentationMarkdown\n  }\n}\n"
   }
 };
 })();

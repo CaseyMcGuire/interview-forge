@@ -24,10 +24,14 @@ For each requested language, prepare:
 
 - Starter code containing the solution signature or stateful interface the user must implement.
 - A complete reference solution, separate from the starter code.
-- A test driver that parses input, calls that interface, and serializes the result.
+- A supported test driver type and code that calls that interface and produces the answer.
 - Execution limits appropriate to the stated constraints.
 
-Use an enabled language with a supported runtime. Kotlin is the current implemented runtime; do not infer runtime support solely from `list_languages`. For Kotlin, follow the guide's driver contract: `Solution.kt` and `TestDriver.kt`, a top-level `main` in the default package, and the bundled Kotlin/JDK and Jackson 3 libraries (including `jackson-module-kotlin`). Use Jackson from `tools.jackson` for JSON parsing and serialization instead of writing a custom parser. The driver reads one JSON value and prints one JSON value per invocation. Use stderr for diagnostics. All cases run in one JVM, so do not assume global state resets between cases.
+Use `list_languages` to choose an enabled language and one of its `testDriverTypes`; read that entry's `documentationMarkdown` before writing the driver. An empty list means driver execution is not implemented for that language. Listed support does not establish that Docker or the configured image is available; verify execution below.
+
+Prefer `JSON_TEST_DRIVER` for new Kotlin problems. Define a public, default-package `TestDriver : JsonTestDriver<Input, Output>(Input::class)` with a public no-argument constructor and override `run(input): Output`. Return the answer; the runtime handles JSON parsing and serialization. Use a concrete, non-null input type, with generic or nullable values in its properties. Prefer typed operations and results for stateful problems. The starter code must explicitly declare the solution API: submitted source and driver compile together, and the driver constructs and calls those classes directly.
+
+Use `MAIN_FUNCTION` when direct control over input parsing or output is needed. Follow its returned documentation and use the bundled Jackson APIs from `tools.jackson` instead of writing a parser. Supply `testDriverType` explicitly: omission retains the legacy main-function behavior. Both types run all cases in one JVM; typed drivers reuse one instance, so global and driver instance state persist between cases. Use stderr for diagnostics.
 
 Make the expected answer deterministic, including ordering when multiple answers could otherwise be valid. If the problem requires a custom checker, identify that limitation: the runtime only supports exact JSON comparison. Do not silently change the problem's correctness rules to fit exact comparison.
 
@@ -43,7 +47,7 @@ When adding tests to an existing problem, start with `get_problem`, use its esta
 
 Inputs and expectations are serialized JSON **strings**, not nested MCP argument objects. Preserve number text, including large integers and decimal forms such as `1.0`; do not round-trip them through JavaScript numbers. The string `"null"` is a JSON null answer, not an absent expectation. Copy generated expectations unchanged into the save call.
 
-Inspect tool failures, including MCP `isError` and field errors, before continuing. After a lost response to `create_problem` or `add_test_cases`, inspect `get_problem` before retrying: additions are not deduplicated. Use `update_test_case` with the returned decimal case ID for corrections, preserving an existing explanation when appropriate; omitting it clears it. `configure_problem_language` replaces the complete configuration, so supply all intended code and limits when correcting one.
+Inspect tool failures, including MCP `isError` and field errors, before continuing. After a lost response to `create_problem` or `add_test_cases`, inspect `get_problem` before retrying: additions are not deduplicated. Use `update_test_case` with the returned decimal case ID for corrections, preserving an existing explanation when appropriate; omitting it clears it. `configure_problem_language` replaces the complete configuration, so supply the intended driver type, all code, and limits when correcting one.
 
 ## Verify grading
 

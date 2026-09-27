@@ -69,12 +69,12 @@ and, if the client sends an Origin header, `mcp.allowed-origins` explicitly.
 
 | Tool | Purpose |
 | --- | --- |
-| `list_languages` | Read enabled language keys. |
+| `list_languages` | Read enabled language keys and supported test driver types with usage instructions. |
 | `search_problems` | Find published, unarchived problems before adding duplicates. |
 | `get_problem` | Read the statement, language configuration, public examples, and grading cases. |
 | `create_problem` | Publish a complete problem, language configurations, and tests atomically. |
 | `update_problem` | Change title, statement, or difficulty; omitted fields stay unchanged. |
-| `configure_problem_language` | Add or replace starter code, driver, reference solution, and limits together. |
+| `configure_problem_language` | Add or replace starter code, driver type/code, reference solution, and limits together. |
 | `add_test_cases` | Append an atomic batch of public examples and grading cases. |
 | `update_test_case` | Replace a case's input, expectation, and explanation without changing visibility or position. |
 | `generate_expected_output` | Run the stored reference for one input and return its answer without saving it. |
@@ -100,6 +100,8 @@ saved as supplied, so generating one does not automatically add or update a case
 ## Authoring workflow
 
 1. Call `list_languages` and `search_problems`; use `get_problem` to inspect an existing match.
+   Choose a supported `testDriverTypes` entry and read its `documentationMarkdown`.
+   Driver support does not guarantee that Docker or the configured runtime image is available.
 2. Create the problem with complete starter, driver, and reference code. The runnable
    [echo-integer example](examples/echo-integer.json) is a `create_problem` argument object.
 3. Call `generate_expected_output` for each additional input, then pass its returned
@@ -134,31 +136,41 @@ The default queue allows two active attempts per user and 100 across the applica
 ## Kotlin driver contract
 
 The compiler receives `Solution.kt` (the submitted or reference code) and `TestDriver.kt`
-(the stored driver). Both can use the Kotlin/JDK standard libraries and Jackson 3, including
-its Kotlin module. Use Jackson for JSON parsing and serialization rather than writing a parser.
-Import from `tools.jackson`, for example:
+(the stored driver). The driver calls the classes or functions declared by the starter code;
+the reference solution implements that same API. There is no required solution class name.
+
+Set `testDriverType` in each language configuration. Prefer `JSON_TEST_DRIVER` for new
+problems: extend `JsonTestDriver<Input, Output>`, pass the input class, and return the answer.
+For the echo-integer example:
 
 ```kotlin
-import tools.jackson.module.kotlin.jacksonObjectMapper
-import tools.jackson.module.kotlin.readValue
+import com.application.execution.JsonTestDriver
 
-private val mapper = jacksonObjectMapper()
-
-fun main() {
-  val input = mapper.readValue<Long>(System.`in`.bufferedReader().readText())
-  print(mapper.writeValueAsString(Solution().echo(input)))
+class TestDriver : JsonTestDriver<Long, Long>(inputClass = Long::class) {
+  override fun run(input: Long): Long = Solution().echo(input)
 }
 ```
 
-Use typed inputs or `JsonNode` as appropriate; retain integers as `Long` or `BigInteger`
-instead of converting them through `Double`. Rebuild the runtime image after dependency
-changes so its compiler and execution classpaths stay in sync.
+`TestDriver` must be public, in the default package, and have a public no-argument constructor.
+The root input must be a concrete, non-null type. Wrap generic or nullable root values in
+properties of a named input class. For stateful problems, prefer typed operations and results
+over heterogeneous JSON arrays. The runtime parses each input and serializes the returned answer.
 
-The driver defines a top-level `main` in the default package without `@file:JvmName`.
-For each case it reads one JSON value from stdin, calls the solution, and prints exactly
-one JSON value to stdout. The runtime invokes the same driver repeatedly in one JVM, so
-global state persists across cases. Use stderr for diagnostics. All language configurations
+Use `MAIN_FUNCTION` when the driver needs direct control of input parsing and output.
+It defines a top-level `main` in the default package without `@file:JvmName`, reads one JSON
+value from stdin, and prints one JSON value. Jackson 3 and its Kotlin module are bundled;
+import their parsing and serialization APIs from `tools.jackson` rather than writing a parser.
+Omitting `testDriverType` selects `MAIN_FUNCTION` for older clients, including when replacing
+a complete configuration with `configure_problem_language`; supply the intended type explicitly.
+
+Both types use one JVM per suite; typed drivers also reuse one driver instance. Global and
+driver instance state persist across cases. Use stderr for diagnostics. Retain large integers
+as `Long` or `BigInteger` instead of converting them through `Double`. All language configurations
 for a problem must implement the same JSON input/output contract.
+
+The editor and `list_languages` serve the same [typed-driver instructions](../src/main/resources/execution/kotlin/json-test-driver.md)
+and [main-function instructions](../src/main/resources/execution/kotlin/main-function.md), including runnable examples.
+Rebuild the runtime image after runtime or dependency changes.
 
 ## Verify the connection and workflow
 

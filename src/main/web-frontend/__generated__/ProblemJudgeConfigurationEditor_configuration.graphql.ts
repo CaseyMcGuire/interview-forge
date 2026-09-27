@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<0b6e85f68a883eaaf437c7b7f4f392b3>>
+ * @generated SignedSource<<863b3818ddcbbf88425a4a2b4c53b81b>>
  * @lightSyntaxTransform
  */
 
@@ -8,6 +8,7 @@
 // @ts-nocheck
 
 import { ReaderFragment } from 'relay-runtime';
+export type TestDriverType = "JSON_TEST_DRIVER" | "MAIN_FUNCTION" | "%future added value";
 import { FragmentRefs } from "relay-runtime";
 export type ProblemJudgeConfigurationEditor_configuration$data = {
   readonly id: string;
@@ -15,11 +16,16 @@ export type ProblemJudgeConfigurationEditor_configuration$data = {
     readonly id: string;
     readonly memoryLimitMb: number;
     readonly testDriverCode: string;
+    readonly testDriverType: TestDriverType;
     readonly timeLimitMs: number;
   } | null | undefined;
   readonly language: {
     readonly displayName: string;
     readonly key: string;
+    readonly testDriverTypes: ReadonlyArray<{
+      readonly type: TestDriverType;
+    }>;
+    readonly " $fragmentSpreads": FragmentRefs<"ProblemTestDriverField_language">;
   };
   readonly " $fragmentType": "ProblemJudgeConfigurationEditor_configuration";
 };
@@ -64,6 +70,29 @@ return {
           "kind": "ScalarField",
           "name": "displayName",
           "storageKey": null
+        },
+        {
+          "alias": null,
+          "args": null,
+          "concreteType": "TestDriverTypeInfo",
+          "kind": "LinkedField",
+          "name": "testDriverTypes",
+          "plural": true,
+          "selections": [
+            {
+              "alias": null,
+              "args": null,
+              "kind": "ScalarField",
+              "name": "type",
+              "storageKey": null
+            }
+          ],
+          "storageKey": null
+        },
+        {
+          "args": null,
+          "kind": "FragmentSpread",
+          "name": "ProblemTestDriverField_language"
         }
       ],
       "storageKey": null
@@ -77,6 +106,13 @@ return {
       "plural": false,
       "selections": [
         (v0/*:: as any*/),
+        {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "testDriverType",
+          "storageKey": null
+        },
         {
           "alias": null,
           "args": null,
@@ -107,6 +143,6 @@ return {
 };
 })();
 
-(node as any).hash = "ac2da98bf0215a6b00e7310c9b2ff0d1";
+(node as any).hash = "bdbb696b2977090e421c8a878df782f5";
 
 export default node;

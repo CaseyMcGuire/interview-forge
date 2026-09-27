@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<15094424f664305a745db2dc52a9dcb0>>
+ * @generated SignedSource<<1a88f53773c70f313febc79aca0d0879>>
  * @lightSyntaxTransform
  */
 
@@ -29,6 +29,7 @@ export type ProblemJudgeConfigurationEditorCreateMutation$data = {
         readonly id: string;
         readonly memoryLimitMb: number;
         readonly testDriverCode: string;
+        readonly testDriverType: TestDriverType;
         readonly timeLimitMs: number;
       } | null | undefined;
     };
@@ -127,6 +128,13 @@ v4 = [
                     "alias": null,
                     "args": null,
                     "kind": "ScalarField",
+                    "name": "testDriverType",
+                    "storageKey": null
+                  },
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
                     "name": "testDriverCode",
                     "storageKey": null
                   },
@@ -206,16 +214,16 @@ return {
     "selections": (v4/*:: as any*/)
   },
   "params": {
-    "cacheID": "b58ca6d5d3b329b9a5a93175c03f0603",
+    "cacheID": "73d1008717267c8b6b27107694ba05c6",
     "id": null,
     "metadata": {},
     "name": "ProblemJudgeConfigurationEditorCreateMutation",
     "operationKind": "mutation",
-    "text": "mutation ProblemJudgeConfigurationEditorCreateMutation(\n  $input: CreateJudgeConfigurationInput!\n) {\n  createJudgeConfiguration(input: $input) {\n    __typename\n    ... on CreateJudgeConfigurationSuccess {\n      problemLanguage {\n        id\n        judgeConfiguration {\n          id\n          testDriverCode\n          timeLimitMs\n          memoryLimitMb\n        }\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
+    "text": "mutation ProblemJudgeConfigurationEditorCreateMutation(\n  $input: CreateJudgeConfigurationInput!\n) {\n  createJudgeConfiguration(input: $input) {\n    __typename\n    ... on CreateJudgeConfigurationSuccess {\n      problemLanguage {\n        id\n        judgeConfiguration {\n          id\n          testDriverType\n          testDriverCode\n          timeLimitMs\n          memoryLimitMb\n        }\n      }\n    }\n    ... on ProblemValidationFailure {\n      message\n      fieldErrors {\n        message\n      }\n    }\n    ... on ProblemNotFound {\n      message\n    }\n    ... on ProblemForbidden {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "9ac1a6d2a34b5b43e01dd52e913671be";
+(node as any).hash = "792b44bb96a6bf116bab03b3357e0750";
 
 export default node;

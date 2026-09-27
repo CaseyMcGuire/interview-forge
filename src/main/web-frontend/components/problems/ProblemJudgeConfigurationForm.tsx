@@ -2,8 +2,13 @@ import {useId} from "react";
 import * as stylex from "@stylexjs/stylex";
 import CodeEditor from "components/coding/CodeEditor";
 import Control from "components/coding/WorkspaceControl";
+import type {
+  ProblemTestDriverField_language$key,
+  TestDriverType
+} from "__generated__/ProblemTestDriverField_language.graphql";
 import ProblemCreationField from "./ProblemCreationField";
 import ProblemEditFeedback from "./ProblemEditFeedback";
+import ProblemTestDriverField from "./ProblemTestDriverField";
 
 export type JudgeLimit = {
   label: string;
@@ -24,12 +29,14 @@ function limitHint(limit: JudgeLimit): string {
 
 /** Limits stay as text while editing so the fields can be emptied; they are parsed on save. */
 export type ProblemJudgeConfigurationDraft = {
+  testDriverType: TestDriverType | null;
   testDriverCode: string;
   timeLimitMs: string;
   memoryLimitMb: string;
 };
 
 type Props = {
+  language: ProblemTestDriverField_language$key;
   languageKey: string;
   languageName: string;
   draft: ProblemJudgeConfigurationDraft;
@@ -89,11 +96,18 @@ const styles = stylex.create({
 });
 
 export default function ProblemJudgeConfigurationForm(props: Props) {
-  const {languageKey, languageName, draft, exists, onChange, onSubmit, submitDisabled, isSaving, errors, saved} = props;
+  const {language, languageKey, languageName, draft, exists, onChange, onSubmit, submitDisabled, isSaving, errors, saved} = props;
   const id = useId();
 
   return (
     <div sx={styles.form} aria-busy={isSaving}>
+      <ProblemTestDriverField
+        language={language}
+        value={draft.testDriverType}
+        disabled={isSaving}
+        onChange={(testDriverType) => onChange({...draft, testDriverType})}
+      />
+
       <span sx={styles.label}>Test driver code</span>
 
       <div sx={styles.editor} inert={isSaving}>
@@ -110,7 +124,7 @@ export default function ProblemJudgeConfigurationForm(props: Props) {
       </div>
 
       <div id={`${id}-driver-help`} sx={styles.help}>
-        Parses the test input, calls the submitted solution, and serializes its output.
+        Compiled alongside the submitted solution using the selected driver type.
         Tab indents code. Press Escape, then Tab to leave the editor.
       </div>
 

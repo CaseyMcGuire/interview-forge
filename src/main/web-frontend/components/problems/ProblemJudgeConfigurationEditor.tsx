@@ -1,7 +1,10 @@
 import {useState} from "react";
 import {graphql, useFragment, useMutation} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
-import type {ProblemJudgeConfigurationEditor_configuration$key} from "__generated__/ProblemJudgeConfigurationEditor_configuration.graphql";
+import type {
+  ProblemJudgeConfigurationEditor_configuration$key,
+  TestDriverType
+} from "__generated__/ProblemJudgeConfigurationEditor_configuration.graphql";
 import type {
   ProblemJudgeConfigurationEditorCreateMutation,
   ProblemJudgeConfigurationEditorCreateMutation$data
@@ -22,6 +25,7 @@ type Props = {
 };
 
 type Judge = {
+  readonly testDriverType: TestDriverType;
   readonly testDriverCode: string;
   readonly timeLimitMs: number;
   readonly memoryLimitMb: number;
@@ -46,20 +50,20 @@ const styles = stylex.create({
   }
 });
 
-const emptyDraft: ProblemJudgeConfigurationDraft = {
-  testDriverCode: "",
-  timeLimitMs: "",
-  memoryLimitMb: ""
-};
-
 const failedMessage = "The judge configuration could not be saved. Your changes are still here; please try again.";
 
-function draftFrom(judge: Judge | null | undefined): ProblemJudgeConfigurationDraft {
+function draftFrom(judge: Judge | null | undefined, defaultDriverType: TestDriverType | null): ProblemJudgeConfigurationDraft {
   if (!judge) {
-    return emptyDraft;
+    return {
+      testDriverType: defaultDriverType,
+      testDriverCode: "",
+      timeLimitMs: "",
+      memoryLimitMb: ""
+    };
   }
 
   return {
+    testDriverType: judge.testDriverType,
     testDriverCode: judge.testDriverCode,
     timeLimitMs: String(judge.timeLimitMs),
     memoryLimitMb: String(judge.memoryLimitMb)
@@ -67,13 +71,15 @@ function draftFrom(judge: Judge | null | undefined): ProblemJudgeConfigurationDr
 }
 
 function isComplete(draft: ProblemJudgeConfigurationDraft): boolean {
-  return draft.testDriverCode.trim() !== "" &&
+  return draft.testDriverType !== null &&
+    draft.testDriverCode.trim() !== "" &&
     draft.timeLimitMs.trim() !== "" &&
     draft.memoryLimitMb.trim() !== "";
 }
 
 function isSameDraft(a: ProblemJudgeConfigurationDraft, b: ProblemJudgeConfigurationDraft): boolean {
-  return a.testDriverCode === b.testDriverCode &&
+  return a.testDriverType === b.testDriverType &&
+    a.testDriverCode === b.testDriverCode &&
     a.timeLimitMs === b.timeLimitMs &&
     a.memoryLimitMb === b.memoryLimitMb;
 }
@@ -104,22 +110,27 @@ function failureMessages(result: Result): readonly string[] {
   }
 }
 
-export default function ProblemJudgeConfigurationEditor({configuration}: Props) {
+export default function ProblemJudgeConfigurationEditor(props: Props) {
   const data = useFragment(graphql`
     fragment ProblemJudgeConfigurationEditor_configuration on ProblemLanguage {
       id
       language {
         key
         displayName
+        testDriverTypes {
+          type
+        }
+        ...ProblemTestDriverField_language
       }
       judgeConfiguration {
         id
+        testDriverType
         testDriverCode
         timeLimitMs
         memoryLimitMb
       }
     }
-  `, configuration);
+  `, props.configuration);
 
   const [create, isCreating] = useMutation<ProblemJudgeConfigurationEditorCreateMutation>(graphql`
     mutation ProblemJudgeConfigurationEditorCreateMutation($input: CreateJudgeConfigurationInput!) {
@@ -130,6 +141,7 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
             id
             judgeConfiguration {
               id
+              testDriverType
               testDriverCode
               timeLimitMs
               memoryLimitMb
@@ -159,6 +171,7 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
         ... on UpdateJudgeConfigurationSuccess {
           judgeConfiguration {
             id
+            testDriverType
             testDriverCode
             timeLimitMs
             memoryLimitMb
@@ -180,7 +193,10 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
     }
   `);
 
-  const stored = draftFrom(data.judgeConfiguration);
+  const defaultDriverType = data.language.testDriverTypes.find((driver) => driver.type === "JSON_TEST_DRIVER")?.type
+    ?? data.language.testDriverTypes[0]?.type
+    ?? null;
+  const stored = draftFrom(data.judgeConfiguration, defaultDriverType);
   const [draft, setDraft] = useState<ProblemJudgeConfigurationDraft>(stored);
   const [errors, setErrors] = useState<readonly string[]>([]);
   const [saved, setSaved] = useState(false);
@@ -195,12 +211,12 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
   }
 
   function finish(judge: Judge | null | undefined) {
-    setDraft(draftFrom(judge));
+    setDraft(draftFrom(judge, defaultDriverType));
     setSaved(true);
   }
 
   function save() {
-    if (submitDisabled) {
+    if (submitDisabled || draft.testDriverType === null) {
       return;
     }
 
@@ -221,6 +237,7 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
         variables: {
           input: {
             problemLanguageId: data.id,
+            testDriverType: draft.testDriverType,
             testDriverCode: draft.testDriverCode,
             timeLimitMs,
             memoryLimitMb
@@ -247,6 +264,10 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
     }
 
     const input: UpdateJudgeConfigurationInput = {id: current.id};
+
+    if (draft.testDriverType !== current.testDriverType) {
+      input.testDriverType = draft.testDriverType;
+    }
 
     if (draft.testDriverCode !== current.testDriverCode) {
       input.testDriverCode = draft.testDriverCode;
@@ -294,6 +315,7 @@ export default function ProblemJudgeConfigurationEditor({configuration}: Props) 
       </div>
 
       <ProblemJudgeConfigurationForm
+        language={data.language}
         languageKey={data.language.key}
         languageName={data.language.displayName}
         draft={draft}
