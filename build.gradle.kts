@@ -51,7 +51,7 @@ plugins {
   id("com.netflix.dgs.codegen") version "8.6.0"
   id("io.entkt")
   id("org.flywaydb.flyway") version "13.5.0"
-  id("io.github.caseymcguire.spa-routing") version "0.3.0"
+  id("io.github.caseymcguire.spa-routing") version "0.5.0"
   id("java")
 }
 
@@ -118,10 +118,9 @@ dependencies {
   implementation("org.flywaydb:flyway-core:$flywayVersion")
   implementation("org.flywaydb:flyway-database-postgresql:$flywayVersion")
 
-  // spa-routing: shared SPA route definitions (single source of truth) + the Spring Boot
-  // starter that serves them. The starter pulls in spa-routing-core and the autoconfigure.
-  implementation(project(":spa-route-definitions"))
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.3.0")
+  // Route definitions are used only by codegen. The starter serves the generated configs
+  // and supplies the core contracts, runtime, and Spring autoconfiguration.
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0")
 
   // Testing. The spring-boot-* artifacts are versioned by the spring-boot-dependencies BOM; the
   // org.testcontainers:* modules are pinned to $testcontainersVersion (see the note by its declaration).
@@ -167,7 +166,7 @@ entkt {
 // Generate SPA routes from the single source of truth in :spa-route-definitions:
 //  - generateClientRoutes    -> typed TS route builders under src/main/web-frontend/routes
 //  - generateBundleEntries   -> overwrites SinglePageApplicationBundles.ts (Vite input map)
-//  - generateServerSpaRoutes -> typed Kotlin route objects (auto-wired into compileKotlin)
+//  - generateServerRoutes    -> typed Kotlin routes and configs (auto-wired into compileKotlin)
 spaRouting {
   routeDefinitions {
     projectPath = ":spa-route-definitions"

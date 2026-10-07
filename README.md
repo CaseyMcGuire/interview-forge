@@ -26,8 +26,8 @@ wrapper downloads Gradle 9.7.1, and the build downloads Node 26.8.2 and npm 12.0
 EntKt is pinned to `0.1.0-alpha.3` in `gradle.properties`. Until that version is available on
 Maven Central, run `./gradlew publishToMavenLocal` from an EntKt checkout at that version.
 
-The spa-routing 0.3.0 Gradle plugin still needs to be installed in Maven local. From a
-spa-routing checkout at version `0.3.0`, run `./gradlew publishToMavenLocal`.
+The spa-routing 0.5.0 Gradle plugin still needs to be installed in Maven local. From a
+spa-routing checkout at version `0.5.0`, run `./gradlew publishToMavenLocal`.
 
 GraphQL.js stays on the latest 16.x patch because `@spa-kit/node` and `@spa-kit/react-relay`
 still require that major. Other transitive backend libraries follow the Spring Boot and DGS BOMs.
@@ -142,14 +142,14 @@ The client router, the server's GET mappings, the bundler's entry points, and pe
 all describe the same set of routes — and drift apart when maintained by hand. Two shared libraries
 keep them in sync:
 
-- **spa-routing** (Kotlin) — routes are defined once, as `SpaApplicationDefinition`s in
+- **spa-routing** (Kotlin) — routes are defined once, as `SinglePageApplicationDefinition`s in
   `spa-route-definitions/`. Its Gradle plugin generates the Vite entry map and typed route builders
   for both languages, and its Spring Boot starter serves a GET mapping per route (so deep links and
-  reloads just work) plus `/__spa/route-decision` for evaluating server-declared route rules.
+  reloads just work) plus `/__spa/route-decision` for evaluating typed access handlers.
 - **spa-kit** (`@spa-kit/*` on npm) — the client runtime. `App.tsx` builds its react-router routes
-  from the generated builders, and `@spa-kit/react-router` checks each navigation against
-  `/__spa/route-decision`, so rules like "require login" are declared once on the server and
-  enforced on direct loads and in-page navigations alike.
+  from the generated builders with `createSpaRouter`, and `@spa-kit/react-router` checks navigation
+  to gated routes against `/__spa/route-decision`, so checks like "require login" are declared once
+  on the server and enforced on direct loads and in-page navigations alike.
 
-Adding a route is one edit to the route definition; the codegen and starter keep everything else in
-step. See AGENTS.md for the mechanics.
+Adding a route starts with its definition and a matching frontend renderer; restricted routes also
+require a typed access handler. Codegen keeps the paths and metadata in step. See AGENTS.md for the mechanics.

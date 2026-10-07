@@ -1,37 +1,61 @@
 package com.application.config
 
-import com.application.spa.AppSpaApplication
-import com.application.generated.spa.routes.app.CreateProblem
-import com.application.generated.spa.routes.app.CreateProblemTestCase
-import com.application.generated.spa.routes.app.EditProblem
-import com.application.generated.spa.routes.app.EditProblemTestCase
-import com.application.generated.spa.routes.app.ProblemTestCases
-import com.application.security.RequireAdminRouteRule
-import com.sparouting.contract.SpaRouteKey
-import io.github.caseymcguire.sparouting.spring.config.SinglePageApplicationConfig
-import io.github.caseymcguire.sparouting.spring.rules.SpaRouteRule
-import io.github.caseymcguire.sparouting.spring.rules.builtin.AllowAll
-import org.springframework.stereotype.Component
+import com.application.generated.spa.routes.AppApplicationAccessHandler
+import com.application.generated.spa.routes.AppApplicationConfig
+import com.application.generated.spa.routes.AppRouteAccessHandlers
+import com.application.generated.spa.routes.AppRoutes
+import com.application.generated.spa.routes.app.CreateProblemAccessHandler
+import com.application.generated.spa.routes.app.CreateProblemRequest
+import com.application.generated.spa.routes.app.CreateProblemTestCaseAccessHandler
+import com.application.generated.spa.routes.app.CreateProblemTestCaseRequest
+import com.application.generated.spa.routes.app.EditProblemAccessHandler
+import com.application.generated.spa.routes.app.EditProblemRequest
+import com.application.generated.spa.routes.app.EditProblemTestCaseAccessHandler
+import com.application.generated.spa.routes.app.EditProblemTestCaseRequest
+import com.application.generated.spa.routes.app.ProblemTestCasesAccessHandler
+import com.application.generated.spa.routes.app.ProblemTestCasesRequest
+import com.application.security.RequireAdminRouteAccess
+import com.sparouting.contract.AccessDecision
+import com.sparouting.contract.RouteRequest
+import com.sparouting.runtime.evaluation.DefaultRouteFailureHandler
+import com.sparouting.runtime.evaluation.RouteFailureHandler
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 
-/**
- * Registers the main `app` SPA with the spa-routing starter, which turns each route defined
- * in [AppSpaApplication] into a GET mapping rendered by [AppSpaHtmlRenderer].
- *
- * Public routes opt in through [AllowAll]; route-specific rules additionally protect
- * authoring on direct loads and `/__spa/route-decision` checks during SPA navigation.
- */
-@Component
-class AppSpaConfig(private val requireAdminRouteRule: RequireAdminRouteRule) : SinglePageApplicationConfig {
-  override val application = AppSpaApplication
+/** Public application access followed by typed checks on the authoring routes. */
+@Configuration(proxyBeanMethods = false)
+class AppSpaConfig(
+  private val requireAdminRouteAccess: RequireAdminRouteAccess,
+  private val htmlRenderer: AppSpaHtmlRenderer,
+) {
+  @Bean
+  fun appApplicationConfig(): AppApplicationConfig = AppApplicationConfig(
+    applicationAccessHandler = object : AppApplicationAccessHandler() {
+      override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allowed
+    },
+    routeAccessHandlers = AppRouteAccessHandlers(
+      createProblem = object : CreateProblemAccessHandler() {
+        override fun evaluate(request: CreateProblemRequest): AccessDecision = requireAdminRouteAccess.evaluate()
+      },
+      editProblem = object : EditProblemAccessHandler() {
+        override fun evaluate(request: EditProblemRequest): AccessDecision = requireAdminRouteAccess.evaluate()
+      },
+      createProblemTestCase = object : CreateProblemTestCaseAccessHandler() {
+        override fun evaluate(request: CreateProblemTestCaseRequest): AccessDecision = requireAdminRouteAccess.evaluate()
+      },
+      problemTestCases = object : ProblemTestCasesAccessHandler() {
+        override fun evaluate(request: ProblemTestCasesRequest): AccessDecision = requireAdminRouteAccess.evaluate()
+      },
+      editProblemTestCase = object : EditProblemTestCaseAccessHandler() {
+        override fun evaluate(request: EditProblemTestCaseRequest): AccessDecision = requireAdminRouteAccess.evaluate()
+      },
+    ),
+    htmlRenderer = htmlRenderer,
+  )
 
-  override val rules: List<SpaRouteRule> = listOf(AllowAll())
-
-  override val routeRules: Map<SpaRouteKey, List<SpaRouteRule>> =
-    mapOf(
-      CreateProblem to listOf(requireAdminRouteRule),
-      CreateProblemTestCase to listOf(requireAdminRouteRule),
-      ProblemTestCases to listOf(requireAdminRouteRule),
-      EditProblemTestCase to listOf(requireAdminRouteRule),
-      EditProblem to listOf(requireAdminRouteRule),
-    )
+  @Bean
+  fun routeFailureHandler(): RouteFailureHandler = DefaultRouteFailureHandler(
+    unknownRouteDestination = AppRoutes.Home(),
+    invalidRequestDestination = AppRoutes.Home(),
+  )
 }

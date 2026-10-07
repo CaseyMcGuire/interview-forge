@@ -76,6 +76,41 @@ class ProblemCreationIntegrationTest {
   }
 
   @Test
+  fun `SPA failures return semantic outcomes with a public recovery destination`() {
+    val requests = listOf(
+      get("/__spa/route-decision").param("applicationId", "missing").param("routeId", "Home") to "unknown_route",
+      get("/__spa/route-decision").param("applicationId", "app").param("routeId", "Missing") to "unknown_route",
+      get("/__spa/route-decision").param("applicationId", "app").param("routeId", "EditProblem") to "invalid_request",
+    )
+
+    for ((request, type) in requests) {
+      val response = mvc.perform(request).andReturn().response
+      assertEquals(200, response.status)
+      assertEquals("no-store", response.getHeader("Cache-Control"))
+      assertEquals(
+        objectMapper.readTree("""{"type":"$type","destination":"/"}"""),
+        objectMapper.readTree(response.contentAsString),
+      )
+    }
+
+    assertEquals(200, mvc.perform(get("/")).andReturn().response.status)
+  }
+
+  @Test
+  fun `application renderers preserve bundle stylesheets and React import maps`() {
+    for ((path, bundle) in listOf("/" to "app", "/graphiql" to "graphiql")) {
+      val response = mvc.perform(get(path)).andReturn().response
+      assertEquals(200, response.status)
+      assertTrue(response.contentType!!.startsWith("text/html"))
+      val html = response.contentAsString
+      assertTrue(html.contains("/bundles/$bundle.bundle.js"))
+      assertTrue(html.contains("/bundles/stylex.generated.css"))
+      assertTrue(html.contains("type=\"importmap\""))
+      assertEquals(bundle == "graphiql", html.contains("/bundles/graphiql.css"))
+    }
+  }
+
+  @Test
   fun `promotion and revocation apply to routes and mutations within existing sessions`() {
     for (loginRole in listOf(UserRole.USER, UserRole.ADMIN)) {
       val (userId, session) = login(loginRole)
@@ -375,12 +410,15 @@ class ProblemCreationIntegrationTest {
       }
 
       session?.let { decisionRequest.session(it) }
-      val decision = objectMapper.readTree(mvc.perform(decisionRequest).andReturn().response.contentAsString)
-      assertEquals(if (location == null) 200 else 302, decision["statusCode"].asInt())
-
-      if (location != null) {
-        assertEquals(location, decision["location"].asString())
+      val decisionResponse = mvc.perform(decisionRequest).andReturn().response
+      assertEquals(200, decisionResponse.status)
+      assertEquals("no-store", decisionResponse.getHeader("Cache-Control"))
+      val expectedDecision = if (location == null) {
+        """{"type":"allowed"}"""
+      } else {
+        """{"type":"denied","destination":"$location"}"""
       }
+      assertEquals(objectMapper.readTree(expectedDecision), objectMapper.readTree(decisionResponse.contentAsString))
     }
   }
 

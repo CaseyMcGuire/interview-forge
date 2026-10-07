@@ -42,6 +42,6 @@ All Gradle commands require a root `.env` containing `DB_USER`, `DB_PASSWORD`, `
 
 ## How pages get their assets
 
-Keep Vite's fixed output filenames aligned with `ReactPage.kt`, and its React import-map version aligned with `package.json`. SPA authorization denies access when no rules are declared; `AllowAll()` explicitly permits public access.
+Keep Vite's fixed output filenames aligned with `ReactPage.kt`, and its React import-map version aligned with `package.json`. Generated SPA configs require an application access handler and an HTML renderer. Public application handlers return `AccessDecision.Allowed`; restricted routes opt into generated access handlers with `generateAccessHandler = true`.
 
 Read [frontend assets and routing](docs/frontend.md) when changing bundles, CSS, or routes.

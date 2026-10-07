@@ -1,4 +1,4 @@
-import {RouterProvider, type RouteObject} from "react-router";
+import {RouterProvider} from "react-router";
 import HomePage from "pages/HomePage";
 import ProblemPage from "pages/ProblemPage";
 import ProblemsPage from "pages/ProblemsPage";
@@ -9,7 +9,7 @@ import EditProblemTestCasePage, {EditProblemTestCasePageError} from "pages/EditP
 import EditProblemPage, {EditProblemPageError} from "pages/EditProblemPage";
 import {createRelayEnvironment, RelayRoot} from "@spa-kit/react-relay";
 import {renderComponent} from "@spa-kit/react";
-import {createSpaRoutingBrowserRouter} from "@spa-kit/react-router";
+import {createSpaRouter, createSpaRouteDecisionMiddleware} from "@spa-kit/react-router";
 import AboutPage from "./pages/AboutPage";
 import BlogPage from "./pages/BlogPage";
 import LoginPage from "./pages/LoginPage";
@@ -17,80 +17,56 @@ import RegisterPage from "./pages/RegisterPage";
 import CsrfUtils from "./utils/CsrfUtils";
 import {AppRoutes} from "routes/AppRoutes";
 
-// One route per generated AppRoutes entry (the single source of truth is
-// spa-route-definitions/…/AppSpaApplication.kt). The router sends the generated routeId
-// to /__spa/route-decision and gates each page on that decision before it renders.
-const routes: RouteObject[] = [
-  {
-    id: AppRoutes.Home.routeId,
-    path: AppRoutes.Home.path,
-    element: <HomePage />
+// Generated routes supply paths, parsers, and access-handler metadata. Authoring
+// routes check /__spa/route-decision before rendering; public routes need no check.
+const router = createSpaRouter(AppRoutes, {
+  Home: {
+    render: () => <HomePage />
   },
-  {
-    id: AppRoutes.Problems.routeId,
-    path: AppRoutes.Problems.path,
-    element: <ProblemsPage />
+  Problems: {
+    render: () => <ProblemsPage />
   },
-  {
-    id: AppRoutes.CreateProblem.routeId,
-    path: AppRoutes.CreateProblem.path,
-    element: <CreateProblemPage />
+  CreateProblem: {
+    render: () => <CreateProblemPage />
   },
-  {
-    id: AppRoutes.EditProblem.routeId,
-    path: AppRoutes.EditProblem.path,
-    element: <EditProblemPage />,
+  EditProblem: {
+    render: () => <EditProblemPage />,
     errorElement: <EditProblemPageError />
   },
-  {
-    id: AppRoutes.CreateProblemTestCase.routeId,
-    path: AppRoutes.CreateProblemTestCase.path,
-    element: <CreateProblemTestCasePage />,
+  CreateProblemTestCase: {
+    render: () => <CreateProblemTestCasePage />,
     errorElement: <CreateProblemTestCasePageError />
   },
-  {
-    id: AppRoutes.ProblemTestCases.routeId,
-    path: AppRoutes.ProblemTestCases.path,
-    element: <ProblemTestCasesPage />,
+  ProblemTestCases: {
+    render: () => <ProblemTestCasesPage />,
     errorElement: <ProblemTestCasesPageError />
   },
-  {
-    id: AppRoutes.EditProblemTestCase.routeId,
-    path: AppRoutes.EditProblemTestCase.path,
-    element: <EditProblemTestCasePage />,
+  EditProblemTestCase: {
+    render: () => <EditProblemTestCasePage />,
     errorElement: <EditProblemTestCasePageError />
   },
-  {
-    id: AppRoutes.Problem.routeId,
-    path: AppRoutes.Problem.path,
-    element: <ProblemPage />
+  Problem: {
+    render: () => <ProblemPage />
   },
-  {
-    id: AppRoutes.Login.routeId,
-    path: AppRoutes.Login.path,
-    element: <LoginPage />
+  Login: {
+    render: () => <LoginPage />
   },
-  {
-    id: AppRoutes.Register.routeId,
-    path: AppRoutes.Register.path,
-    element: <RegisterPage />
+  Register: {
+    render: () => <RegisterPage />
   },
-  {
-    id: AppRoutes.About.routeId,
-    path: AppRoutes.About.path,
-    element: <AboutPage />
+  About: {
+    render: () => <AboutPage />
   },
-  {
-    id: AppRoutes.Blog.routeId,
-    path: AppRoutes.Blog.path,
-    element: <BlogPage />
+  Blog: {
+    render: () => <BlogPage />
   }
-]
-
-const router = createSpaRoutingBrowserRouter(routes, {
-  applicationId: AppRoutes.Home.applicationId,
-  // Use the server error page so a failed check cannot loop through another SPA route.
-  onError: {type: "redirect", location: "/error"},
+}, {
+  sharedMiddleware: [
+    createSpaRouteDecisionMiddleware({
+      // Use the server error page so a failed check cannot loop through another SPA route.
+      onError: {type: "denied", destination: "/error"},
+    }),
+  ],
 });
 
 const environment = createRelayEnvironment({

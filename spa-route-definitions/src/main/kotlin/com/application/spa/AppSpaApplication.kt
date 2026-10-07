@@ -1,9 +1,8 @@
 package com.application.spa
 
-import com.sparouting.contract.SpaApplicationDefinition
-import com.sparouting.contract.SpaRouteDefinition
+import com.sparouting.contract.SinglePageApplicationDefinition
+import com.sparouting.contract.RouteDefinition
 import com.sparouting.contract.route
-import com.sparouting.contract.string
 
 /**
  * The main single-page application. One bundle (`app`) serves the home page and the
@@ -11,20 +10,20 @@ import com.sparouting.contract.string
  * navigation is in-page. The spa-routing starter registers a server GET route for each,
  * all rendering this same bundle, which is what makes deep-linking/reload work.
  */
-object AppSpaApplication : SpaApplicationDefinition {
+object AppSpaApplication : SinglePageApplicationDefinition {
   override val id = "app"
   override val name = "App"
   override val urlPrefix = ""
   override val appRootPath = "./src/main/web-frontend/App"
-  override val routes: List<SpaRouteDefinition> = listOf(
+  override val routes: List<RouteDefinition> = listOf(
     route("", "Home"),
     route("problems", "Problems"),
-    route("problem/create", "CreateProblem"),
-    route("problem/{slug}/edit", "EditProblem", listOf(string("slug"))),
-    route("problem/{slug}/test/create", "CreateProblemTestCase", listOf(string("slug"))),
-    route("problem/{slug}/tests", "ProblemTestCases", listOf(string("slug"))),
-    route("problem/{slug}/test/{id}/edit", "EditProblemTestCase", listOf(string("slug"), string("id"))),
-    route("problem/{slug}", "Problem", listOf(string("slug"))),
+    route("problem/create", "CreateProblem", generateAccessHandler = true),
+    route("problem/{slug}/edit", "EditProblem", generateAccessHandler = true),
+    route("problem/{slug}/test/create", "CreateProblemTestCase", generateAccessHandler = true),
+    route("problem/{slug}/tests", "ProblemTestCases", generateAccessHandler = true),
+    route("problem/{slug}/test/{id}/edit", "EditProblemTestCase", generateAccessHandler = true),
+    route("problem/{slug}", "Problem"),
     route("about", "About"),
     route("blog", "Blog"),
     route("login", "Login"),
