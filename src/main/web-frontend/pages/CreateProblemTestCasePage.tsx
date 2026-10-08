@@ -1,6 +1,6 @@
 import {Suspense} from "react";
-import {Link, useParams} from "react-router";
-import {graphql, useLazyLoadQuery} from "react-relay";
+import {Link} from "react-router";
+import {graphql, usePreloadedQuery, type PreloadedQuery} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
 import type {CreateProblemTestCasePageQuery} from "__generated__/CreateProblemTestCasePageQuery.graphql";
 import PageLayout from "components/PageLayout";
@@ -8,8 +8,19 @@ import ProblemTestCaseCreationForm from "components/problems/ProblemTestCaseCrea
 import {AppRoutes} from "routes/AppRoutes";
 
 type Props = {
-  slug: string;
+  queryRef: PreloadedQuery<CreateProblemTestCasePageQuery>;
 };
+
+export const createProblemTestCasePageQuery = graphql`
+  query CreateProblemTestCasePageQuery($slug: String!) @throwOnFieldError {
+    problem(slug: $slug) {
+      id
+      slug
+      title
+      ...ProblemTestCaseCreationForm_problem
+    }
+  }
+`;
 
 const styles = stylex.create({
   content: {
@@ -42,16 +53,7 @@ const styles = stylex.create({
 });
 
 function CreateProblemTestCaseContent(props: Props) {
-  const {problem} = useLazyLoadQuery<CreateProblemTestCasePageQuery>(graphql`
-    query CreateProblemTestCasePageQuery($slug: String!) @throwOnFieldError {
-      problem(slug: $slug) {
-        id
-        slug
-        title
-        ...ProblemTestCaseCreationForm_problem
-      }
-    }
-  `, {slug: props.slug}, {fetchPolicy: "network-only"});
+  const {problem} = usePreloadedQuery<CreateProblemTestCasePageQuery>(createProblemTestCasePageQuery, props.queryRef);
 
   if (!problem) {
     return <div role="status">Problem not found.</div>;
@@ -70,18 +72,14 @@ function CreateProblemTestCaseContent(props: Props) {
   );
 }
 
-export default function CreateProblemTestCasePage() {
-  const {slug} = useParams<"slug">();
-
+export default function CreateProblemTestCasePage(props: Props) {
   return (
     <PageLayout title="Add test case">
       <div sx={styles.content} role="main">
         <div sx={styles.title} role="heading" aria-level={1}>Add test case</div>
 
         <Suspense fallback={<div role="status">Loading problem…</div>}>
-          {slug
-            ? <CreateProblemTestCaseContent key={slug} slug={slug} />
-            : <div role="status">Problem not found.</div>}
+          <CreateProblemTestCaseContent queryRef={props.queryRef} />
         </Suspense>
       </div>
     </PageLayout>

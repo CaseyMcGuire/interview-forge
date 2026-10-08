@@ -1,6 +1,6 @@
 import {Suspense} from "react";
-import {Link, useNavigate, useParams} from "react-router";
-import {graphql, useLazyLoadQuery} from "react-relay";
+import {Link, useNavigate} from "react-router";
+import {graphql, usePreloadedQuery, type PreloadedQuery} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
 import type {ProblemTestCasesPageQuery} from "__generated__/ProblemTestCasesPageQuery.graphql";
 import PageLayout from "components/PageLayout";
@@ -8,8 +8,22 @@ import ProblemTestCaseList from "components/problems/ProblemTestCaseList";
 import {AppRoutes} from "routes/AppRoutes";
 
 type Props = {
-  slug: string;
+  queryRef: PreloadedQuery<ProblemTestCasesPageQuery>;
 };
+
+export const problemTestCasesPageQuery = graphql`
+  query ProblemTestCasesPageQuery($slug: String!) @throwOnFieldError {
+    problem(slug: $slug) {
+      slug
+      title
+      testCases {
+        id
+        inputJson
+        expectedOutputJson
+      }
+    }
+  }
+`;
 
 const styles = stylex.create({
   content: {
@@ -43,19 +57,7 @@ const styles = stylex.create({
 
 function ProblemTestCasesContent(props: Props) {
   const navigate = useNavigate();
-  const {problem} = useLazyLoadQuery<ProblemTestCasesPageQuery>(graphql`
-    query ProblemTestCasesPageQuery($slug: String!) @throwOnFieldError {
-      problem(slug: $slug) {
-        slug
-        title
-        testCases {
-          id
-          inputJson
-          expectedOutputJson
-        }
-      }
-    }
-  `, {slug: props.slug}, {fetchPolicy: "network-only"});
+  const {problem} = usePreloadedQuery<ProblemTestCasesPageQuery>(problemTestCasesPageQuery, props.queryRef);
 
   if (!problem) {
     return <div role="status">Problem not found.</div>;
@@ -82,16 +84,14 @@ function ProblemTestCasesContent(props: Props) {
   );
 }
 
-export default function ProblemTestCasesPage() {
-  const {slug} = useParams<"slug">();
-
+export default function ProblemTestCasesPage(props: Props) {
   return (
     <PageLayout title="Test cases">
       <main sx={styles.content}>
         <h1 sx={styles.title}>Test cases</h1>
 
         <Suspense fallback={<div role="status">Loading test cases…</div>}>
-          {slug ? <ProblemTestCasesContent key={slug} slug={slug} /> : <div role="status">Problem not found.</div>}
+          <ProblemTestCasesContent queryRef={props.queryRef} />
         </Suspense>
       </main>
     </PageLayout>

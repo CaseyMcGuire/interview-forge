@@ -1,6 +1,6 @@
 import {useRef, useState} from "react";
 import * as stylex from "@stylexjs/stylex";
-import {graphql, useLazyLoadQuery, useMutation} from "react-relay";
+import {graphql, useFragment, useMutation} from "react-relay";
 import {useNavigate} from "react-router";
 import type {
   CreateProblemExampleInput,
@@ -8,13 +8,17 @@ import type {
   ProblemCreationFormMutation,
   ProblemDifficulty
 } from "__generated__/ProblemCreationFormMutation.graphql";
-import type {ProblemCreationFormQuery} from "__generated__/ProblemCreationFormQuery.graphql";
+import type {ProblemCreationForm_query$key} from "__generated__/ProblemCreationForm_query.graphql";
 import {AppRoutes} from "routes/AppRoutes";
 import Control from "components/coding/WorkspaceControl";
 import ProblemCreationField from "./ProblemCreationField";
 import ProblemExampleEditor from "./ProblemExampleEditor";
 import ProblemLanguageEditor from "./ProblemLanguageEditor";
 import ProblemTagField from "./ProblemTagField";
+
+type Props = {
+  query: ProblemCreationForm_query$key;
+};
 
 const difficulties = [
   {value: "EASY", label: "Easy"},
@@ -86,9 +90,9 @@ const styles = stylex.create({
   }
 });
 
-export default function ProblemCreationForm() {
-  const data = useLazyLoadQuery<ProblemCreationFormQuery>(graphql`
-    query ProblemCreationFormQuery @throwOnFieldError {
+export default function ProblemCreationForm(props: Props) {
+  const data = useFragment(graphql`
+    fragment ProblemCreationForm_query on Query @throwOnFieldError {
       ...ProblemTagField_query
       languages {
         id
@@ -96,7 +100,7 @@ export default function ProblemCreationForm() {
         displayName
       }
     }
-  `, {});
+  `, props.query);
   const {languages} = data;
 
   const navigate = useNavigate();

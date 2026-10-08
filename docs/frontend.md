@@ -12,6 +12,14 @@ Application access handlers explicitly return `AccessDecision.Allowed` for these
 
 `createSpaRouteDecisionMiddleware`, registered once in `sharedMiddleware`, checks `/__spa/route-decision` before navigation to routes with `hasAccessHandler`. Public routes skip the endpoint; initial page loads still run application access. Decisions are `{ "type": "allowed" }` or a failure (`denied`, `unknown_route`, `invalid_request`) with `destination`. Unknown or malformed requests recover to the existing home route through `DefaultRouteFailureHandler`; transport errors use the server's `/error` page.
 
+## Route data loading
+
+Data-backed routes start Relay `loadQuery` calls in their `preload` callbacks in `App.tsx`. Create the Relay environment before the router, since initial navigation can preload immediately. Annotate callbacks that use parameters with the generated route context type, such as `ProblemContext`.
+
+Return the query reference directly and pass the inferred `preload` value to the page's `queryRef` prop. Pages read it with `usePreloadedQuery` inside their existing Suspense boundary; child forms keep their data requirements in fragments. Keep fetch policies in the preload: editing and test-case queries use `network-only` for fresh data on entry, while the problem list, coding page, and create form use Relay's default `store-or-network` policy.
+
+Spa-kit owns reference disposal when a route is replaced, denied, or cancelled. Pages must not dispose the reference themselves. Preloads start before route authorization completes, so GraphQL permissions remain responsible for protecting data. Static routes do not need a preload.
+
 ## JavaScript and HTML
 
 [ReactPage.kt](../src/main/kotlin/com/application/views/ReactPage.kt) renders the HTML shell with fixed asset paths. [vite.config.ts](../vite.config.ts) pins output filenames; keep both sides aligned when renaming assets.

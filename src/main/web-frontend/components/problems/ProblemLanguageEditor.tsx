@@ -1,13 +1,13 @@
 import {useId} from "react";
 import * as stylex from "@stylexjs/stylex";
 import type {CreateProblemLanguageInput} from "__generated__/ProblemCreationFormMutation.graphql";
-import type {ProblemCreationFormQuery$data} from "__generated__/ProblemCreationFormQuery.graphql";
+import type {ProblemCreationForm_query$data} from "__generated__/ProblemCreationForm_query.graphql";
 import CodeEditor from "components/coding/CodeEditor";
 import Control from "components/coding/WorkspaceControl";
 
 type Props = {
   configuration: CreateProblemLanguageInput;
-  languages: ProblemCreationFormQuery$data["languages"];
+  languages: ProblemCreationForm_query$data["languages"];
   disabled: boolean;
   canRemove: boolean;
   onChange: (configuration: CreateProblemLanguageInput) => void;

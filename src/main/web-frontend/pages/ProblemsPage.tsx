@@ -1,9 +1,19 @@
 import {Suspense} from "react";
 import * as stylex from "@stylexjs/stylex";
-import {graphql, useLazyLoadQuery} from "react-relay";
+import {graphql, usePreloadedQuery, type PreloadedQuery} from "react-relay";
 import type {ProblemsPageQuery} from "__generated__/ProblemsPageQuery.graphql";
 import PageLayout from "components/PageLayout";
 import ProblemList from "components/problems/ProblemList";
+
+type Props = {
+  queryRef: PreloadedQuery<ProblemsPageQuery>;
+};
+
+export const problemsPageQuery = graphql`
+  query ProblemsPageQuery($filters: ProblemFilterInput) @throwOnFieldError {
+    ...ProblemList_query @arguments(filters: $filters)
+  }
+`;
 
 const styles = stylex.create({
   content: {
@@ -34,17 +44,13 @@ const styles = stylex.create({
   }
 });
 
-function ProblemsContent() {
-  const data = useLazyLoadQuery<ProblemsPageQuery>(graphql`
-    query ProblemsPageQuery($filters: ProblemFilterInput) @throwOnFieldError {
-      ...ProblemList_query @arguments(filters: $filters)
-    }
-  `, {});
+function ProblemsContent(props: Props) {
+  const data = usePreloadedQuery<ProblemsPageQuery>(problemsPageQuery, props.queryRef);
 
   return <ProblemList query={data} />;
 }
 
-export default function ProblemsPage() {
+export default function ProblemsPage(props: Props) {
   return (
     <PageLayout title="Problems">
       <div sx={styles.content} role="main">
@@ -53,7 +59,7 @@ export default function ProblemsPage() {
           Choose a problem and start coding.
         </div>
         <Suspense fallback={<div sx={styles.status} role="status">Loading problems…</div>}>
-          <ProblemsContent />
+          <ProblemsContent queryRef={props.queryRef} />
         </Suspense>
       </div>
     </PageLayout>

@@ -5,15 +5,10 @@ import com.application.generated.spa.routes.AppApplicationConfig
 import com.application.generated.spa.routes.AppRouteAccessHandlers
 import com.application.generated.spa.routes.AppRoutes
 import com.application.generated.spa.routes.app.CreateProblemAccessHandler
-import com.application.generated.spa.routes.app.CreateProblemRequest
 import com.application.generated.spa.routes.app.CreateProblemTestCaseAccessHandler
-import com.application.generated.spa.routes.app.CreateProblemTestCaseRequest
 import com.application.generated.spa.routes.app.EditProblemAccessHandler
-import com.application.generated.spa.routes.app.EditProblemRequest
 import com.application.generated.spa.routes.app.EditProblemTestCaseAccessHandler
-import com.application.generated.spa.routes.app.EditProblemTestCaseRequest
 import com.application.generated.spa.routes.app.ProblemTestCasesAccessHandler
-import com.application.generated.spa.routes.app.ProblemTestCasesRequest
 import com.application.security.RequireAdminRouteAccess
 import com.sparouting.contract.AccessDecision
 import com.sparouting.contract.RouteRequest
@@ -34,21 +29,11 @@ class AppSpaConfig(
       override fun evaluate(request: RouteRequest): AccessDecision = AccessDecision.Allowed
     },
     routeAccessHandlers = AppRouteAccessHandlers(
-      createProblem = object : CreateProblemAccessHandler() {
-        override fun evaluate(request: CreateProblemRequest): AccessDecision = requireAdminRouteAccess.evaluate()
-      },
-      editProblem = object : EditProblemAccessHandler() {
-        override fun evaluate(request: EditProblemRequest): AccessDecision = requireAdminRouteAccess.evaluate()
-      },
-      createProblemTestCase = object : CreateProblemTestCaseAccessHandler() {
-        override fun evaluate(request: CreateProblemTestCaseRequest): AccessDecision = requireAdminRouteAccess.evaluate()
-      },
-      problemTestCases = object : ProblemTestCasesAccessHandler() {
-        override fun evaluate(request: ProblemTestCasesRequest): AccessDecision = requireAdminRouteAccess.evaluate()
-      },
-      editProblemTestCase = object : EditProblemTestCaseAccessHandler() {
-        override fun evaluate(request: EditProblemTestCaseRequest): AccessDecision = requireAdminRouteAccess.evaluate()
-      },
+      createProblem = CreateProblemAccessHandler { requireAdminRouteAccess.evaluate() },
+      editProblem = EditProblemAccessHandler { requireAdminRouteAccess.evaluate() },
+      createProblemTestCase = CreateProblemTestCaseAccessHandler { requireAdminRouteAccess.evaluate() },
+      problemTestCases = ProblemTestCasesAccessHandler { requireAdminRouteAccess.evaluate() },
+      editProblemTestCase = EditProblemTestCaseAccessHandler { requireAdminRouteAccess.evaluate() },
     ),
     htmlRenderer = htmlRenderer,
   )

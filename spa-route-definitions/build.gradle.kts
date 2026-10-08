@@ -20,5 +20,5 @@ repositories {
 }
 
 dependencies {
-  implementation("io.github.caseymcguire:spa-routing-core:0.5.0")
+  implementation("io.github.caseymcguire:spa-routing-core:0.5.1")
 }

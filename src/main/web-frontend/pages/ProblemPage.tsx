@@ -1,10 +1,47 @@
-import {useParams} from "react-router";
 import * as stylex from "@stylexjs/stylex";
-import {graphql, useLazyLoadQuery} from "react-relay";
+import {graphql, usePreloadedQuery, type PreloadedQuery} from "react-relay";
 import type {ProblemPageQuery} from "__generated__/ProblemPageQuery.graphql";
 import CodingWorkspace from "components/coding/CodingWorkspace";
 import WorkspaceHeader from "components/coding/WorkspaceHeader";
 import usePageTitle from "hooks/usePageTitle";
+
+type Props = {
+  queryRef: PreloadedQuery<ProblemPageQuery>;
+};
+
+export const problemPageQuery = graphql`
+  query ProblemPageQuery($slug: String!) @throwOnFieldError {
+    problem(slug: $slug) {
+      id
+      slug
+      title
+      statementMarkdown
+      difficulty
+      canEdit
+      tags {
+        id
+        displayName
+        type
+      }
+      languageConfigurations {
+        id
+        starterCode
+        language {
+          id
+          key
+          displayName
+        }
+      }
+      examples {
+        id
+        position
+        inputJson
+        expectedOutputJson
+        explanationMarkdown
+      }
+    }
+  }
+`;
 
 const styles = stylex.create({
   page: {
@@ -27,43 +64,8 @@ const styles = stylex.create({
   }
 });
 
-export default function ProblemPage() {
-  const {slug} = useParams<"slug">();
-  if (!slug) throw new Error("ProblemPage requires a slug.");
-
-  const {problem} = useLazyLoadQuery<ProblemPageQuery>(graphql`
-    query ProblemPageQuery($slug: String!) @throwOnFieldError {
-      problem(slug: $slug) {
-        id
-        slug
-        title
-        statementMarkdown
-        difficulty
-        canEdit
-        tags {
-          id
-          displayName
-          type
-        }
-        languageConfigurations {
-          id
-          starterCode
-          language {
-            id
-            key
-            displayName
-          }
-        }
-        examples {
-          id
-          position
-          inputJson
-          expectedOutputJson
-          explanationMarkdown
-        }
-      }
-    }
-  `, {slug});
+export default function ProblemPage(props: Props) {
+  const {problem} = usePreloadedQuery<ProblemPageQuery>(problemPageQuery, props.queryRef);
 
   usePageTitle(problem?.title ?? "Problem not found");
 

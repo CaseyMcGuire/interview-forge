@@ -51,7 +51,7 @@ plugins {
   id("com.netflix.dgs.codegen") version "8.6.0"
   id("io.entkt")
   id("org.flywaydb.flyway") version "13.5.0"
-  id("io.github.caseymcguire.spa-routing") version "0.5.0"
+  id("io.github.caseymcguire.spa-routing") version "0.5.1"
   id("java")
 }
 
@@ -120,7 +120,7 @@ dependencies {
 
   // Route definitions are used only by codegen. The starter serves the generated configs
   // and supplies the core contracts, runtime, and Spring autoconfiguration.
-  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.0")
+  implementation("io.github.caseymcguire:spa-routing-spring-boot-starter:0.5.1")
 
   // Testing. The spring-boot-* artifacts are versioned by the spring-boot-dependencies BOM; the
   // org.testcontainers:* modules are pinned to $testcontainersVersion (see the note by its declaration).

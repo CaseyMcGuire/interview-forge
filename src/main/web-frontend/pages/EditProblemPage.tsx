@@ -1,6 +1,6 @@
 import {Suspense} from "react";
-import {Link, useParams} from "react-router";
-import {graphql, useLazyLoadQuery} from "react-relay";
+import {Link} from "react-router";
+import {graphql, usePreloadedQuery, type PreloadedQuery} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
 import type {EditProblemPageQuery} from "__generated__/EditProblemPageQuery.graphql";
 import PageLayout from "components/PageLayout";
@@ -9,6 +9,29 @@ import ProblemLanguageEditForm from "components/problems/ProblemLanguageEditForm
 import ProblemExampleEditForm from "components/problems/ProblemExampleEditForm";
 import ProblemEditSection from "components/problems/ProblemEditSection";
 import {AppRoutes} from "routes/AppRoutes";
+
+type Props = {
+  queryRef: PreloadedQuery<EditProblemPageQuery>;
+};
+
+export const editProblemPageQuery = graphql`
+  query EditProblemPageQuery($slug: String!) @throwOnFieldError {
+    ...ProblemTagField_query
+    problem(slug: $slug) {
+      id
+      slug
+      ...ProblemDetailsForm_problem
+      languageConfigurations {
+        id
+        ...ProblemLanguageEditForm_configuration
+      }
+      examples {
+        id
+        ...ProblemExampleEditForm_example
+      }
+    }
+  }
+`;
 
 const styles = stylex.create({
   content: {
@@ -45,25 +68,8 @@ const styles = stylex.create({
   }
 });
 
-function EditProblemContent({slug}: {slug: string}) {
-  const data = useLazyLoadQuery<EditProblemPageQuery>(graphql`
-    query EditProblemPageQuery($slug: String!) @throwOnFieldError {
-      ...ProblemTagField_query
-      problem(slug: $slug) {
-        id
-        slug
-        ...ProblemDetailsForm_problem
-        languageConfigurations {
-          id
-          ...ProblemLanguageEditForm_configuration
-        }
-        examples {
-          id
-          ...ProblemExampleEditForm_example
-        }
-      }
-    }
-  `, {slug}, {fetchPolicy: "network-only"});
+function EditProblemContent(props: Props) {
+  const data = usePreloadedQuery<EditProblemPageQuery>(editProblemPageQuery, props.queryRef);
   const {problem} = data;
 
   if (!problem) {
@@ -111,9 +117,7 @@ function EditProblemContent({slug}: {slug: string}) {
   );
 }
 
-export default function EditProblemPage() {
-  const {slug} = useParams<"slug">();
-
+export default function EditProblemPage(props: Props) {
   return (
     <PageLayout title="Edit problem">
       <div sx={styles.content} role="main">
@@ -124,7 +128,7 @@ export default function EditProblemPage() {
         </div>
 
         <Suspense fallback={<div role="status">Loading problem…</div>}>
-          {slug ? <EditProblemContent key={slug} slug={slug} /> : <div>Problem not found.</div>}
+          <EditProblemContent queryRef={props.queryRef} />
         </Suspense>
       </div>
     </PageLayout>

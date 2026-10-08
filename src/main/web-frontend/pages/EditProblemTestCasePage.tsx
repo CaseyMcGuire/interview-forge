@@ -1,6 +1,6 @@
 import {Suspense} from "react";
-import {Link, useParams} from "react-router";
-import {graphql, useLazyLoadQuery} from "react-relay";
+import {Link} from "react-router";
+import {graphql, usePreloadedQuery, type PreloadedQuery} from "react-relay";
 import * as stylex from "@stylexjs/stylex";
 import type {EditProblemTestCasePageQuery} from "__generated__/EditProblemTestCasePageQuery.graphql";
 import PageLayout from "components/PageLayout";
@@ -8,9 +8,22 @@ import ProblemTestCaseEditForm from "components/problems/ProblemTestCaseEditForm
 import {AppRoutes} from "routes/AppRoutes";
 
 type Props = {
-  slug: string;
-  id: string;
+  queryRef: PreloadedQuery<EditProblemTestCasePageQuery>;
 };
+
+export const editProblemTestCasePageQuery = graphql`
+  query EditProblemTestCasePageQuery($slug: String!, $id: ID!) @throwOnFieldError {
+    problem(slug: $slug) {
+      slug
+      title
+      ...ProblemTestCaseEditForm_problem
+      testCase(id: $id) {
+        id
+        ...ProblemTestCaseEditForm_testCase
+      }
+    }
+  }
+`;
 
 const styles = stylex.create({
   content: {
@@ -43,19 +56,7 @@ const styles = stylex.create({
 });
 
 function EditProblemTestCaseContent(props: Props) {
-  const {problem} = useLazyLoadQuery<EditProblemTestCasePageQuery>(graphql`
-    query EditProblemTestCasePageQuery($slug: String!, $id: ID!) @throwOnFieldError {
-      problem(slug: $slug) {
-        slug
-        title
-        ...ProblemTestCaseEditForm_problem
-        testCase(id: $id) {
-          id
-          ...ProblemTestCaseEditForm_testCase
-        }
-      }
-    }
-  `, {slug: props.slug, id: props.id}, {fetchPolicy: "network-only"});
+  const {problem} = usePreloadedQuery<EditProblemTestCasePageQuery>(editProblemTestCasePageQuery, props.queryRef);
 
   if (!problem) {
     return <div role="status">Problem not found.</div>;
@@ -78,18 +79,14 @@ function EditProblemTestCaseContent(props: Props) {
   );
 }
 
-export default function EditProblemTestCasePage() {
-  const {slug, id} = useParams<"slug" | "id">();
-
+export default function EditProblemTestCasePage(props: Props) {
   return (
     <PageLayout title="Edit test case">
       <main sx={styles.content}>
         <h1 sx={styles.title}>Edit test case</h1>
 
         <Suspense fallback={<div role="status">Loading test case…</div>}>
-          {slug && id
-            ? <EditProblemTestCaseContent key={`${slug}:${id}`} slug={slug} id={id} />
-            : <div role="status">Test case not found.</div>}
+          <EditProblemTestCaseContent queryRef={props.queryRef} />
         </Suspense>
       </main>
     </PageLayout>
