@@ -4,13 +4,14 @@ import com.application.dao.UserDao
 import com.application.db.models.UserDetailsImpl
 import com.application.ent.EntClient
 import com.application.exceptions.UserAlreadyExistsException
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import com.application.services.UserService
 import com.application.schema.UserRole
 import com.application.security.AuthenticatedUser
 import com.application.security.CurrentUserService
 import com.application.security.UserIdPrincipal
 import com.application.services.User
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntConstraintViolationException
 import entkt.runtime.result.EntMutationPrivacyDeniedException
@@ -98,14 +99,15 @@ class UserDaoIntegrationTest {
       principal, null, emptyList(),
     )
 
-    assertEquals(AuthenticatedUser(account.id, UserRole.ADMIN), currentUserService.requireAdmin())
-    assertTrue(currentUserService.isAdmin(ViewerContext(Viewer.User(account.id))))
-    assertFalse(currentUserService.isAdmin(ViewerContext(Viewer.User(account.id + 1))))
+    val admin = currentUserService.requireAdmin()
+    assertEquals(AuthenticatedUser(account.id, UserRole.ADMIN), admin)
+    assertTrue(currentUserService.isAdmin(admin))
+    assertFalse(currentUserService.isAdmin(admin.copy(id = account.id + 1)))
 
     entClient.users.update(account.id) { role = UserRole.USER }.save(inspectionContext).getOrThrow()
 
     assertEquals(AuthenticatedUser(account.id, UserRole.USER), currentUserService.get())
-    assertFalse(currentUserService.isAdmin(ViewerContext(Viewer.User(account.id))))
+    assertFalse(currentUserService.isAdmin(admin))
     assertThrows(AccessDeniedException::class.java) { currentUserService.requireAdmin() }
 
     entClient.users.deleteById(inspectionContext, account.id).getOrThrow()
@@ -166,7 +168,7 @@ class UserDaoIntegrationTest {
 
   @Test
   fun `public registration allows creation without allowing credential updates or deletion`() {
-    val anonymous = ViewerContext(Viewer.Anonymous)
+    val anonymous = publicViewerContext
     val email = "public-registration@example.com"
     entClient.users.create {
       this.email = email
@@ -192,7 +194,7 @@ class UserDaoIntegrationTest {
         email = "forged-admin@example.com"
         hashedPassword = "hash"
         role = UserRole.ADMIN
-      }.save(ViewerContext(Viewer.Anonymous)).getOrThrow()
+      }.save(publicViewerContext).getOrThrow()
     }
     assertNull(userDao.findByEmail("forged-admin@example.com"))
   }
@@ -208,9 +210,9 @@ class UserDaoIntegrationTest {
       UserIdPrincipal(entity.id), null, emptyList(),
     )
 
-    for (viewer in listOf(Viewer.Anonymous, Viewer.User(entity.id))) {
+    for (context in listOf(publicViewerContext, testUserContext(entity.id))) {
       assertThrows(EntPrivacyDeniedException::class.java) {
-        entClient.users.findById(ViewerContext(viewer), entity.id).getOrThrow()
+        entClient.users.findById(context, entity.id).getOrThrow()
       }
     }
 

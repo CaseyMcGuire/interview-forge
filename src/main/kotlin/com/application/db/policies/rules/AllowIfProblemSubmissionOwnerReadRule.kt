@@ -1,27 +1,26 @@
 package com.application.db.policies.rules
 
+import com.application.ent.ProblemSubmissionLoadPrivacyRule
 import com.application.ent.ReadOnlyEntClient
 import com.application.ent.ProblemSubmission
+import com.application.security.AppViewer
 import com.application.security.CurrentUserService
 import entkt.runtime.privacy.PrivacyDecision
-import entkt.runtime.privacy.PrivacyRule
 import entkt.runtime.privacy.PrivacyRuleContext
-import entkt.runtime.privacy.longIdOrNull
 import org.springframework.stereotype.Component
 
 @Component
 class AllowIfProblemSubmissionOwnerReadRule(
   private val currentUserService: CurrentUserService,
-) : PrivacyRule<ReadOnlyEntClient, ProblemSubmission> {
+) : ProblemSubmissionLoadPrivacyRule {
 
-  override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: ProblemSubmission): PrivacyDecision {
-    val user = currentUserService.get(context.client)
+  override fun run(
+    context: PrivacyRuleContext<AppViewer, ReadOnlyEntClient>,
+    item: ProblemSubmission,
+  ): PrivacyDecision {
+    val user = currentUserService.getForViewer(context.viewer, context.client)
 
-    return if (
-      user != null &&
-      user.id == context.viewerContext.longIdOrNull() &&
-      user.id == item.userId
-    ) {
+    return if (user?.id == item.userId) {
       PrivacyDecision.Allow
     } else {
       PrivacyDecision.Deny("Problem submission is unavailable to this viewer")

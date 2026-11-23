@@ -1,18 +1,22 @@
 package com.application.db.policies.rules
 
+import com.application.ent.ProblemSubmissionFailureLoadPrivacyRule
 import com.application.ent.ReadOnlyEntClient
 import com.application.ent.ProblemSubmissionFailure
 import com.application.schema.ProblemSubmissionStatus
 import com.application.schema.ProblemSubmissionTestOutcome
 import com.application.schema.ProblemSubmissionTestSource
+import com.application.security.AppViewer
 import entkt.runtime.privacy.PrivacyDecision
-import entkt.runtime.privacy.PrivacyRule
 import entkt.runtime.privacy.PrivacyRuleContext
 import entkt.runtime.result.visibleOrNull
 
 /** Uses retained visibility so making a hidden test public never reveals an earlier hidden failure. */
-class AllowIfFailedExampleOwnerReadRule : PrivacyRule<ReadOnlyEntClient, ProblemSubmissionFailure> {
-  override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: ProblemSubmissionFailure): PrivacyDecision {
+class AllowIfFailedExampleOwnerReadRule : ProblemSubmissionFailureLoadPrivacyRule {
+  override fun run(
+    context: PrivacyRuleContext<AppViewer, ReadOnlyEntClient>,
+    item: ProblemSubmissionFailure,
+  ): PrivacyDecision {
     if (item.source != ProblemSubmissionTestSource.EXAMPLE) {
       return PrivacyDecision.Continue
     }

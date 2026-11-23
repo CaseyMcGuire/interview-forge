@@ -23,8 +23,8 @@ This is a project template I use for creating new web applications. It uses the 
 Install JDK 26. Gradle's checked-in daemon criteria and all modules use Java 26. The Gradle
 wrapper downloads Gradle 9.7.1, and the build downloads Node 26.8.2 and npm 12.0.2 automatically.
 
-EntKt is pinned to `0.1.0-alpha.3` in `gradle.properties`. Until that version is available on
-Maven Central, run `./gradlew publishToMavenLocal` from an EntKt checkout at that version.
+Gradle downloads the EntKt plugin and libraries from Maven Central using the version pinned in
+`gradle.properties`.
 
 The spa-routing 0.5.0 Gradle plugin still needs to be installed in Maven local. From a
 spa-routing checkout at version `0.5.0`, run `./gradlew publishToMavenLocal`.
@@ -124,9 +124,11 @@ the authority for physical column types and constraints: EntKt's `string` fields
 existing varchar columns, but its default DDL describes them as text. Automatic DDL and EntKt's
 Flyway migration generator are not enabled for this partial schema adoption.
 
-`UserDao` uses the generated client for registration and credential lookup. `UserService` still
-hashes passwords, and Spring Security handles login. `UserPolicy` explicitly permits public creation;
-registration saves with an anonymous viewer and does not load the credential entity. Only the internal
+`ViewerContext.AsViewer(user)` carries the signed-in `AuthenticatedUser` with their account ID and role.
+Public catalog reads use `AppViewer.Anonymous` through `publicViewerContext`. `UserDao` uses that
+same context to register an account under `UserPolicy`'s create permission without loading the
+credential entity.
+`UserService` hashes passwords, and Spring Security handles login. Only the internal
 password lookup bypasses entity privacy because it happens before authentication. Ordinary viewers
 cannot read, update, or delete credential entities. For multi-operation transactions, use
 `EntClient.withTransaction` and the client passed into its block; the default driver does not join

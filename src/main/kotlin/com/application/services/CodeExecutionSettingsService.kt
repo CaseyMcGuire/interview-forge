@@ -7,9 +7,8 @@ import com.application.ent.JudgeConfiguration
 import com.application.execution.CodeExecutionSettings
 import com.application.execution.LanguageExecutionConfig
 import com.application.security.ExecutionAccess
+import com.application.security.publicViewerContext
 import entkt.runtime.driver.IsolationLevel
-import entkt.runtime.privacy.Viewer
-import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.visibleOrNull
 import org.springframework.stereotype.Service
 
@@ -21,7 +20,6 @@ class CodeExecutionSettingsService(
   languageExecutionConfigs: List<LanguageExecutionConfig>,
 ) {
   private val languageConfigurations = languageExecutionConfigs.associateBy { it.key }
-  private val publicContext = ViewerContext(Viewer.Anonymous)
 
   fun loadSubmittedCodeSettings(problemLanguageId: Long, sourceCode: String): CodeExecutionSettings =
     entClient.withTransaction(IsolationLevel.RepeatableRead) { tx ->
@@ -56,15 +54,15 @@ class CodeExecutionSettingsService(
     judge: JudgeConfiguration,
     sourceCode: String,
   ): CodeExecutionSettings? {
-    val configuration = tx.problemLanguages.findById(publicContext, problemLanguageId)
+    val configuration = tx.problemLanguages.findById(publicViewerContext, problemLanguageId)
       .visibleOrNull()
       .getOrThrow() ?: return null
 
-    val language = tx.languages.findById(publicContext, configuration.languageId)
+    val language = tx.languages.findById(publicViewerContext, configuration.languageId)
       .visibleOrNull()
       .getOrThrow() ?: return null
 
-    tx.problems.findById(publicContext, configuration.problemId)
+    tx.problems.findById(publicViewerContext, configuration.problemId)
       .visibleOrNull()
       .getOrThrow() ?: return null
 

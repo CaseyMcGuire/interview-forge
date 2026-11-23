@@ -2,16 +2,17 @@ package com.application.db.policies.rules
 
 import com.application.ent.Language
 import com.application.ent.ProblemLanguage
+import com.application.ent.ProblemLanguageLoadBatchPrivacyRule
 import com.application.ent.ReadOnlyEntClient
-import entkt.runtime.privacy.BatchPrivacyRule
+import com.application.security.AppViewer
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRuleContext
 import entkt.runtime.rule.RuleBatch
 import entkt.runtime.rule.RuleDecisions
 
-class AllowIfProblemAndLanguageAvailableReadRule : BatchPrivacyRule<ReadOnlyEntClient, ProblemLanguage> {
+class AllowIfProblemAndLanguageAvailableReadRule : ProblemLanguageLoadBatchPrivacyRule {
   override fun runBatch(
-    context: PrivacyRuleContext<ReadOnlyEntClient>,
+    context: PrivacyRuleContext<AppViewer, ReadOnlyEntClient>,
     batch: RuleBatch<ProblemLanguage>,
   ): RuleDecisions<PrivacyDecision> {
     val problemIds = publishedProblemIds(context, batch.map { it.problemId })

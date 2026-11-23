@@ -6,7 +6,7 @@ import com.application.ent.EntClient
 import com.application.schema.CustomInputSubmissionOutcome
 import com.application.schema.CustomInputSubmissionStatus
 import com.application.schema.ProblemDifficulty
-import entkt.runtime.privacy.Viewer
+import com.application.security.publicViewerContext
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.query.requireLoaded
 import entkt.runtime.result.EntConstraintViolationException
@@ -203,7 +203,7 @@ class CustomExecutionSchemaIntegrationTest {
     assertEquals(referenceCode, stored.referenceSolutionCode)
     assertFalse(stored.toString().contains(referenceCode))
     assertThrows(EntPrivacyDeniedException::class.java) {
-      entClient.judgeConfigurations.findById(ViewerContext(Viewer.Anonymous), judge.id).getOrThrow()
+      entClient.judgeConfigurations.findById(publicViewerContext, judge.id).getOrThrow()
     }
 
     entClient.judgeConfigurations.update(judge.id) {
@@ -216,7 +216,7 @@ class CustomExecutionSchemaIntegrationTest {
   fun `custom execution data is not publicly readable`() {
     val run = createCustomInputSubmission(1)
     val testCase = createCase(run, 0)
-    val anonymous = ViewerContext(Viewer.Anonymous)
+    val anonymous = publicViewerContext
 
     assertThrows(EntPrivacyDeniedException::class.java) {
       entClient.customTestCases.findById(anonymous, testCase.id).getOrThrow()

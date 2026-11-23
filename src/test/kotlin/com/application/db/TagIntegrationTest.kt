@@ -6,8 +6,10 @@ import com.application.ent.Tag
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TagType
 import com.application.schema.UserRole
+import com.application.security.AppViewer
 import com.application.security.UserIdPrincipal
-import entkt.runtime.privacy.Viewer
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.query.requireLoaded
 import entkt.runtime.result.EntConstraintViolationException
@@ -40,18 +42,18 @@ class TagIntegrationTest {
   private val fixtures = ViewerContext.privacyBypass_DANGEROUS(
     "Seed and inspect isolated problem-tag fixtures",
   )
-  private val anonymous = ViewerContext(Viewer.Anonymous)
+  private val anonymous = publicViewerContext
 
   @Autowired
   lateinit var entClient: EntClient
 
   private var adminId = 0L
-  private lateinit var admin: ViewerContext
+  private lateinit var admin: ViewerContext<AppViewer>
 
   @BeforeEach
   fun signInAsAdmin() {
     adminId = createUser(UserRole.ADMIN)
-    admin = signIn(adminId)
+    admin = signIn(adminId, UserRole.ADMIN)
   }
 
   @AfterEach
@@ -353,11 +355,11 @@ class TagIntegrationTest {
     this.role = role
   }.saveAndLoad(fixtures).getOrThrow().id
 
-  private fun signIn(userId: Long): ViewerContext {
+  private fun signIn(userId: Long, role: UserRole = UserRole.USER): ViewerContext<AppViewer> {
     SecurityContextHolder.getContext().authentication = UsernamePasswordAuthenticationToken.authenticated(
       UserIdPrincipal(userId), null, emptyList(),
     )
-    return ViewerContext(Viewer.User(userId))
+    return testUserContext(userId, role)
   }
 
   companion object {

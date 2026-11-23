@@ -8,7 +8,9 @@ import com.application.ent.TestCase
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
-import entkt.runtime.privacy.Viewer
+import com.application.security.AppViewer
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import jakarta.servlet.Filter
@@ -294,7 +296,7 @@ class ProblemEditingIntegrationTest {
       val context = adminSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) as SecurityContext
       SecurityContextHolder.setContext(context)
       try {
-        val viewer = ViewerContext(Viewer.User(adminId))
+        val viewer = testUserContext(adminId, UserRole.ADMIN)
         assertThrows(EntMutationPrivacyDeniedException::class.java) {
           entClient.problems.update(problem.id) { title = "Must not be saved" }.save(viewer).getOrThrow()
         }
@@ -395,17 +397,17 @@ class ProblemEditingIntegrationTest {
     val context = adminSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) as SecurityContext
     SecurityContextHolder.setContext(context)
     try {
-      assertWritesDenied(ViewerContext(Viewer.Anonymous))
-      assertWritesDenied(ViewerContext(Viewer.User(adminId + 1000)))
+      assertWritesDenied(publicViewerContext)
+      assertWritesDenied(testUserContext(adminId + 1000, UserRole.ADMIN))
       entClient.users.update(adminId) { role = UserRole.USER }.save(fixtureContext).getOrThrow()
-      assertWritesDenied(ViewerContext(Viewer.User(adminId)))
+      assertWritesDenied(testUserContext(adminId, UserRole.ADMIN))
     } finally {
       SecurityContextHolder.clearContext()
     }
     assertAllUnchanged()
   }
 
-  private fun assertWritesDenied(context: ViewerContext) {
+  private fun assertWritesDenied(context: ViewerContext<AppViewer>) {
     assertThrows(EntMutationPrivacyDeniedException::class.java) {
       entClient.problems.update(problem.id) { title = "Denied" }.save(context).getOrThrow()
     }
@@ -487,7 +489,7 @@ class ProblemEditingIntegrationTest {
     val email = "${UUID.randomUUID()}@example.com"
     val user = entClient.users.create {
       this.email = email
-      hashedPassword = passwordEncoder.encode("test-password")
+      hashedPassword = checkNotNull(passwordEncoder.encode("test-password"))
       this.role = role
     }.saveAndLoad(fixtureContext).getOrThrow()
     val result = mvc.perform(post("/login")

@@ -4,13 +4,11 @@ import com.application.db.models.UserDetailsImpl
 import com.application.ent.EntClient
 import com.application.ent.ReadOnlyEntClient
 import com.application.ent.User
+import com.application.ent.UserLoadPrivacyRule
 import com.application.schema.UserRole
 import entkt.runtime.privacy.PrivacyDecision
-import entkt.runtime.privacy.PrivacyRule
 import entkt.runtime.privacy.PrivacyRuleContext
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
-import entkt.runtime.privacy.longIdOrNull
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.core.context.SecurityContextHolder
@@ -35,7 +33,7 @@ class CurrentUserService(
       else -> null
     } ?: return null
 
-    val context = ViewerContext(Viewer.User(CurrentUserLookup(userId)))
+    val context = ViewerContext.AsViewer(CurrentUserLookup(userId))
     val result = if (client != null) {
       client.users.findById(context, userId)
     } else {
@@ -50,18 +48,26 @@ class CurrentUserService(
   fun requireAdmin(): AuthenticatedUser = get()?.takeIf { it.role == UserRole.ADMIN }
     ?: throw AccessDeniedException("Administrator access is required")
 
-  fun isAdmin(context: ViewerContext, client: ReadOnlyEntClient? = null): Boolean {
-    val user = get(client) ?: return false
-    return user.role == UserRole.ADMIN && user.id == context.longIdOrNull()
+  /** Match the operation's user to the session and read their current role within the rule's transaction. */
+  fun getForViewer(viewer: AppViewer, client: ReadOnlyEntClient?): AuthenticatedUser? {
+    if (viewer !is AuthenticatedUser) {
+      return null
+    }
+    return get(client)?.takeIf { it.id == viewer.id }
   }
 
-  /** Only this service can create the lookup identity; it permits reading one account. */
-  private data class CurrentUserLookup(val userId: Long)
+  fun isAdmin(viewer: AppViewer, client: ReadOnlyEntClient? = null): Boolean =
+    getForViewer(viewer, client)?.role == UserRole.ADMIN
 
-  internal class AllowIfCurrentUserLookupReadRule : PrivacyRule<ReadOnlyEntClient, User> {
-    override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: User): PrivacyDecision {
-      val viewer = context.viewerContext.viewer as? Viewer.User
-      val lookup = viewer?.id as? CurrentUserLookup
+  /** Only this service can create the lookup identity; it permits reading one account. */
+  private data class CurrentUserLookup(val userId: Long) : AppViewer
+
+  internal class AllowIfCurrentUserLookupReadRule : UserLoadPrivacyRule {
+    override fun run(
+      context: PrivacyRuleContext<AppViewer, ReadOnlyEntClient>,
+      item: User,
+    ): PrivacyDecision {
+      val lookup = context.viewer as? CurrentUserLookup
 
       return if (lookup?.userId == item.id) {
         PrivacyDecision.Allow
@@ -71,5 +77,3 @@ class CurrentUserService(
     }
   }
 }
-
-data class AuthenticatedUser(val id: Long, val role: UserRole)

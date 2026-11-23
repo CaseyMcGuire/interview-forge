@@ -612,7 +612,7 @@ class CustomInputSubmissionExecutionIntegrationTest {
     val email = "${UUID.randomUUID()}@example.com"
     userId = entClient.users.create {
       this.email = email
-      hashedPassword = passwordEncoder.encode("test-password")
+      hashedPassword = checkNotNull(passwordEncoder.encode("test-password"))
       this.role = role
     }.saveAndLoad(fixtures).getOrThrow().id
 

@@ -8,7 +8,9 @@ import com.application.ent.ProblemLanguage
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TestDriverType
 import com.application.schema.UserRole
-import entkt.runtime.privacy.Viewer
+import com.application.security.AppViewer
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntPrivacyDeniedException
@@ -357,11 +359,16 @@ class JudgeConfigurationIntegrationTest {
     val securityContext = adminSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) as SecurityContext
     SecurityContextHolder.setContext(securityContext)
     try {
-      val adminViewer = ViewerContext(Viewer.User(adminId))
+      val adminViewer = testUserContext(adminId, UserRole.ADMIN)
       assertEquals(judge.id, entClient.judgeConfigurations.findById(adminViewer, judge.id).getOrThrow()!!.id)
 
-      for (viewer in listOf(Viewer.Anonymous, Viewer.User(ordinaryId), Viewer.User(adminId + 1000))) {
-        assertDenied(ViewerContext(viewer), judge.id)
+      val contexts = listOf(
+        publicViewerContext,
+        testUserContext(ordinaryId),
+        testUserContext(adminId + 1000, UserRole.ADMIN),
+      )
+      for (context in contexts) {
+        assertDenied(context, judge.id)
       }
 
       entClient.users.update(adminId) { role = UserRole.USER }.save(fixtureContext).getOrThrow()
@@ -373,7 +380,7 @@ class JudgeConfigurationIntegrationTest {
     assertNull(storedJudge(otherConfiguration.id))
   }
 
-  private fun assertDenied(context: ViewerContext, judgeId: Long) {
+  private fun assertDenied(context: ViewerContext<AppViewer>, judgeId: Long) {
     assertThrows(EntPrivacyDeniedException::class.java) {
       entClient.judgeConfigurations.findById(context, judgeId).getOrThrow()
     }
@@ -431,7 +438,7 @@ class JudgeConfigurationIntegrationTest {
     val email = "${UUID.randomUUID()}@example.com"
     val user = entClient.users.create {
       this.email = email
-      hashedPassword = passwordEncoder.encode("test-password")
+      hashedPassword = checkNotNull(passwordEncoder.encode("test-password"))
       this.role = role
     }.saveAndLoad(fixtureContext).getOrThrow()
     val result = mvc.perform(post("/login")

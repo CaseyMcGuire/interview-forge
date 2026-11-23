@@ -10,9 +10,11 @@ import com.application.schema.GradingJobStatus
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
+import com.application.security.AppViewer
 import com.application.security.ExecutionAccess
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import entkt.postgres.PostgresDriver
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntPrivacyDeniedException
@@ -158,10 +160,10 @@ class GradingJobIntegrationTest {
     val job = createJob(problemSubmissionId = createProblemSubmission().id)
     val unusedProblemSubmission = createProblemSubmission()
     val viewers = listOf(
-      ViewerContext(Viewer.Anonymous),
-      ViewerContext(Viewer.User(ownerId)),
-      ViewerContext(Viewer.User(createUser())),
-      ViewerContext(Viewer.User(createUser(UserRole.ADMIN))),
+      publicViewerContext,
+      testUserContext(ownerId),
+      testUserContext(createUser()),
+      testUserContext(createUser(UserRole.ADMIN), UserRole.ADMIN),
     )
 
     for (viewer in viewers) {
@@ -258,7 +260,7 @@ class GradingJobIntegrationTest {
     sourceCode: String = "submitted source",
     cases: List<GradingCase> = caseSnapshots,
     client: EntClientScope = entClient,
-    viewer: ViewerContext = ExecutionAccess.context,
+    viewer: ViewerContext<AppViewer> = ExecutionAccess.context,
   ): GradingJob = client.gradingJobs.create {
     this.problemSubmissionId = problemSubmissionId
     this.customInputSubmissionId = customInputSubmissionId

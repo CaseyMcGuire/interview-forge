@@ -1,14 +1,18 @@
 package com.application.db.policies.rules
 
 import com.application.ent.Problem
+import com.application.ent.ProblemLoadPrivacyRule
 import com.application.ent.ReadOnlyEntClient
+import com.application.security.AppViewer
 import entkt.runtime.privacy.PrivacyDecision
-import entkt.runtime.privacy.PrivacyRule
 import entkt.runtime.privacy.PrivacyRuleContext
 import java.time.Instant
 
-class AllowIfPublishedReadRule : PrivacyRule<ReadOnlyEntClient, Problem> {
-  override fun run(context: PrivacyRuleContext<ReadOnlyEntClient>, item: Problem): PrivacyDecision {
+class AllowIfPublishedReadRule : ProblemLoadPrivacyRule {
+  override fun run(
+    context: PrivacyRuleContext<AppViewer, ReadOnlyEntClient>,
+    item: Problem,
+  ): PrivacyDecision {
     val publishedAt = item.publishedAt
     return if (publishedAt != null && !publishedAt.isAfter(Instant.now()) && item.archivedAt == null) {
       PrivacyDecision.Allow

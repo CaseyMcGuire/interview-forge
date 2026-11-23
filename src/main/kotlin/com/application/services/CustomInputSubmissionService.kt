@@ -14,8 +14,8 @@ import com.application.schema.CustomInputSubmissionOutcome
 import com.application.schema.CustomInputSubmissionStatus
 import com.application.security.CurrentUserService
 import com.application.security.ExecutionAccess
+import com.application.security.publicViewerContext
 import entkt.runtime.driver.IsolationLevel
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntValidationException
 import entkt.runtime.result.visibleOrNull
@@ -38,7 +38,6 @@ class CustomInputSubmissionService(
   private val properties: ExecutionProperties,
   private val executionAvailabilityService: ExecutionAvailabilityService,
 ) {
-  private val publicContext = ViewerContext(Viewer.Anonymous)
   private val inputMapper = JsonMapper.builder(
     JsonFactory.builder()
       .streamReadConstraints(StreamReadConstraints.builder().maxNumberLength(20_000).build())
@@ -74,17 +73,17 @@ class CustomInputSubmissionService(
     sourceCode: String,
     caseInputs: List<String>,
   ): EnqueueCustomInputSubmissionOutcome {
-    val configuration = tx.problemLanguages.findById(publicContext, configurationId)
+    val configuration = tx.problemLanguages.findById(publicViewerContext, configurationId)
       .visibleOrNull()
       .getOrThrow()
       ?: return EnqueueCustomInputSubmissionOutcome.NotFound
 
-    tx.problems.findById(publicContext, configuration.problemId)
+    tx.problems.findById(publicViewerContext, configuration.problemId)
       .visibleOrNull()
       .getOrThrow()
       ?: return EnqueueCustomInputSubmissionOutcome.NotFound
 
-    val language = tx.languages.findById(publicContext, configuration.languageId)
+    val language = tx.languages.findById(publicViewerContext, configuration.languageId)
       .visibleOrNull()
       .getOrThrow()
       ?: return EnqueueCustomInputSubmissionOutcome.NotFound
@@ -169,7 +168,7 @@ class CustomInputSubmissionService(
   /** Loads the retained inputs through owner policies, independently of current problem availability. */
   fun findCustomInputSubmissionForCurrentUser(id: Long): CustomInputSubmission? {
     val user = currentUserService.get() ?: return null
-    val viewer = ViewerContext(Viewer.User(user.id))
+    val viewer = ViewerContext.AsViewer(user)
 
     return entClient.withTransaction(IsolationLevel.RepeatableRead) { tx ->
       tx.customInputSubmissions.query {

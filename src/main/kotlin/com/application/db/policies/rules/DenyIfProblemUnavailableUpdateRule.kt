@@ -3,13 +3,14 @@ package com.application.db.policies.rules
 import com.application.ent.ProblemUpdatePrivacyRule
 import com.application.ent.ProblemUpdateRuleInput
 import com.application.ent.ReadOnlyEntClient
+import com.application.security.AppViewer
 import entkt.runtime.privacy.PrivacyDecision
 import entkt.runtime.privacy.PrivacyRuleContext
 import java.time.Instant
 
 class DenyIfProblemUnavailableUpdateRule : ProblemUpdatePrivacyRule {
   override fun run(
-    context: PrivacyRuleContext<ReadOnlyEntClient>,
+    context: PrivacyRuleContext<AppViewer, ReadOnlyEntClient>,
     item: ProblemUpdateRuleInput,
   ): PrivacyDecision {
     val publishedAt = item.before.publishedAt

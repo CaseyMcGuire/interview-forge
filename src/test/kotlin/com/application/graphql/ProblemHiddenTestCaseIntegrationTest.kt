@@ -6,7 +6,8 @@ import com.application.ent.TestCase
 import com.application.schema.ProblemDifficulty
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
-import entkt.runtime.privacy.Viewer
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntPrivacyDeniedException
 import jakarta.servlet.Filter
@@ -223,11 +224,11 @@ class ProblemHiddenTestCaseIntegrationTest {
     val securityContext = adminSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) as SecurityContext
     SecurityContextHolder.setContext(securityContext)
     try {
-      val adminViewer = ViewerContext(Viewer.User(adminId))
+      val adminViewer = testUserContext(adminId, UserRole.ADMIN)
       assertEquals(hidden.id, entClient.testCases.findById(adminViewer, hidden.id).getOrThrow()!!.id)
-      for (viewer in listOf(Viewer.Anonymous, Viewer.User(ordinaryId))) {
+      for (context in listOf(publicViewerContext, testUserContext(ordinaryId))) {
         assertThrows(EntPrivacyDeniedException::class.java) {
-          entClient.testCases.findById(ViewerContext(viewer), hidden.id).getOrThrow()
+          entClient.testCases.findById(context, hidden.id).getOrThrow()
         }
       }
 
@@ -245,9 +246,9 @@ class ProblemHiddenTestCaseIntegrationTest {
         }.save(fixtureContext).getOrThrow()
 
         assertEquals(hidden.id, entClient.testCases.findById(adminViewer, hidden.id).getOrThrow()!!.id)
-        for (viewer in listOf(Viewer.Anonymous, Viewer.User(ordinaryId))) {
+        for (context in listOf(publicViewerContext, testUserContext(ordinaryId))) {
           assertThrows(EntPrivacyDeniedException::class.java) {
-            entClient.testCases.findById(ViewerContext(viewer), hidden.id).getOrThrow()
+            entClient.testCases.findById(context, hidden.id).getOrThrow()
           }
         }
       }
@@ -328,7 +329,7 @@ class ProblemHiddenTestCaseIntegrationTest {
     val email = "${UUID.randomUUID()}@example.com"
     val user = entClient.users.create {
       this.email = email
-      hashedPassword = passwordEncoder.encode("test-password")
+      hashedPassword = checkNotNull(passwordEncoder.encode("test-password"))
       this.role = role
     }.saveAndLoad(fixtureContext).getOrThrow()
     val result = mvc.perform(post("/login")

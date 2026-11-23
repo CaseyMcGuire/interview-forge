@@ -10,11 +10,12 @@ import com.application.schema.ProblemDifficulty
 import com.application.schema.ProblemSubmissionStatus
 import com.application.schema.ProblemSubmissionVerdict
 import com.application.security.ExecutionAccess
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import com.application.services.ProblemSubmissionService
 import com.application.services.SubmitSolutionOutcome
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntPrivacyDeniedException
@@ -424,12 +425,12 @@ class ProblemSubmissionIntegrationTest {
     SecurityContextHolder.setContext(currentContext)
 
     try {
-      val owner = ViewerContext(Viewer.User(userId))
+      val owner = testUserContext(userId)
       assertEquals(problemSubmission.id, entClient.problemSubmissions.findById(owner, problemSubmission.id).getOrThrow()!!.id)
 
-      for (viewer in listOf(Viewer.Anonymous, Viewer.User(otherId))) {
+      for (context in listOf(publicViewerContext, testUserContext(otherId))) {
         assertThrows(EntPrivacyDeniedException::class.java) {
-          entClient.problemSubmissions.findById(ViewerContext(viewer), problemSubmission.id).getOrThrow()
+          entClient.problemSubmissions.findById(context, problemSubmission.id).getOrThrow()
         }
       }
 
@@ -574,7 +575,7 @@ class ProblemSubmissionIntegrationTest {
     val email = "${UUID.randomUUID()}@example.com"
     val user = entClient.users.create {
       this.email = email
-      hashedPassword = passwordEncoder.encode("test-password")
+      hashedPassword = checkNotNull(passwordEncoder.encode("test-password"))
       this.role = role
     }.saveAndLoad(fixtureContext).getOrThrow()
 

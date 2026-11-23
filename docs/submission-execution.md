@@ -63,7 +63,7 @@ correcting renamed fixture slugs and retaining the shared capacity property name
   --tests com.application.execution.GradingSchedulerTest \
   --tests com.application.execution.CustomInputSubmissionSchedulerTest \
   --tests com.application.db.CustomExecutionSchemaIntegrationTest \
-  --tests com.application.config.EntViewerIntegrationTest
+  --tests com.application.config.EntExplorerIntegrationTest
 ```
 
 The schema-viewer tests assert that the new entity names are present and the former names

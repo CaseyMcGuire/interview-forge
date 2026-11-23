@@ -33,9 +33,9 @@ import java.util.UUID
 
 @Testcontainers
 @SpringBootTest
-class EntViewerIntegrationTest {
+class EntExplorerIntegrationTest {
   private val fixtureContext = ViewerContext.privacyBypass_DANGEROUS(
-    "Seed and update isolated Ent Viewer test users",
+    "Seed and update isolated Ent Explorer test users",
   )
 
   @Autowired
@@ -65,7 +65,7 @@ class EntViewerIntegrationTest {
   }
 
   @Test
-  fun `ordinary users cannot access the viewer`() {
+  fun `ordinary users cannot access the explorer`() {
     val (_, session) = createUserSession(UserRole.USER)
 
     mvc.perform(get("/_ent/schema").session(session))
@@ -122,7 +122,7 @@ class EntViewerIntegrationTest {
   }
 
   @Test
-  fun `viewer administrator access does not bypass credential read policies`() {
+  fun `the explorer applies credential read policies to administrators`() {
     val (userId, session) = createUserSession(UserRole.ADMIN)
 
     mvc.perform(get("/_ent/entities/users/$userId").session(session))
@@ -131,7 +131,7 @@ class EntViewerIntegrationTest {
 
   private fun createUserSession(role: UserRole): Pair<Long, MockHttpSession> {
     val user = entClient.users.create {
-      email = "ent-viewer-${UUID.randomUUID()}@example.com"
+      email = "ent-explorer-${UUID.randomUUID()}@example.com"
       hashedPassword = "unused"
       this.role = role
     }.saveAndLoad(fixtureContext).getOrThrow()

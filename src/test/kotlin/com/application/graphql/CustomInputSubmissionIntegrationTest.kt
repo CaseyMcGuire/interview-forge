@@ -14,11 +14,11 @@ import com.application.schema.ProblemSubmissionVerdict
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
 import com.application.security.ExecutionAccess
+import com.application.security.testUserContext
 import com.application.services.CustomInputSubmissionService
 import com.application.services.EnqueueCustomInputSubmissionOutcome
 import com.application.services.ProblemSubmissionService
 import com.application.services.SubmitSolutionOutcome
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntPrivacyDeniedException
@@ -388,47 +388,51 @@ class CustomInputSubmissionIntegrationTest {
     val (otherId, other) = login()
     val (adminId, admin) = login(UserRole.ADMIN)
 
-    for ((viewerId, viewerSession) in listOf(userId to session, otherId to other, adminId to admin)) {
+    val viewers = listOf(
+      testUserContext(userId) to session,
+      testUserContext(otherId) to other,
+      testUserContext(adminId, UserRole.ADMIN) to admin,
+    )
+    for ((context, viewerSession) in viewers) {
       asUser(viewerSession) {
-        val viewer = ViewerContext(Viewer.User(viewerId))
-        if (viewerId == userId) {
-          assertEquals(testCase.id, entClient.customTestCases.findById(viewer, testCase.id).getOrThrow()!!.id)
-          assertEquals(run.id, entClient.customInputSubmissions.findById(viewer, run.id).getOrThrow()!!.id)
+        if (context.viewer.id == userId) {
+          assertEquals(testCase.id, entClient.customTestCases.findById(context, testCase.id).getOrThrow()!!.id)
+          assertEquals(run.id, entClient.customInputSubmissions.findById(context, run.id).getOrThrow()!!.id)
         } else {
           assertThrows(EntPrivacyDeniedException::class.java) {
-            entClient.customTestCases.findById(viewer, testCase.id).getOrThrow()
+            entClient.customTestCases.findById(context, testCase.id).getOrThrow()
           }
           assertThrows(EntPrivacyDeniedException::class.java) {
-            entClient.customInputSubmissions.findById(viewer, run.id).getOrThrow()
+            entClient.customInputSubmissions.findById(context, run.id).getOrThrow()
           }
         }
 
         assertThrows(EntMutationPrivacyDeniedException::class.java) {
           entClient.customInputSubmissions.create {
-            userId = viewerId
+            userId = context.viewer.id
             problemLanguageId = configurationId
             expiresAt = Instant.now().plusSeconds(60)
             sourceCode = "solution"
             totalCases = 1
-          }.save(viewer).getOrThrow()
+          }.save(context).getOrThrow()
         }
         assertThrows(EntMutationPrivacyDeniedException::class.java) {
-          entClient.customTestCases.update(testCase.id) { expectedOutputJson = JsonNull }.save(viewer).getOrThrow()
+          entClient.customTestCases.update(testCase.id) { expectedOutputJson = JsonNull }.save(context).getOrThrow()
         }
         assertThrows(EntMutationPrivacyDeniedException::class.java) {
           entClient.customInputSubmissions.update(run.id) {
             status = CustomInputSubmissionStatus.FINISHED
-          }.save(viewer).getOrThrow()
+          }.save(context).getOrThrow()
         }
         assertThrows(EntMutationPrivacyDeniedException::class.java) {
-          entClient.customInputSubmissions.deleteById(viewer, run.id).getOrThrow()
+          entClient.customInputSubmissions.deleteById(context, run.id).getOrThrow()
         }
       }
     }
 
     asUser(other) {
       assertThrows(EntPrivacyDeniedException::class.java) {
-        entClient.customInputSubmissions.findById(ViewerContext(Viewer.User(userId)), run.id).getOrThrow()
+        entClient.customInputSubmissions.findById(testUserContext(userId), run.id).getOrThrow()
       }
     }
   }
@@ -642,7 +646,7 @@ class CustomInputSubmissionIntegrationTest {
     val email = "${UUID.randomUUID()}@example.com"
     val user = entClient.users.create {
       this.email = email
-      hashedPassword = passwordEncoder.encode("test-password")
+      hashedPassword = checkNotNull(passwordEncoder.encode("test-password"))
       this.role = role
     }.saveAndLoad(fixtures).getOrThrow()
 

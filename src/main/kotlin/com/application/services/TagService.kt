@@ -4,7 +4,7 @@ import com.application.ent.EntClient
 import com.application.ent.Tag
 import com.application.schema.TagType
 import com.application.security.CurrentUserService
-import entkt.runtime.privacy.Viewer
+import com.application.security.publicViewerContext
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntConstraintViolationException
 import org.springframework.stereotype.Service
@@ -14,15 +14,13 @@ class TagService(
   private val entClient: EntClient,
   private val currentUserService: CurrentUserService,
 ) {
-  private val publicContext = ViewerContext(Viewer.Anonymous)
-
   fun findTags(): List<Tag> = entClient.tags.query {
     orderBy(Tag.displayName.asc())
     orderBy(Tag.slug.asc())
-  }.all(publicContext).getOrThrow()
+  }.all(publicViewerContext).getOrThrow()
 
   fun createTag(slug: String, displayName: String, type: TagType): Tag {
-    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
+    val context = ViewerContext.AsViewer(currentUserService.requireAdmin())
 
     return try {
       entClient.tags.create {
@@ -40,7 +38,7 @@ class TagService(
   }
 
   fun updateTag(id: Long, displayName: String): Tag {
-    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
+    val context = ViewerContext.AsViewer(currentUserService.requireAdmin())
 
     return entClient.tags.update(id) {
       this.displayName = displayName
@@ -48,7 +46,7 @@ class TagService(
   }
 
   fun deleteTag(id: Long): Boolean {
-    val context = ViewerContext(Viewer.User(currentUserService.requireAdmin().id))
+    val context = ViewerContext.AsViewer(currentUserService.requireAdmin())
 
     return entClient.tags.deleteById(context, id).getOrThrow()
   }

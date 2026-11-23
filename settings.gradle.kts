@@ -1,6 +1,6 @@
 pluginManagement {
   repositories {
-    // EntKt and spa-routing Gradle plugins are published to mavenLocal
+    // The spa-routing Gradle plugin can be published to mavenLocal.
     mavenLocal()
     gradlePluginPortal()
     mavenCentral()

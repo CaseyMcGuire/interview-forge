@@ -8,8 +8,7 @@ import com.application.execution.ExecutionStartup
 import com.application.execution.ProgramStatus
 import com.application.execution.TestSuiteProtocol
 import com.application.security.CurrentUserService
-import entkt.runtime.privacy.Viewer
-import entkt.runtime.privacy.ViewerContext
+import com.application.security.publicViewerContext
 import entkt.runtime.result.visibleOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -30,7 +29,6 @@ class TestCaseExpectedOutputService(
   private val executionService: CodeExecutionService,
   private val startup: ExecutionStartup,
 ) {
-  private val publicContext = ViewerContext(Viewer.Anonymous)
   private val inputMapper = JsonMapper.builder(
     JsonFactory.builder()
       .streamReadConstraints(StreamReadConstraints.builder().maxNumberLength(20_000).build())
@@ -45,7 +43,7 @@ class TestCaseExpectedOutputService(
       ?: throw ProblemInputException("problemLanguageId", "Provide a valid problem-language ID")
     val input = parseTestInput(inputJson)
 
-    val configuration = entClient.problemLanguages.findById(publicContext, configurationId)
+    val configuration = entClient.problemLanguages.findById(publicViewerContext, configurationId)
       .visibleOrNull()
       .getOrThrow()
       ?: return TestCaseExpectedOutputOutcome.NotFound

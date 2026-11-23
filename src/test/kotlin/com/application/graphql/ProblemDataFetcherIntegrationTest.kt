@@ -9,8 +9,9 @@ import com.application.schema.ProblemDifficulty
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
 import com.application.security.UserIdPrincipal
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import com.netflix.graphql.dgs.DgsQueryExecutor
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntPrivacyDeniedException
@@ -318,8 +319,12 @@ class ProblemDataFetcherIntegrationTest {
     val disabledConfiguration = createConfiguration(publicProblem, disabledLanguage)
     entClient.languages.update(disabledLanguage.id) { enabled = false }.save(fixtureContext).getOrThrow()
 
-    for (viewer in listOf(Viewer.Anonymous, Viewer.User(publicProblem.createdByUserId), Viewer.User(draft.createdByUserId))) {
-      val context = ViewerContext(viewer)
+    val contexts = listOf(
+      publicViewerContext,
+      testUserContext(publicProblem.createdByUserId),
+      testUserContext(draft.createdByUserId),
+    )
+    for (context in contexts) {
       assertEquals(publicProblem.id, entClient.problems.findById(context, publicProblem.id).getOrThrow()?.id)
       assertEquals(example.id, entClient.testCases.findById(context, example.id).getOrThrow()?.id)
       assertEquals(publicConfiguration.id, entClient.problemLanguages.findById(context, publicConfiguration.id).getOrThrow()?.id)

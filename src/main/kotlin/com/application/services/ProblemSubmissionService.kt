@@ -15,10 +15,11 @@ import com.application.schema.GradingCase
 import com.application.schema.ProblemSubmissionStatus
 import com.application.schema.ProblemSubmissionTestSource
 import com.application.schema.ProblemSubmissionVerdict
+import com.application.security.AuthenticatedUser
 import com.application.security.CurrentUserService
 import com.application.security.ExecutionAccess
+import com.application.security.publicViewerContext
 import entkt.runtime.driver.IsolationLevel
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.result.visibleOrNull
 import org.springframework.stereotype.Service
@@ -30,8 +31,6 @@ class ProblemSubmissionService(
   private val currentUserService: CurrentUserService,
   private val executionAvailabilityService: ExecutionAvailabilityService,
 ) {
-  private val publicContext = ViewerContext(Viewer.Anonymous)
-
   /** Validates the caller's source and atomically admits a persisted official submission. */
   fun submitSolution(
     problemLanguageId: Long?,
@@ -42,7 +41,7 @@ class ProblemSubmissionService(
 
     // Concurrent submissions may fail with a serialization error; revisit retries if contention becomes an issue.
     return entClient.withTransaction(IsolationLevel.Serializable) { tx ->
-      enqueueProblemSubmission(tx, user.id, configurationId, sourceCode)
+      enqueueProblemSubmission(tx, user, configurationId, sourceCode)
     }.getOrThrow()
   }
 
@@ -52,21 +51,21 @@ class ProblemSubmissionService(
    */
   private fun enqueueProblemSubmission(
     tx: EntTransactionClient,
-    userId: Long,
+    user: AuthenticatedUser,
     configurationId: Long,
     sourceCode: String,
   ): SubmitSolutionOutcome {
-    val configuration = tx.problemLanguages.findById(publicContext, configurationId)
+    val configuration = tx.problemLanguages.findById(publicViewerContext, configurationId)
       .visibleOrNull()
       .getOrThrow()
       ?: return SubmitSolutionOutcome.NotFound
 
-    val problem = tx.problems.findById(publicContext, configuration.problemId)
+    val problem = tx.problems.findById(publicViewerContext, configuration.problemId)
       .visibleOrNull()
       .getOrThrow()
       ?: return SubmitSolutionOutcome.NotFound
 
-    val language = tx.languages.findById(publicContext, configuration.languageId)
+    val language = tx.languages.findById(publicViewerContext, configuration.languageId)
       .visibleOrNull()
       .getOrThrow()
       ?: return SubmitSolutionOutcome.NotFound
@@ -81,12 +80,12 @@ class ProblemSubmissionService(
       return SubmitSolutionOutcome.Unavailable
     }
 
-    if (!executionAvailabilityService.hasExecutionCapacity(tx, userId)) {
+    if (!executionAvailabilityService.hasExecutionCapacity(tx, user.id)) {
       return SubmitSolutionOutcome.Busy
     }
 
-    val problemSubmissionId = createQueuedProblemSubmission(tx, userId, configuration, sourceCode, cases)
-    val problemSubmission = loadOwnedProblemSubmission(tx, problemSubmissionId, userId)
+    val problemSubmissionId = createQueuedProblemSubmission(tx, user.id, configuration, sourceCode, cases)
+    val problemSubmission = loadOwnedProblemSubmission(tx, problemSubmissionId, user)
       ?: error("Created submission could not be loaded")
 
     return SubmitSolutionOutcome.Success(problemSubmission)
@@ -133,7 +132,7 @@ class ProblemSubmissionService(
     val user = currentUserService.get() ?: return null
 
     return entClient.withTransaction { tx ->
-      loadOwnedProblemSubmission(tx, id, user.id)
+      loadOwnedProblemSubmission(tx, id, user)
     }.getOrThrow()
   }
 
@@ -141,10 +140,10 @@ class ProblemSubmissionService(
     val user = currentUserService.get() ?: return null
 
     return entClient.withTransaction { tx ->
-      loadOwnedProblemSubmission(tx, problemSubmissionId, user.id) ?: return@withTransaction null
+      loadOwnedProblemSubmission(tx, problemSubmissionId, user) ?: return@withTransaction null
 
       tx.problemSubmissionFailures.indexes.problemSubmissionId(problemSubmissionId)
-        .find(ViewerContext(Viewer.User(user.id)))
+        .find(ViewerContext.AsViewer(user))
         .visibleOrNull()
         .getOrThrow()
     }.getOrThrow()
@@ -221,13 +220,13 @@ class ProblemSubmissionService(
   private fun loadOwnedProblemSubmission(
     tx: EntTransactionClient,
     id: Long,
-    userId: Long,
+    user: AuthenticatedUser,
   ): ProblemSubmission? =
     tx.problemSubmissions.query {
       where(ProblemSubmission.id eq id)
-      where(ProblemSubmission.userId eq userId)
+      where(ProblemSubmission.userId eq user.id)
     }
-      .firstOrNull(ViewerContext(Viewer.User(userId)))
+      .firstOrNull(ViewerContext.AsViewer(user))
       .visibleOrNull()
       .getOrThrow()
 }

@@ -1,9 +1,9 @@
 package com.application.dao
 
 import com.application.ent.EntClient
+import com.application.security.publicViewerContext
 import com.application.services.User
 import com.application.schema.UserRole
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import org.springframework.stereotype.Component
 import com.application.ent.User as EntUser
@@ -27,7 +27,7 @@ class UserDao(private val entClient: EntClient) {
     entClient.users.create {
       this.email = email
       this.hashedPassword = hashedPassword
-    }.save(ViewerContext(Viewer.Anonymous)).getOrThrow()
+    }.save(publicViewerContext).getOrThrow()
     // Registration has CREATE permission, not LOAD permission for credential entities.
     return User(email, hashedPassword, UserRole.USER)
   }

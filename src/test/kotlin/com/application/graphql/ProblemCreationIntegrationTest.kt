@@ -8,6 +8,7 @@ import com.application.ent.TestCase
 import com.application.db.models.UserDetailsImpl
 import com.application.schema.ProblemDifficulty
 import com.application.schema.UserRole
+import com.application.security.testUserContext
 import jakarta.servlet.Filter
 import jakarta.servlet.http.Cookie
 import org.junit.jupiter.api.BeforeEach
@@ -32,7 +33,6 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import entkt.runtime.privacy.ViewerContext
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.result.EntMutationPrivacyDeniedException
 import entkt.runtime.result.EntValidationException
 import kotlinx.serialization.json.JsonPrimitive
@@ -139,7 +139,7 @@ class ProblemCreationIntegrationTest {
   @Test
   fun `Ent creation rules read current roles and reject a mismatched viewer`() {
     val (userId, session) = login(UserRole.ADMIN)
-    val context = ViewerContext(Viewer.User(userId))
+    val context = testUserContext(userId, UserRole.ADMIN)
     SecurityContextHolder.setContext(sessionContext(session))
     try {
       for (role in listOf(UserRole.ADMIN, UserRole.USER, UserRole.ADMIN)) {
@@ -159,7 +159,7 @@ class ProblemCreationIntegrationTest {
           create().save(context).getOrThrow()
           assertNotNull(findProblem(slug))
           assertThrows(EntMutationPrivacyDeniedException::class.java) {
-            create().save(ViewerContext(Viewer.User(userId + 1))).getOrThrow()
+            create().save(testUserContext(userId + 1, UserRole.ADMIN)).getOrThrow()
           }
         } else {
           assertThrows(EntMutationPrivacyDeniedException::class.java) {
@@ -435,7 +435,7 @@ class ProblemCreationIntegrationTest {
     val email = "${UUID.randomUUID()}@example.com"
     val user = entClient.users.create {
       this.email = email
-      hashedPassword = passwordEncoder.encode("test-password")
+      hashedPassword = checkNotNull(passwordEncoder.encode("test-password"))
       this.role = role
     }.saveAndLoad(fixtureContext).getOrThrow()
     val result = mvc.perform(post("/login")

@@ -17,12 +17,13 @@ import com.application.schema.ProblemSubmissionVerdict
 import com.application.schema.TestCaseVisibility
 import com.application.schema.UserRole
 import com.application.security.ExecutionAccess
+import com.application.security.publicViewerContext
+import com.application.security.testUserContext
 import com.application.services.GradingJobService
 import com.application.services.CustomInputSubmissionService
 import com.application.services.CodeExecutionSettingsService
 import com.application.services.ProblemSubmissionService
 import entkt.postgres.PostgresDriver
-import entkt.runtime.privacy.Viewer
 import entkt.runtime.privacy.ViewerContext
 import entkt.runtime.query.requireLoaded
 import entkt.runtime.result.EntMutationPrivacyDeniedException
@@ -441,9 +442,14 @@ class ProblemSubmissionExecutionIntegrationTest {
     val ownerId = userId
     val admin = signIn(UserRole.ADMIN)
     assertTrue(poll(id, admin).isNull)
-    for (viewer in listOf(Viewer.Anonymous, Viewer.User(ownerId), Viewer.User(userId))) {
+    val contexts = listOf(
+      publicViewerContext,
+      testUserContext(ownerId),
+      testUserContext(userId, UserRole.ADMIN),
+    )
+    for (context in contexts) {
       assertThrows(EntPrivacyDeniedException::class.java) {
-        entClient.problemSubmissionFailures.findById(ViewerContext(viewer), retained.id).getOrThrow()
+        entClient.problemSubmissionFailures.findById(context, retained.id).getOrThrow()
       }
     }
   }
@@ -512,19 +518,19 @@ class ProblemSubmissionExecutionIntegrationTest {
 
     val result = storedResults().single()
     val ownerId = userId
-    val owner = ViewerContext(Viewer.User(ownerId))
+    val owner = testUserContext(ownerId)
     val stranger = signIn()
-    val strangerId = userId
+    val strangerViewer = testUserContext(userId)
     val admin = signIn(UserRole.ADMIN)
-    val adminId = userId
+    val adminViewer = testUserContext(userId, UserRole.ADMIN)
 
     try {
       authenticate(session)
       assertEquals(result.id, entClient.problemSubmissionFailures.findById(owner, result.id).getOrThrow()!!.id)
 
-      for (viewer in listOf(Viewer.Anonymous, Viewer.User(strangerId), Viewer.User(adminId))) {
+      for (context in listOf(publicViewerContext, strangerViewer, adminViewer)) {
         assertThrows(EntPrivacyDeniedException::class.java) {
-          entClient.problemSubmissionFailures.findById(ViewerContext(viewer), result.id).getOrThrow()
+          entClient.problemSubmissionFailures.findById(context, result.id).getOrThrow()
         }
       }
 
@@ -544,10 +550,10 @@ class ProblemSubmissionExecutionIntegrationTest {
         }.save(owner).getOrThrow()
       }
 
-      for ((login, viewerId) in listOf(stranger to strangerId, admin to adminId)) {
+      for ((login, context) in listOf(stranger to strangerViewer, admin to adminViewer)) {
         authenticate(login)
         assertThrows(EntPrivacyDeniedException::class.java) {
-          entClient.problemSubmissionFailures.findById(ViewerContext(Viewer.User(viewerId)), result.id).getOrThrow()
+          entClient.problemSubmissionFailures.findById(context, result.id).getOrThrow()
         }
         assertThrows(EntPrivacyDeniedException::class.java) {
           entClient.problemSubmissionFailures.findById(owner, result.id).getOrThrow()
@@ -922,7 +928,7 @@ class ProblemSubmissionExecutionIntegrationTest {
     val email = "${UUID.randomUUID()}@example.com"
     userId = entClient.users.create {
       this.email = email
-      hashedPassword = passwordEncoder.encode("test-password")
+      hashedPassword = checkNotNull(passwordEncoder.encode("test-password"))
       this.role = role
     }.saveAndLoad(fixtures).getOrThrow().id
 

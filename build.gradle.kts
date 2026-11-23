@@ -78,7 +78,7 @@ springBoot {
 
 repositories {
   mavenCentral()
-  // Also allow locally published EntKt and spa-routing artifacts.
+  // Also allow locally published spa-routing artifacts.
   mavenLocal()
 }
 
@@ -96,7 +96,7 @@ dependencies {
   entktCodegen("io.entkt:postgres:$entktVersion")
   implementation("io.entkt:runtime:$entktVersion")
   implementation("io.entkt:postgres:$entktVersion")
-  implementation("io.entkt:ent-viewer-spring:$entktVersion")
+  implementation("io.entkt:ent-explorer-spring:$entktVersion")
 
   implementation("org.postgresql:postgresql:${postgresVersion}")
 
@@ -160,7 +160,8 @@ tasks.withType<Test>().configureEach {
 
 entkt {
   packageName.set("com.${applicationFolderName}.ent")
-  viewer.set(true)
+  viewerType.set("com.${applicationFolderName}.security.AppViewer")
+  generateEntExplorer.set(true)
 }
 
 // Generate SPA routes from the single source of truth in :spa-route-definitions:
